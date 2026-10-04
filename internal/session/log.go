@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 )
@@ -16,7 +17,8 @@ import (
 // Log is a crash-safe append-only record file: one "crc32hex json\n" line per
 // record. A background writer does all I/O, so Record never waits for the
 // disk: each record is write(2)n promptly (surviving a process crash) and
-// fsync'd at Sync/Flush (surviving power loss).
+// fsync'd at Sync/Flush and, while there are unsynced writes, at least every
+// groupSync (bounding what a power loss can take during a long turn).
 type Log struct {
 	f       *os.File
 	mu      sync.Mutex
@@ -25,9 +27,14 @@ type Log struct {
 	syncReq uint64 // Sync/Flush requests issued
 	synced  uint64 // requests satisfied
 	closed  bool
+	dirty   bool // written since the last fsync
+	fsyncs  int
 	err     error
 	done    chan struct{}
 }
+
+// groupSync is the longest a written record waits for fsync.
+var groupSync = 3 * time.Second
 
 // openLog opens path for appending and returns its valid records. A torn or
 // corrupt tail (crash mid-write, bad sector) is cut off, and how many bytes
@@ -61,6 +68,7 @@ func openLog(path string) (*Log, []agent.Record, int64, error) {
 	l := &Log{f: f, done: make(chan struct{})}
 	l.cond = sync.NewCond(&l.mu)
 	go l.writer()
+	go l.groupCommit()
 	return l, recs, dropped, nil
 }
 
@@ -158,6 +166,25 @@ func (l *Log) Close() error {
 	return err
 }
 
+// groupCommit requests an fsync every groupSync while there are unsynced writes.
+func (l *Log) groupCommit() {
+	t := time.NewTicker(groupSync)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			l.mu.Lock()
+			if l.dirty && l.synced == l.syncReq && !l.closed {
+				l.syncReq++
+				l.cond.Signal()
+			}
+			l.mu.Unlock()
+		case <-l.done:
+			return
+		}
+	}
+}
+
 func (l *Log) writer() {
 	defer close(l.done)
 	var buf []byte
@@ -193,6 +220,13 @@ func (l *Log) writer() {
 		l.mu.Lock()
 		if err != nil && l.err == nil {
 			l.err = err
+		}
+		if len(buf) > 0 {
+			l.dirty = true
+		}
+		if syncNow && err == nil {
+			l.dirty = false
+			l.fsyncs++
 		}
 		if syncNow || err != nil {
 			l.synced = want

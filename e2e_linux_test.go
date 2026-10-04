@@ -386,6 +386,19 @@ func TestSessionFlows(t *testing.T) {
 	if len(ms) != 4 || status[a.ID] != "stopped" {
 		t.Fatalf("after /stop: %+v", ms)
 	}
+
+	// The next start sees the stopped session: a new session, with a pointer to /resume.
+	c2 := ternly(t, home, base...)
+	c2.Env = append(c2.Env, "TERM=xterm-256color", "TERNLY_THEME=dark")
+	scr2 := &screen{}
+	tty2, err := startInPTY(c2, scr2, 200, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scr2.waitFor(t, "was stopped")
+	scr2.waitFor(t, "/resume "+a.ID+" reopens it")
+	_, _ = tty2.Write([]byte("/exit\r"))
+	_ = c2.Wait()
 }
 
 // Time from process start to an interactive TUI showing a resumed

@@ -12,7 +12,7 @@ store, resume (explicit and automatic), and switching sessions without restartin
 |---|---|---|
 | Format | SQLite (cgo, or a pure-Go port with a large dependency); bbolt; append-only JSONL | **Append-only JSONL, one file per session**, each line `crc32 json\n`. Appends are O(1) and crash-safe (a torn or corrupt tail is detected by CRC and truncated on open), human-inspectable, no dependency. The memory store (M4) will be benchmarked separately, as requirement 4 asks. |
 | State model | snapshot the agent's state periodically; log every mutation | **Log every mutation as a record**, and have the agent itself apply records (`state.apply`). Live operation and replay go through the same code, so a resumed session equals the live one by construction. |
-| Durability | fsync per event; never fsync; fsync at boundaries | Every record is `write(2)`n immediately by a background writer (survives process crash, kill -9 and Ctrl+C: the data is in the page cache). `fsync` happens at turn boundaries, pause, stop and switch (survives power loss up to the last boundary). Callers only enqueue, so the UI and agent never block on disk. |
+| Durability | fsync per event; never fsync; fsync at boundaries | Every record is `write(2)`n immediately by a background writer (survives process crash, kill -9 and Ctrl+C: the data is in the page cache). `fsync` happens at turn boundaries, pause, stop and switch, and while there are unsynced writes at least every 3 s (group commit). A power loss therefore costs at most about 3 s of records, even during a long turn. Callers only enqueue, so the UI and agent never block on disk. |
 | Identity | path only; git root commit only | Project key = sha256(real path). `project.json` stores the path and the git root commit. A directory with no project whose root commit matches a project whose path **no longer exists** adopts it (rename/move). Two live clones never share sessions. |
 | Location | `~/.cache` | `~/.local/share/ternly/projects/<key>/sessions/<id>/` (`events.log`, `meta.json`, `lock`), dirs `0700`, files `0600`. Masked from the sandbox since M1.1. |
 
@@ -32,8 +32,9 @@ remaining calls `cancelled: paused by the user` results and persists.
 ## Lifecycle
 - Esc interrupts the turn. `/pause` stops at a safe point and persists (status `paused`; the next
   prompt resumes). `/stop` persists, marks `stopped` and exits.
-- **Auto-resume** (TUI only): the most recently active session that is not `stopped` and not locked by
-  another process. A one-line banner shows title, age, turns, cost, `/sessions`, `/new`. `--new` or
+- **Auto-resume** (TUI only): the most recently active session. If that one was `/stop`ped, or is
+  open in another process, a new session starts and the banner says why (`/resume <id>` or
+  `/fork <id>`). An older session is never resumed silently in its place. A one-line banner shows title, age, turns, cost, `/sessions`, `/new`. `--new` or
   config `auto_resume: false` opts out. Headless `-p` starts a new session unless `-c` or `--resume`
   is given: CI one-shots should not silently append to an old conversation.
 - `-c/--continue` resumes the latest; `--resume <id>` a chosen one (`--resume` alone lists them).
@@ -70,7 +71,7 @@ the agent mutex, (5) re-render the transcript.
 | Claim | Result |
 |---|---|
 | Append cost (target < 1 ms, never blocking) | 5.3 µs per record (2 KB tool result: JSON, CRC, enqueue). The caller never waits for I/O. |
-| Durability cost | `fsync` 6.9 ms on NVMe ext4. It runs only in the background writer at turn boundaries, or on pause/switch/stop. |
+| Durability cost | `fsync` 6.9 ms on NVMe ext4, always in the background writer. In a 10 s tool-heavy turn (~4,650 × 2 KB records): 4 group-commit fsyncs, and `Record` latency p50 13 µs, p99 32 µs, the same as with boundary-only syncs (p50 13 µs, p99 35 µs). |
 | Resume, 1,000 turns (target < 100 ms) | 2.7 MB log: open, replay and attach in 21 ms. **Real binary in a pty, process start to an interactive TUI with the transcript drawn: 64 ms** (bare process start-up is 12 ms). |
 | Kill during append | SIGKILL while appending 4 KB records as fast as possible, 5 rounds: the log reopens every time (1,948–2,405 turns kept), with a torn tail truncated |
 | Kill mid-switch | real binary SIGKILLed after each phase (persisted, unlocked, loaded, swapped): both sessions open with every turn, no stale lock, valid histories; `-c` works afterwards |

@@ -187,3 +187,70 @@ func TestGrepTimingBigTree(t *testing.T) {
 		t.Logf("grep %q: ripgrep+confirm %v, Go fallback %v (best of 5)", pat, withRG, fallback)
 	}
 }
+
+// Names of files outside the workspace must never reach tool output, even
+// when a nested directory is swapped to point outside mid-walk: a reported
+// file that can't be re-opened through the root is dropped with its path.
+func TestNoOutsidePathNamesLeak(t *testing.T) {
+	t.Run("ripgrep", func(t *testing.T) {
+		_, err := lookRG("rg")
+		testutil.Require(t, "ripgrep", err == nil)
+		outsideNames(t)
+	})
+	t.Run("go-fallback", func(t *testing.T) {
+		old := lookRG
+		lookRG = func(string) (string, error) { return "", os.ErrNotExist }
+		defer func() { lookRG = old }()
+		outsideNames(t)
+	})
+}
+
+func outsideNames(t *testing.T) {
+	r := newReg(t, "yolo")
+	outside := t.TempDir()
+	for i := range 20 { // matching content under names that exist only outside
+		_ = os.WriteFile(filepath.Join(outside, fmt.Sprintf("OUTSIDE-NAME-%02d.txt", i)), []byte("needle\n"), 0o600)
+	}
+	base := filepath.Join(r.Root, "a", "b")
+	_ = os.MkdirAll(base, 0o755)
+	for i := range 200 {
+		_ = os.WriteFile(filepath.Join(base, fmt.Sprintf("f%03d.txt", i)), []byte("needle\n"), 0o644)
+	}
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	for k := range 8 {
+		wg.Add(1)
+		go func(n string) {
+			defer wg.Done()
+			for i := 0; ; i++ {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_ = os.RemoveAll(n)
+				if i%2 == 0 {
+					_ = os.Mkdir(n, 0o755)
+				} else {
+					_ = os.Symlink(outside, n)
+				}
+			}
+		}(filepath.Join(base, fmt.Sprintf("n%d", k)))
+	}
+	var leaks, n int
+	calls := []struct{ tool, args string }{
+		{"grep", `{"pattern":"needle"}`}, {"grep", `{"pattern":"needle","path":"a"}`}, {"glob", `{"pattern":"**/*.txt"}`},
+	}
+	for deadline := time.Now().Add(1500 * time.Millisecond); time.Now().Before(deadline); n++ {
+		c := calls[n%len(calls)]
+		if res := r.Call(context.Background(), llm.ToolCall{ID: "1", Name: c.tool, Args: c.args}); strings.Contains(res.Out, "OUTSIDE-NAME") {
+			leaks++
+		}
+	}
+	close(stop)
+	wg.Wait()
+	t.Logf("%d grep/glob calls during nested swaps: %d outputs named an outside file", n, leaks)
+	if leaks > 0 {
+		t.Fatalf("outside file names leaked into %d outputs", leaks)
+	}
+}

@@ -315,20 +315,21 @@ func (m *Manager) AutoTitle(ctx context.Context) {
 	}
 }
 
-// Resumable picks the session auto-resume should open: the most recently
-// active one that isn't stopped. If that session is open in another process,
-// it is returned as locked instead (the caller starts a new session and
-// offers to fork it) rather than silently resuming an older one.
-func Resumable(list []Meta) (pick *Meta, locked *Meta) {
-	sort.SliceStable(list, func(i, j int) bool { return list[i].Active.After(list[j].Active) })
-	for i := range list {
-		if list[i].Status == "stopped" {
-			continue
-		}
-		if list[i].Locked {
-			return nil, &list[i]
-		}
-		return &list[i], nil
+// Resumable decides what auto-resume does with the most recently active
+// session: pick it, or — when it is open in another process (locked) or was
+// ended with /stop (stopped) — start a new one and tell the user why. An
+// older session is never resumed silently in its place.
+func Resumable(list []Meta) (pick, locked, stopped *Meta) {
+	if len(list) == 0 {
+		return nil, nil, nil
 	}
-	return nil, nil
+	sort.SliceStable(list, func(i, j int) bool { return list[i].Active.After(list[j].Active) })
+	switch m := &list[0]; {
+	case m.Locked:
+		return nil, m, nil
+	case m.Status == "stopped":
+		return nil, nil, m
+	default:
+		return m, nil, nil
+	}
 }

@@ -365,7 +365,7 @@ func chooseSession(p *session.Project, cont bool, id string, auto bool) (*sessio
 		s, st, err := p.Open(list[0].ID)
 		return s, st, resumedBanner(st, list[0]), err
 	case auto || id == "?": // bare --resume: start as auto-resume would, then the TUI opens the picker
-		pick, locked := session.Resumable(list)
+		pick, locked, stopped := session.Resumable(list)
 		if pick != nil {
 			if s, st, err := p.Open(pick.ID); err == nil {
 				return s, st, resumedBanner(st, *pick), nil
@@ -374,6 +374,10 @@ func chooseSession(p *session.Project, cont bool, id string, auto bool) (*sessio
 		if locked != nil {
 			s, err := p.Create()
 			return s, agent.State{}, fmt.Sprintf("session “%s” is open in another ternly process — started a new one; /fork %s branches it", orStr(locked.Title, locked.ID), locked.ID), err
+		}
+		if stopped != nil {
+			s, err := p.Create()
+			return s, agent.State{}, fmt.Sprintf("your last session “%s” was stopped %s ago — started a new one; /resume %s reopens it", orStr(stopped.Title, stopped.ID), time.Since(stopped.Active).Round(time.Minute), stopped.ID), err
 		}
 	}
 	s, err := p.Create()
