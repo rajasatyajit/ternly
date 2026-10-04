@@ -10,15 +10,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/testutil"
 )
 
 var ctx = context.Background()
 
 func open(t testing.TB) (*Store, string) {
 	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not installed")
-	}
+	testutil.Require(t, "git", testutil.Have("git"))
 	root, _ := filepath.EvalSymlinks(t.TempDir())
 	s, err := Open(root, t.TempDir(), "test")
 	if err != nil {
@@ -297,9 +297,7 @@ func TestSecretsNeverSnapshotted(t *testing.T) {
 // process died (lock free) and M1's shared repos are swept on the next Open;
 // a live session's repo is never touched.
 func TestSessionRetention(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not installed")
-	}
+	testutil.Require(t, "git", testutil.Have("git"))
 	root, _ := filepath.EvalSymlinks(t.TempDir())
 	cache := t.TempDir()
 	write(t, root, "a.txt", "a")

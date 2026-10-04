@@ -61,9 +61,16 @@ here; `go.mod` targets go1.26.
   - On other OSes, grep uses the race-free Go fallback, because traversing `/dev/fd/N` is Linux-specific.
 
 **Behaviour changes.**
-- A symlink inside the workspace with an *absolute* target now errors. `os.Root` refuses it even when
-  the target is inside the workspace.
 - `edit_file` refuses files over 16 MB instead of reading them whole.
+- *Correction (pre-M2 review):* the M1.1 report said absolute in-workspace symlinks would now error.
+  Tested since: they keep working. `resolve()` canonicalises a requested path with `EvalSymlinks`
+  before `os.Root` sees it, so the root only meets an absolute link when one appears mid-call. In
+  that case the error now names the link and gives the relative-link fix (`ln -sfn …`).
+- **Nested swaps under ripgrep** (found in the pre-M2 review): `/dev/fd/3` pins only the starting
+  directory, and rg opens deeper paths by name. A test that swaps nested directories mid-walk
+  leaked in 67 of 290 rg calls. Every line rg reports is now re-read through the root and kept only
+  if the confined bytes match, giving 0 leaks. Lines rg elides as too long must match Go's regexp on
+  the confined content.
 
 ## (c) Settings changed mid-turn
 `/verify` wrote `Agent.Verify` while `Run` read it. The same race existed for `/mode`

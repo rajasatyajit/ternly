@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -220,12 +221,37 @@ func (r *Registry) inRoot(p string) string {
 	return p // absolute: os.Root rejects it
 }
 
-// rootErr turns os.Root's escape error into the tools' own.
-func rootErr(err error) error {
-	if err != nil && strings.Contains(err.Error(), "escapes from parent") {
-		return ErrOutside
+// rootErr explains os.Root's "path escapes from parent" for rel: it names the
+// symlink responsible and, for an absolute link that points inside the
+// workspace, the relative link to replace it with.
+func (r *Registry) rootErr(rel string, err error) error {
+	if err == nil || !strings.Contains(err.Error(), "escapes from parent") {
+		return err
 	}
-	return err
+	parts := strings.Split(filepath.Clean(rel), string(filepath.Separator))
+	for i := range parts {
+		p := filepath.Join(parts[:i+1]...)
+		fi, lerr := r.fs.Lstat(p)
+		if lerr != nil {
+			break
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+		target, _ := r.fs.Readlink(p)
+		full := filepath.Join(r.Root, filepath.Dir(p), target)
+		if filepath.IsAbs(target) {
+			full = filepath.Clean(target)
+		}
+		if full != r.Root && !strings.HasPrefix(full, r.Root+string(filepath.Separator)) {
+			return fmt.Errorf("%s is a symlink to %s, which is outside the workspace", p, target)
+		}
+		if filepath.IsAbs(target) {
+			relT, _ := filepath.Rel(filepath.Join(r.Root, filepath.Dir(p)), full)
+			return fmt.Errorf("%s is a symlink with an absolute target (%s). ternly accesses files through a workspace-rooted handle that only follows relative symlinks, so it can't use this link even though it points inside the workspace. Replace it with a relative link: ln -sfn %s %s", p, target, relT, p)
+		}
+	}
+	return fmt.Errorf("%w: %s changed while it was being accessed", ErrOutside, rel)
 }
 
 func (r *Registry) rel(p string) string {
@@ -488,7 +514,7 @@ var lookRG = exec.LookPath
 func (r *Registry) openRegular(rel string) (*os.File, error) {
 	f, err := r.fs.OpenFile(rel, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return nil, rootErr(err)
+		return nil, r.rootErr(rel, err)
 	}
 	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
 		f.Close()
@@ -517,7 +543,7 @@ func (r *Registry) write(p, content string) (string, error) {
 	rel := r.inRoot(p)
 	dir := filepath.Dir(rel)
 	if err := r.fs.MkdirAll(dir, 0o755); err != nil {
-		return "", rootErr(err)
+		return "", r.rootErr(dir, err)
 	}
 	mode := os.FileMode(0o644)
 	if fi, err := r.fs.Stat(rel); err == nil {
@@ -528,7 +554,7 @@ func (r *Registry) write(p, content string) (string, error) {
 	tmp := filepath.Join(dir, ".ternly-"+hex.EncodeToString(rnd[:]))
 	f, err := r.fs.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return "", rootErr(err)
+		return "", r.rootErr(tmp, err)
 	}
 	defer r.fs.Remove(tmp) // no-op after a successful rename
 	if _, err := f.WriteString(content); err != nil {
@@ -540,20 +566,23 @@ func (r *Registry) write(p, content string) (string, error) {
 		return "", err
 	}
 	if err := r.fs.Rename(tmp, rel); err != nil { // atomic replace
-		return "", rootErr(err)
+		return "", r.rootErr(rel, err)
 	}
 	return fmt.Sprintf("wrote %s (%d lines)", rel, lines(content)), nil
 }
 
 func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool) (string, error) {
 	rel := r.inRoot(path)
-	// ripgrep only on Linux: it searches the directory we opened through the
-	// root (inherited as fd 3, walked via /dev/fd/3), so a path swapped to a
-	// symlink after our check can't redirect it. Elsewhere: the Go fallback.
+	// ripgrep (Linux only) does the fast filtering, starting from the directory
+	// opened through the root (fd 3, walked as /dev/fd/3). It still opens
+	// deeper paths by name, so a nested directory swapped for a symlink
+	// mid-walk could feed it outside content: every reported line is re-read
+	// through the root and kept only if the confined bytes match. Elsewhere:
+	// the Go fallback, which reads only through the root.
 	if rg, err := lookRG("rg"); err == nil && runtime.GOOS == "linux" {
 		f, err := r.fs.Open(rel)
 		if err != nil {
-			return "", rootErr(err)
+			return "", r.rootErr(rel, err)
 		}
 		defer f.Close()
 		fi, err := f.Stat()
@@ -563,7 +592,7 @@ func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool)
 		if !fi.IsDir() && !fi.Mode().IsRegular() {
 			return "", fmt.Errorf("%s is not a regular file or directory", filepath.Base(rel))
 		}
-		args := []string{"--line-number", "--no-heading", "--with-filename", "--color=never", "--max-columns=300", "--max-count=50",
+		args := []string{"--line-number", "--no-heading", "--with-filename", "--null", "--color=never", "--max-columns=300", "--max-count=50",
 			"--no-require-git", "-e", pat} // no .git above /dev/fd/3, but .gitignore files should still apply
 		for _, d := range skipDirNames {
 			args = append(args, "--glob", "!"+d)
@@ -577,21 +606,8 @@ func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool)
 		c := exec.CommandContext(ctx, rg, append(args, "/dev/fd/3")...)
 		c.ExtraFiles = []*os.File{f}
 		out, _ := c.Output()
-		name := filepath.ToSlash(rel)
-		s := string(out)
-		if fi.IsDir() {
-			prefix := name + "/"
-			if name == "." {
-				prefix = ""
-			}
-			s = strings.ReplaceAll(s, "/dev/fd/3/", prefix)
-		} else {
-			s = strings.ReplaceAll(s, "/dev/fd/3:", name+":")
-		}
-		if s == "" {
-			return "no matches", nil
-		}
-		return Cap(s, maxOutBytes), nil
+		goRE, _ := regexp.Compile(map[bool]string{true: "(?i)"}[icase] + pat) // nil if the dialects differ
+		return r.confirmMatches(string(out), filepath.ToSlash(rel), fi.IsDir(), goRE), nil
 	}
 	flags := ""
 	if icase {
@@ -645,6 +661,67 @@ func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool)
 		return "no matches", nil
 	}
 	return Cap(sb.String(), maxOutBytes), nil
+}
+
+// confirmMatches turns rg --null output into path:line:text, keeping only
+// lines whose content, re-read through the root, is what rg reported.
+func (r *Registry) confirmMatches(out, rel string, dir bool, re *regexp.Regexp) string {
+	files := map[string][]string{} // confined contents, nil = unreadable inside the root
+	var sb strings.Builder
+	dropped := 0
+	for _, rec := range strings.Split(out, "\n") {
+		path, rest, ok := strings.Cut(rec, "\x00")
+		if !ok || sb.Len() > maxOutBytes {
+			continue
+		}
+		num, text, ok := strings.Cut(rest, ":")
+		n, err := strconv.Atoi(num)
+		if !ok || err != nil || n < 1 {
+			continue
+		}
+		switch {
+		case path == "/dev/fd/3":
+			path = rel
+		case strings.HasPrefix(path, "/dev/fd/3/") && dir:
+			path = strings.TrimPrefix(path, "/dev/fd/3/")
+			if rel != "." {
+				path = rel + "/" + path
+			}
+		default:
+			continue
+		}
+		lines, seen := files[path]
+		if !seen {
+			if b, err := r.readRegular(filepath.FromSlash(path)); err == nil {
+				lines = strings.Split(string(b), "\n")
+			}
+			files[path] = lines
+		}
+		if n > len(lines) {
+			dropped++
+			continue
+		}
+		line := lines[n-1]
+		// rg elides lines over --max-columns ("[Omitted long matching line]";
+		// older: "[Omitted long line with N matches]"): nothing to compare, so
+		// the confined line must match on its own where Go can compile the pattern.
+		long := strings.HasPrefix(text, "[Omitted long") && len(line) > 300 && (re == nil || re.MatchString(line))
+		if line != text && !long {
+			dropped++ // changed or swapped since rg read it
+			continue
+		}
+		if len(line) > 300 {
+			line = line[:300] + "…"
+		}
+		fmt.Fprintf(&sb, "%s:%d:%s\n", path, n, line)
+	}
+	if dropped > 0 {
+		fmt.Fprintf(&sb, "(%d match(es) dropped: the file changed or left the workspace during the search)\n", dropped)
+	}
+	if sb.Len() == 0 {
+		return "no matches"
+	}
+	return Cap(sb.String(), maxOutBytes)
 }
 
 // globRE converts a ** glob to an anchored regexp.

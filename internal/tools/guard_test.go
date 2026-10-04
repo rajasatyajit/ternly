@@ -336,9 +336,10 @@ func TestGrepOutputPaths(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(r.Root, "a.txt"), []byte("needle\n"), 0o644)
 		_ = os.WriteFile(filepath.Join(r.Root, "sub", "b.go"), []byte("x\nneedle\n"), 0o644)
 		_ = os.WriteFile(filepath.Join(r.Root, "sub", "node_modules", "c.js"), []byte("needle\n"), 0o644)
+		_ = os.WriteFile(filepath.Join(r.Root, "sub", "we:ird.txt"), []byte(strings.Repeat("y", 400)+"needle\n"), 0o644)
 		for args, want := range map[string]string{
-			`{"pattern":"needle"}`:                   "a.txt:1:needle\nsub/b.go:2:needle",
-			`{"pattern":"needle","path":"sub"}`:      "sub/b.go:2:needle",
+			`{"pattern":"needle"}`:                   "a.txt:1:needle\nsub/b.go:2:needle\nsub/we:ird.txt:1:" + strings.Repeat("y", 300) + "…",
+			`{"pattern":"needle","path":"sub"}`:      "sub/b.go:2:needle\nsub/we:ird.txt:1:" + strings.Repeat("y", 300) + "…",
 			`{"pattern":"needle","path":"sub/b.go"}`: "sub/b.go:2:needle",
 		} {
 			res := raw(r, "grep", args)
@@ -348,5 +349,34 @@ func TestGrepOutputPaths(t *testing.T) {
 				t.Errorf("rg=%v %s:\n got %q\nwant %q", useRG, args, strings.Join(got, "\n"), want)
 			}
 		}
+	}
+}
+
+// os.Root refuses absolute symlinks met at access time (normally resolve()
+// canonicalises them first, so this only surfaces when a link changes
+// mid-call); the error must say why and give the relative-link fix.
+func TestRootErrorExplainsSymlinks(t *testing.T) {
+	r := newReg(t, "yolo")
+	_ = os.MkdirAll(filepath.Join(r.Root, "pkg", "real"), 0o755)
+	_ = os.WriteFile(filepath.Join(r.Root, "pkg", "real", "f.txt"), []byte("x"), 0o644)
+	_ = os.Symlink(filepath.Join(r.Root, "pkg", "real"), filepath.Join(r.Root, "pkg", "abs"))
+	_ = os.Symlink("../../../etc", filepath.Join(r.Root, "pkg", "esc"))
+	_ = os.Symlink("/etc", filepath.Join(r.Root, "pkg", "absout"))
+	for p, want := range map[string]string{
+		"pkg/abs/f.txt":     "pkg/abs is a symlink with an absolute target (" + filepath.Join(r.Root, "pkg", "real") + ")",
+		"pkg/esc/passwd":    "pkg/esc is a symlink to ../../../etc, which is outside the workspace",
+		"pkg/absout/passwd": "pkg/absout is a symlink to /etc, which is outside the workspace",
+	} {
+		_, err := r.openRegular(p)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v\nwant %q", p, err, want)
+		}
+	}
+	if _, err := r.openRegular("pkg/abs/f.txt"); !strings.Contains(err.Error(), "ln -sfn real pkg/abs") {
+		t.Errorf("no relative-link fix: %v", err)
+	}
+	// through the tools (resolve() canonicalises first) the absolute link just works
+	if res := raw(r, "read_file", `{"path":"pkg/abs/f.txt"}`); res.IsErr {
+		t.Errorf("absolute in-workspace symlink should work via the tools: %s", res.Out)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/testutil"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -279,9 +279,7 @@ func TestInjectionCannotEscalatePermissions(t *testing.T) {
 }
 
 func TestClaimsNeedEvidence(t *testing.T) {
-	if _, err := exec.LookPath("make"); err != nil {
-		t.Skip("make not installed")
-	}
+	testutil.Require(t, "make", testutil.Have("make"))
 	edit := reply{calls: [][2]string{call("edit_file", `{"path":"a.txt","old_string":"1","new_string":"2"}`)}}
 	claim := reply{text: "Done — all tests pass."}
 	cases := []struct {
@@ -355,9 +353,7 @@ func TestTurnLimits(t *testing.T) {
 }
 
 func TestUndoAndRewind(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not installed")
-	}
+	testutil.Require(t, "git", testutil.Have("git"))
 	f := newFake(t,
 		reply{calls: [][2]string{call("write_file", `{"path":"a.txt","content":"v1\n"}`)}}, reply{text: "wrote v1"},
 		reply{calls: [][2]string{call("bash", `{"command":"echo v2 > a.txt && mkdir -p gen && touch gen/b.txt"}`)}}, reply{text: "shell changes"},
