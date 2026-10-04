@@ -48,8 +48,6 @@ jobs:
           args: check
 
   macos:
-    # private repo: macOS minutes are costly, so only on release tags or a manual run
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
