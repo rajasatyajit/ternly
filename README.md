@@ -63,6 +63,16 @@ which were skipped. `/undo` and `/rewind` restore it, and the repo is deleted wh
 File tools access the workspace through Go's `os.Root`, so a path swapped to a symlink mid-call can't
 escape. ternly's config, cache and session dirs are hidden from sandboxed commands.
 
+## Code graph (Go)
+On entering a Go workspace, ternly loads or builds a code graph in the background: packages, files,
+symbols, references, calls, and test links, with `file:line` spans. It is type-checked with
+`go/types` from `go list -export` data, which runs in the sandbox. The model gets `find_symbol`,
+`references`, `callers`, `callees`, `implementations`, `related_files` and `impact`, and is told to
+use them before grep/read. On kubernetes they answer "who calls X" with ~13× fewer tokens. The graph
+is shared by a project's sessions under `~/.cache/ternly/graphs`, with dependencies' exported API
+cached per module version. It updates incrementally as files change (~0.1 s for a body edit).
+`code_graph: false` turns it off.
+
 ## Sessions
 Every session is saved as it happens: a crash-safe, append-only log under `~/.local/share/ternly`
 (owner-only, redacted, hidden from sandboxed commands). Starting ternly in a directory resumes its

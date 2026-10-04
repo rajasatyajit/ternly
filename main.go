@@ -24,6 +24,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/graph"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
@@ -46,6 +47,7 @@ type fileConfig struct {
 	Checkpoints     *bool `json:"checkpoints"`
 	CheckpointCapMB *int  `json:"checkpoint_cap_mb"`
 	AutoResume      *bool `json:"auto_resume"`
+	CodeGraph       *bool `json:"code_graph"`
 	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
@@ -238,6 +240,19 @@ func run() int {
 		}
 	}
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
+	if _, err := os.Stat(filepath.Join(reg.Root, "go.mod")); err == nil && (fc.CodeGraph == nil || *fc.CodeGraph) {
+		if project.AdoptedKey != "" { // the graph records its root path: rebuild rather than move
+			_ = os.RemoveAll(filepath.Join(cacheDir, "graphs", "projects", project.AdoptedKey))
+		}
+		gs := graph.NewService(reg.Root, cacheDir, project.Key, func(ctx context.Context, dir string, env []string, argv ...string) ([]byte, error) {
+			return sb.Output(ctx, dir, env, argv...) // go list compiles repo code: sandboxed
+		})
+		gs.Start(ctx) // the first thing ternly does in a codebase: load or build its graph
+		for _, t := range graph.Tools(gs) {
+			reg.Add(t)
+		}
+		ag.AddInstructions(graph.Guidance)
+	}
 	if *resumeID == "?" && *prompt != "" {
 		list, _ := project.List()
 		fmt.Fprintln(os.Stderr, "choose a session: ternly --resume <id> -p …")

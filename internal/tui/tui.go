@@ -990,6 +990,12 @@ func prettyTool(t string) string {
 		return "Verify"
 	case "rewind":
 		return "Rewind"
+	case "find_symbol":
+		return "Symbols"
+	case "references", "callers", "callees", "implementations", "impact":
+		return strings.ToUpper(t[:1]) + t[1:]
+	case "related_files":
+		return "Related"
 	}
 	if strings.HasPrefix(t, "mcp__") {
 		return "MCP " + strings.ReplaceAll(strings.TrimPrefix(t, "mcp__"), "__", ":")

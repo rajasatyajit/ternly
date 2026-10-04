@@ -190,6 +190,28 @@ func (s *Sandbox) Run(ctx context.Context, root, cmd string, timeoutSec int) (st
 	return out, 0, err
 }
 
+// Output runs argv (no shell) in root under the same sandbox as Run and
+// returns its full stdout; stderr (capped) is folded into the error. For
+// harness-driven tools such as `go list` that read the untrusted repository.
+func (s *Sandbox) Output(ctx context.Context, root string, env []string, argv ...string) ([]byte, error) {
+	if s.Bwrap != "" {
+		argv = append(s.bwrapArgs(root), argv...)
+	}
+	c := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	c.Dir = root
+	c.Env = append(s.env(), env...)
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
+	c.WaitDelay = 3 * time.Second
+	var stderr bytes.Buffer
+	c.Stderr = &limitWriter{w: &stderr, n: 64 << 10}
+	out, err := c.Output()
+	if err != nil {
+		return out, fmt.Errorf("%v: %s", err, Cap(stderr.String(), 2000))
+	}
+	return out, nil
+}
+
 func (s *Sandbox) bwrapArgs(root string) []string {
 	home, _ := os.UserHomeDir()
 	a := []string{s.Bwrap, "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",

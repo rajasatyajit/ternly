@@ -123,6 +123,10 @@ func (a *Agent) Load(s State) error {
 	return nil
 }
 
+// AddInstructions appends guidance to the system prompt (call before the
+// first turn: a stable prompt is what keeps it cacheable).
+func (a *Agent) AddInstructions(s string) { a.mu.Lock(); a.system += "\n" + s + "\n"; a.mu.Unlock() }
+
 // Title is the session's title ("" until named).
 func (a *Agent) Title() string { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Title }
 
