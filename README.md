@@ -48,10 +48,21 @@ metacharacters/escaping args · forbidden list (e.g. `rm -rf /`) even in yolo ·
 masked, optional `--no-net` · provider keys stripped from the shell env and redacted from all tool
 output · keys file must be 0600 · repo-supplied `.mcp.json` is not started without `--project-mcp`.
 
+## Guardrails
+Tool output (files, shell, MCP, verification) is framed as untrusted data with a per-session nonce, and
+text that looks like an injection is flagged. The permission policy, not text, decides what runs.
+Tool arguments are validated against each tool's JSON schema, with corrective errors. Identical calls
+with no edit in between, and long failure streaks, are treated as loops: the model is redirected and
+escalated, then the turn is stopped. Per-turn step, time and spend limits (`/limits`, config
+`limits`) and the session budget end a turn with a zero-cost summary you can `continue` from.
+Success claims with no passing build or test since the last edit are challenged. Before a turn's first
+change, the workspace is checkpointed into a private git repo under `~/.cache/ternly/checkpoints`
+(including shell side effects; your `.git` is never touched). `/undo` and `/rewind` restore it.
+
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
 `--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`.
-TUI: `/models /model /review /cost /compact /mode /verify /budget /refresh /clear` ·
+TUI: `/models /model /review /cost /compact /mode /verify /budget /limits /undo /rewind /refresh /clear` ·
 Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history.
 
 Config examples in `examples/` → copy to `~/.config/ternly/`.

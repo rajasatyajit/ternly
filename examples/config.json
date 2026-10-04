@@ -4,6 +4,8 @@
   "verify": null,
   "no_local": false,
   "model": "",
+  "limits": { "steps": 60, "turn_minutes": 30, "turn_usd": 2.00 },
+  "checkpoints": true,
   "tiers": {
     "ollama/qwen3-coder:30b": 2,
     "openrouter/some-new-model": 3

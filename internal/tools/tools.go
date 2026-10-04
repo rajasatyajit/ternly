@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/rajasatyajit/ternly/internal/llm"
 )
@@ -36,6 +38,7 @@ type Tool struct {
 	Kind    Kind
 	Run     func(ctx context.Context, args json.RawMessage) (string, error)
 	Summary func(args json.RawMessage) string // one-line description for UI + permission prompt
+	schema  *jschema                          // compiled Spec.Schema; nil = not validated
 }
 
 type Registry struct {
@@ -43,6 +46,7 @@ type Registry struct {
 	Policy  *Policy
 	Sandbox *Sandbox
 	Redact  *Redactor
+	Frame   *Framer
 	mu      sync.RWMutex
 	tools   map[string]*Tool
 	order   []string
@@ -56,12 +60,13 @@ func NewRegistry(root string, pol *Policy, sb *Sandbox, rd *Redactor) (*Registry
 	if abs, err = filepath.EvalSymlinks(abs); err != nil {
 		return nil, err
 	}
-	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, tools: map[string]*Tool{}}
+	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), tools: map[string]*Tool{}}
 	r.builtin()
 	return r, nil
 }
 
 func (r *Registry) Add(t *Tool) {
+	t.schema = compileSchema(t.Spec.Schema)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.tools[t.Spec.Name]; !ok {
@@ -83,27 +88,77 @@ func (r *Registry) Specs() []llm.ToolSpec {
 	return out
 }
 
-// Call runs a tool after the permission check; output is redacted and capped.
-func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) (out string, isErr bool) {
+// maxToolBytes is the last-resort cap on any tool's output (~16k tokens).
+const maxToolBytes = 64 << 10
+
+// Call validates the arguments, checks permission, runs the tool, and returns
+// its output redacted, capped and framed as untrusted data. Harness messages
+// (rejections) are not framed: they are the only trusted text in a result.
+func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 	t := r.Get(tc.Name)
 	if t == nil {
-		return fmt.Sprintf("error: unknown tool %q", tc.Name), true
+		msg := fmt.Sprintf("error: unknown tool %q.", tc.Name)
+		if near := closest(tc.Name, r.names()); near != "" {
+			msg += fmt.Sprintf(" Did you mean %q?", near)
+		}
+		return Result{Out: msg + " Available tools: " + strings.Join(r.names(), ", "), IsErr: true, Rejected: true}
 	}
 	args := json.RawMessage(tc.Args)
 	if len(bytes.TrimSpace(args)) == 0 {
 		args = json.RawMessage(`{}`)
 	}
-	if !json.Valid(args) {
-		return "error: arguments are not valid JSON", true
+	if err := jsonErr(args); err != "" {
+		return Result{Out: fmt.Sprintf("error: arguments for %s are not valid JSON (%s). Send one complete JSON object matching the schema; for large content prefer several smaller edit_file calls.", tc.Name, err), IsErr: true, Rejected: true}
+	}
+	if t.schema != nil {
+		errs, fixed := t.schema.validate(args)
+		if len(errs) > 0 {
+			return Result{Out: fmt.Sprintf("error: invalid arguments for %s:\n- %s\nSchema: %s\nFix the arguments and call the tool again.", tc.Name, strings.Join(errs, "\n- "), Cap(compactJSON(t.Spec.Schema), 1500)), IsErr: true, Rejected: true}
+		}
+		if fixed != nil {
+			args = fixed
+		}
 	}
 	if ok, why := r.Policy.Check(ctx, t, tc.Name, t.Summary(args)); !ok {
-		return "permission denied by user" + why + ". Do not retry the same action; ask the user or choose another approach.", true
+		return Result{Out: "permission denied by user" + why + ". Do not retry the same action; ask the user or choose another approach.", IsErr: true, Rejected: true}
 	}
 	res, err := t.Run(ctx, args)
 	if err != nil {
 		res = "error: " + err.Error() + "\n" + res
 	}
-	return r.Redact.Apply(res), err != nil
+	out, flagged := r.Frame.Wrap(tc.Name, Cap(r.Redact.Apply(res), maxToolBytes))
+	return Result{Out: out, IsErr: err != nil, Flagged: flagged}
+}
+
+func (r *Registry) names() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]string(nil), r.order...)
+}
+
+// jsonErr explains invalid JSON with a byte offset ("" when valid).
+func jsonErr(b []byte) string {
+	var v any
+	err := json.Unmarshal(b, &v)
+	if err == nil {
+		return ""
+	}
+	var se *json.SyntaxError
+	if errors.As(err, &se) {
+		return fmt.Sprintf("%v at byte %d of %d", se, se.Offset, len(b))
+	}
+	if strings.Contains(err.Error(), "unexpected end") {
+		return fmt.Sprintf("input ends after %d bytes — truncated", len(b))
+	}
+	return err.Error()
+}
+
+func compactJSON(b []byte) string {
+	var buf bytes.Buffer
+	if json.Compact(&buf, b) != nil {
+		return string(b)
+	}
+	return buf.String()
 }
 
 // ─────────────────────────── path confinement ───────────────────────────
@@ -173,12 +228,13 @@ const (
 	maxReadLines = 400
 	maxLineLen   = 1000
 	maxOutBytes  = 12 << 10
+	maxReadBytes = 48 << 10
 )
 
 func (r *Registry) builtin() {
 	r.Add(&Tool{Kind: ReadOnly,
 		Spec: llm.ToolSpec{Name: "read_file", Description: "Read a text file. Returns numbered lines. Use offset/limit for large files instead of reading everything.",
-			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer","description":"1-based start line"},"limit":{"type":"integer","description":"max lines (default 400)"}},"required":["path"]}`)},
+			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer","description":"1-based start line"},"limit":{"type":"integer","description":"max lines (default 400)"}},"required":["path"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct{ Path string }](a)
 			return v.Path
@@ -195,7 +251,7 @@ func (r *Registry) builtin() {
 			if err != nil {
 				return "", err
 			}
-			f, err := os.Open(p)
+			f, err := openRegular(p)
 			if err != nil {
 				return "", err
 			}
@@ -221,7 +277,7 @@ func (r *Registry) builtin() {
 				if line < v.Offset {
 					continue
 				}
-				if shown == v.Limit {
+				if shown == v.Limit || sb.Len() >= maxReadBytes {
 					fmt.Fprintf(&sb, "… (truncated; continue with offset=%d)\n", line)
 					break
 				}
@@ -240,7 +296,7 @@ func (r *Registry) builtin() {
 
 	r.Add(&Tool{Kind: Edit,
 		Spec: llm.ToolSpec{Name: "edit_file", Description: "Replace an exact, unique snippet in a file (preferred over write_file: far fewer tokens). old_string must match exactly once unless replace_all is true. Empty old_string creates a new file.",
-			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"boolean"}},"required":["path","old_string","new_string"]}`)},
+			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"boolean"}},"required":["path","old_string","new_string"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct {
 				Path      string
@@ -269,7 +325,7 @@ func (r *Registry) builtin() {
 				}
 				return r.write(p, v.NewString)
 			}
-			b, err := os.ReadFile(p)
+			b, err := readRegular(p)
 			if err != nil {
 				return "", err
 			}
@@ -294,7 +350,7 @@ func (r *Registry) builtin() {
 
 	r.Add(&Tool{Kind: Edit,
 		Spec: llm.ToolSpec{Name: "write_file", Description: "Create or fully overwrite a file. For changes to existing files use edit_file.",
-			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`)},
+			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct{ Path, Content string }](a)
 			return fmt.Sprintf("%s  (%d lines)", v.Path, lines(v.Content))
@@ -313,7 +369,7 @@ func (r *Registry) builtin() {
 
 	r.Add(&Tool{Kind: ReadOnly,
 		Spec: llm.ToolSpec{Name: "glob", Description: "Find files by glob pattern relative to the workspace, e.g. **/*.go or internal/**/handler*.ts. Skips .git, node_modules, vendor, build dirs.",
-			Schema: schema(`{"type":"object","properties":{"pattern":{"type":"string"}},"required":["pattern"]}`)},
+			Schema: schema(`{"type":"object","properties":{"pattern":{"type":"string"}},"required":["pattern"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string { v, _ := arg[struct{ Pattern string }](a); return v.Pattern },
 		Run: func(ctx context.Context, a json.RawMessage) (string, error) {
 			v, err := arg[struct{ Pattern string }](a)
@@ -349,7 +405,7 @@ func (r *Registry) builtin() {
 
 	r.Add(&Tool{Kind: ReadOnly,
 		Spec: llm.ToolSpec{Name: "grep", Description: "Search file contents with a regex (ripgrep when available). Returns path:line:text, capped. Narrow with path or glob.",
-			Schema: schema(`{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"},"glob":{"type":"string"},"ignore_case":{"type":"boolean"}},"required":["pattern"]}`)},
+			Schema: schema(`{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"},"glob":{"type":"string"},"ignore_case":{"type":"boolean"}},"required":["pattern"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct{ Pattern, Path string }](a)
 			return strings.TrimSpace(v.Pattern + "  " + v.Path)
@@ -371,7 +427,7 @@ func (r *Registry) builtin() {
 
 	r.Add(&Tool{Kind: Exec,
 		Spec: llm.ToolSpec{Name: "bash", Description: "Run a shell command in the workspace (sandboxed). Use for builds, tests, git. Output is truncated; prefer targeted commands. Default timeout 120s.",
-			Schema: schema(`{"type":"object","properties":{"command":{"type":"string"},"timeout_sec":{"type":"integer"}},"required":["command"]}`)},
+			Schema: schema(`{"type":"object","properties":{"command":{"type":"string"},"timeout_sec":{"type":"integer"}},"required":["command"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string { v, _ := arg[struct{ Command string }](a); return v.Command },
 		Run: func(ctx context.Context, a json.RawMessage) (string, error) {
 			v, err := arg[struct {
@@ -385,11 +441,39 @@ func (r *Registry) builtin() {
 			if err != nil {
 				return out, err
 			}
-			if code != 0 {
-				return fmt.Sprintf("%s\n[exit %d]", out, code), nil
+			if code != 0 { // an error result, so failing commands count as failures (not as proof of success)
+				return fmt.Sprintf("%s\n[exit %d]", out, code), fmt.Errorf("command exited with status %d", code)
 			}
 			return out, nil
 		}})
+}
+
+// lookRG is swapped in tests to exercise the pure-Go grep fallback.
+var lookRG = exec.LookPath
+
+// openRegular opens p without blocking on FIFOs/devices and refuses non-regular files.
+func openRegular(p string) (*os.File, error) {
+	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
+		f.Close()
+		if err == nil {
+			err = fmt.Errorf("%s is not a regular file", filepath.Base(p))
+		}
+		return nil, err
+	}
+	return f, nil
+}
+
+func readRegular(p string) ([]byte, error) {
+	f, err := openRegular(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
 }
 
 func (r *Registry) write(p, content string) (string, error) {
@@ -420,7 +504,7 @@ func (r *Registry) write(p, content string) (string, error) {
 }
 
 func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool) (string, error) {
-	if rg, err := exec.LookPath("rg"); err == nil {
+	if rg, err := lookRG("rg"); err == nil {
 		args := []string{"--line-number", "--no-heading", "--color=never", "--max-columns=300", "--max-count=50", "-e", pat}
 		if icase {
 			args = append(args, "-i")
@@ -457,6 +541,9 @@ func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool)
 			if p != path && skipDirs[d.Name()] {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if !d.Type().IsRegular() { // symlinks may point outside the workspace; FIFOs block
 			return nil
 		}
 		rel := r.rel(p)

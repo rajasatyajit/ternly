@@ -93,7 +93,13 @@ func (p *Policy) isAlways(k string) bool { p.mu.Lock(); defer p.mu.Unlock(); ret
 
 func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key string) (bool, string) {
 	if p.Ask == nil {
-		return false, " (non-interactive; use --mode edits/yolo)"
+		switch {
+		case danger:
+			return false, " (non-interactive: potentially destructive commands always need a person to confirm)"
+		case strings.HasPrefix(key, "bash:"):
+			return false, " (non-interactive, mode " + p.Mode + ": only single read-only/build/test commands run without confirmation — no &&, ;, |, redirects or paths outside the workspace; run checks one at a time, e.g. `go test ./...`)"
+		}
+		return false, " (non-interactive, mode " + p.Mode + ": this needs confirmation; the user can rerun with --mode edits or yolo)"
 	}
 	switch p.Ask(ctx, name, summary, danger) {
 	case AllowAlways:

@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -88,7 +89,11 @@ type (
 		danger        bool
 		reply         chan tools.Decision
 	}
-	infoMsg string
+	infoMsg    string
+	rewoundMsg struct {
+		plan agent.Plan
+		done []checkpoint.Change
+	}
 )
 
 type blockKind int
@@ -235,6 +240,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case infoMsg:
 		m.addInfo(string(msg))
+
+	case rewoundMsg:
+		p := msg.plan
+		txt := fmt.Sprintf("  ⏪ rewound to before turn %d (%s)", p.N, p.Mode)
+		if len(msg.done) > 0 {
+			txt += " · files: " + checkpoint.Describe(msg.done, 6)
+		}
+		if p.Mode != agent.RewindCode {
+			txt += fmt.Sprintf(" · %d messages dropped — the prompt is back in the input box", p.Drop)
+			m.ta.SetValue(p.Prompt)
+		}
+		m.addInfo(sOK.Render(txt))
 
 	case agentMsg:
 		m.onAgent(agent.Event(msg))
@@ -467,9 +484,30 @@ func (m *Model) command(v string) tea.Cmd {
 			m.addInfo(sOK.Render("  ◆ pinned " + mod.Key()))
 		}
 	case "/cost":
-		l := m.App.Agent.Ledger()
+		l, g := m.App.Agent.Ledger(), m.App.Agent.Stats()
 		m.addInfo(fmt.Sprintf("  session: %s  in %s · out %s · cache read %s / write %s (%.0f%% hit) · %d turns",
-			sAccent.Render(fmt.Sprintf("$%.4f", l.Cost)), kfmt(l.Usage.In), kfmt(l.Usage.Out), kfmt(l.Usage.CacheRead), kfmt(l.Usage.CacheWrite), l.CacheRate()*100, l.Turns))
+			sAccent.Render(fmt.Sprintf("$%.4f", l.Cost)), kfmt(l.Usage.In), kfmt(l.Usage.Out), kfmt(l.Usage.CacheRead), kfmt(l.Usage.CacheWrite), l.CacheRate()*100, l.Turns) +
+			sDim.Render(fmt.Sprintf("\n  guards: %d invalid calls rejected · %d denied · %d injection flags · %d loops stopped · %d claims challenged (%d unbacked) · %d checkpoints",
+				g.Invalid, g.Denied, g.Flagged, g.Loops, g.Challenged, g.Unbacked, g.Checkpoints)))
+	case "/limits":
+		m.addInfo(m.limits(arg))
+	case "/undo":
+		return m.rewind(0, agent.RewindBoth)
+	case "/rewind":
+		if arg == "" {
+			m.addInfo(m.turnList())
+			return nil
+		}
+		var n int
+		mode := agent.RewindBoth
+		if _, err := fmt.Sscanf(arg, "%d", &n); err != nil || n < 1 {
+			m.addInfo(sErr.Render("  usage: /rewind [n] [both|code|chat]"))
+			return nil
+		}
+		if f := strings.Fields(arg); len(f) > 1 {
+			mode = f[1]
+		}
+		return m.rewind(n, mode)
 	case "/compact":
 		go func() {
 			if err := m.App.Agent.Compact(context.Background()); err != nil {
@@ -493,17 +531,17 @@ func (m *Model) command(v string) tea.Cmd {
 		}
 		m.addInfo(fmt.Sprintf("  verify: %s", orStr(m.App.Agent.Verify, "off")))
 	case "/budget":
-		var b float64
+		lim, b := m.App.Agent.Caps()
 		if _, err := fmt.Sscanf(arg, "%f", &b); err == nil {
-			m.App.Agent.Budget = b
+			m.App.Agent.SetCaps(lim, b)
 		}
-		m.addInfo(fmt.Sprintf("  budget: $%.2f (0 = unlimited)", m.App.Agent.Budget))
+		m.addInfo(fmt.Sprintf("  budget: $%.2f (0 = unlimited)", b))
 	case "/refresh":
 		m.discovering = true
 		m.addInfo(sDim.Render("  re-discovering providers…"))
 		return func() tea.Msg { ms, w := m.App.Discover(); return discoveredMsg{ms, w} }
 	case "/review":
-		p := "Review the uncommitted changes (`git diff` and `git status`) as a senior engineer: correctness, edge cases, security, error handling, tests, readability. List concrete issues by severity with file:line, then propose fixes. Do not edit files."
+		p := "Review the uncommitted changes (`git diff` and `git status`) as a senior engineer: correctness, edge cases (errors, empty input, cancellation, concurrency safety), security, error handling, tests, readability. Also check minimality: speculative abstractions, unused options or parameters, dead code, TODO stubs, helpers that duplicate existing project code, and rewrites where a small diff would do. List concrete issues by severity with file:line, then propose fixes. Do not edit files."
 		m.blocks = append(m.blocks, &block{kind: bUser, text: "/review"})
 		prev := m.App.Router.Pinned()
 		if prev == nil {
@@ -517,6 +555,79 @@ func (m *Model) command(v string) tea.Cmd {
 		m.addInfo(sErr.Render("  unknown command " + f[0] + " — /help"))
 	}
 	return nil
+}
+
+// rewind plans, confirms (via the permission dialog) and applies a rewind off the UI goroutine.
+func (m *Model) rewind(n int, mode string) tea.Cmd {
+	if m.busy {
+		m.addInfo(sErr.Render("  a turn is running — press Esc first"))
+		return nil
+	}
+	ask := m.App.Reg.Policy.Ask
+	return func() tea.Msg {
+		ctx := context.Background()
+		p, err := m.App.Agent.PlanRewind(ctx, n, mode)
+		if err != nil {
+			return infoMsg(sErr.Render("  " + err.Error()))
+		}
+		files := "files unchanged"
+		if len(p.Changes) > 0 {
+			files = checkpoint.Describe(p.Changes, 6)
+		}
+		desc := fmt.Sprintf("rewind to before turn %d (%s): %s; %d conversation messages dropped", p.N, p.Mode, files, p.Drop)
+		if ask == nil || ask(ctx, "rewind", desc, len(p.Changes) > 0) == tools.Deny {
+			return infoMsg(sDim.Render("  rewind cancelled"))
+		}
+		done, err := m.App.Agent.Rewind(ctx, p)
+		if err != nil {
+			return infoMsg(sErr.Render("  rewind failed: " + err.Error()))
+		}
+		return rewoundMsg{plan: p, done: done}
+	}
+}
+
+func (m *Model) turnList() string {
+	ts := m.App.Agent.Turns()
+	if len(ts) == 0 {
+		return sDim.Render("  no turns yet")
+	}
+	rows := []string{sDim.Render("  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)")}
+	for _, t := range ts {
+		mark := sDim.Render("○")
+		if t.Changed {
+			mark = sWarn.Render("●")
+		}
+		rows = append(rows, fmt.Sprintf("  %2d %s %s  %s", t.N, sDim.Render(t.At.Format("15:04")), mark, truncate(t.Prompt, m.w-20)))
+	}
+	if m.App.Agent.CP == nil {
+		rows = append(rows, sWarn.Render("  checkpoints are off — only the conversation can be rewound"))
+	}
+	return strings.Join(rows, "\n")
+}
+
+func (m *Model) limits(arg string) string {
+	lim, budget := m.App.Agent.Caps()
+	l := &lim
+	if f := strings.Fields(arg); len(f) == 2 {
+		var err error
+		switch f[0] {
+		case "steps":
+			_, err = fmt.Sscanf(f[1], "%d", &l.Steps)
+		case "time":
+			l.Time, err = time.ParseDuration(f[1])
+		case "turn-usd":
+			_, err = fmt.Sscanf(f[1], "%g", &l.TurnUSD)
+		default:
+			err = fmt.Errorf("unknown limit %q", f[0])
+		}
+		if err != nil {
+			return sErr.Render("  " + err.Error() + " — usage: /limits steps 80 | time 45m | turn-usd 5  (0 = off)")
+		}
+		m.App.Agent.SetCaps(lim, budget)
+	} else if arg != "" {
+		return sErr.Render("  usage: /limits steps 80 | time 45m | turn-usd 5  (0 = off)")
+	}
+	return fmt.Sprintf("  per-turn limits: %d steps · %s · $%.2f   session budget: $%.2f  (0 = off; changes apply from the next turn)", l.Steps, l.Time, l.TurnUSD, budget)
 }
 
 func (m *Model) strongest() *discover.Model {
@@ -534,6 +645,9 @@ const helpText = `  /models [filter]   list discovered models (tier · price $/M
   /review            review uncommitted changes with the strongest model
   /cost              tokens, cache hit-rate and spend this session
   /compact           summarise history with the cheapest model to cut context
+  /undo              revert the last turn (files + conversation)
+  /rewind [n] [both|code|chat]   list turns, or restore to before turn n
+  /limits [steps N|time 45m|turn-usd X]   per-turn step/time/spend limits
   /mode ask|edits|yolo   permission mode      /verify <cmd|off>   post-edit check
   /budget <usd>      hard spend cap          /refresh            re-discover providers
   /clear             new conversation        /exit
@@ -778,6 +892,8 @@ func prettyTool(t string) string {
 		return "Bash"
 	case "verify":
 		return "Verify"
+	case "rewind":
+		return "Rewind"
 	}
 	if strings.HasPrefix(t, "mcp__") {
 		return "MCP " + strings.ReplaceAll(strings.TrimPrefix(t, "mcp__"), "__", ":")

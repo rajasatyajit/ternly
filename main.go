@@ -22,6 +22,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
@@ -30,13 +31,19 @@ import (
 var version = "0.1.0"
 
 type fileConfig struct {
-	Mode      string         `json:"mode"`
-	Budget    float64        `json:"budget"`
-	Verify    *string        `json:"verify"`
-	NoLocal   bool           `json:"no_local"`
-	Model     string         `json:"model"`
-	Tiers     map[string]int `json:"tiers"`
-	Providers []struct {
+	Mode    string         `json:"mode"`
+	Budget  float64        `json:"budget"`
+	Verify  *string        `json:"verify"`
+	NoLocal bool           `json:"no_local"`
+	Model   string         `json:"model"`
+	Tiers   map[string]int `json:"tiers"`
+	Limits  struct {
+		Steps       *int     `json:"steps"`
+		TurnMinutes *float64 `json:"turn_minutes"`
+		TurnUSD     *float64 `json:"turn_usd"`
+	} `json:"limits"`
+	Checkpoints *bool `json:"checkpoints"`
+	Providers   []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
 		Kind    string `json:"kind"`
@@ -192,6 +199,27 @@ func run() int {
 	ag.Budget = fc.Budget
 	if *budget >= 0 {
 		ag.Budget = *budget
+	}
+	if v := fc.Limits.Steps; v != nil {
+		ag.Limits.Steps = *v
+	}
+	if v := fc.Limits.TurnMinutes; v != nil {
+		ag.Limits.Time = time.Duration(*v * float64(time.Minute))
+	}
+	if v := fc.Limits.TurnUSD; v != nil {
+		ag.Limits.TurnUSD = *v
+	}
+	if fc.Checkpoints == nil || *fc.Checkpoints {
+		if cp, err := checkpoint.Open(reg.Root, cacheDir); err != nil {
+			notes = append(notes, "checkpoints off ("+err.Error()+") — /undo and /rewind can only rewind the conversation")
+		} else {
+			ag.CP = cp
+			defer cp.Close()
+			go func() { // baseline now, so the first edit doesn't wait for a full index of a big repo
+				_, _ = cp.Snapshot(ctx)
+				_ = cp.Maintain(ctx)
+			}()
+		}
 	}
 	pin := pick(*model, fc.Model, "")
 

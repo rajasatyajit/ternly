@@ -22,7 +22,8 @@ func newReg(t *testing.T, mode string) *Registry {
 
 func call(r *Registry, name string, args any) (string, bool) {
 	b, _ := json.Marshal(args)
-	return r.Call(context.Background(), llm.ToolCall{ID: "1", Name: name, Args: string(b)})
+	res := r.Call(context.Background(), llm.ToolCall{ID: "1", Name: name, Args: string(b)})
+	return res.Out, res.IsErr
 }
 
 func TestPathConfinement(t *testing.T) {
