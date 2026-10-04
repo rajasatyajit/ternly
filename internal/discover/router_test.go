@@ -1,6 +1,20 @@
 package discover
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/rajasatyajit/ternly/internal/llm"
+)
+
+func llmUsage(in, out int) llm.Usage { return llm.Usage{In: in, Out: out} }
 
 func TestClassify(t *testing.T) {
 	if d := Classify("fix the typo in README", 0); d != 1 {
@@ -29,6 +43,9 @@ func TestRouting(t *testing.T) {
 	r := NewRouter()
 	r.SetModels([]*Model{small, haiku, sonnet, opus})
 
+	if gm := mk(api, "gpt-5-mini", 0.25, 2); gm.Tier != 2 { // "mini" still caps frontier families
+		t.Errorf("gpt-5-mini tier %d", gm.Tier)
+	}
 	if small.Tier != 1 || haiku.Tier != 2 || sonnet.Tier != 3 || opus.Tier != 3 {
 		t.Fatalf("tiers: %d %d %d %d", small.Tier, haiku.Tier, sonnet.Tier, opus.Tier)
 	}
@@ -52,5 +69,92 @@ func TestRouting(t *testing.T) {
 func TestNorm(t *testing.T) {
 	if norm("claude-sonnet-4-5-20250929") != norm("anthropic/claude-sonnet-4.5") {
 		t.Error("anthropic ids should normalise to the same catalog key")
+	}
+}
+
+// fakeOllama serves the three endpoints discovery reads, shaped like a real
+// Ollama 0.x with one local and two cloud models (remote_host/remote_model in
+// /api/tags; empty /api/show for cloud models).
+func fakeOllama(t *testing.T) *httptest.Server {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/models":
+			fmt.Fprint(w, `{"data":[{"id":"llama3.1:8b"},{"id":"glm-5.1:cloud"},{"id":"qwen3-coder:480b-cloud"}]}`)
+		case "/api/tags":
+			fmt.Fprint(w, `{"models":[{"name":"llama3.1:8b"},
+				{"name":"glm-5.1:cloud","remote_model":"glm-5.1","remote_host":"https://ollama.com:443"},
+				{"name":"qwen3-coder:480b-cloud","remote_model":"qwen3-coder:480b","remote_host":"https://ollama.com:443"}]}`)
+		case "/api/show":
+			var b struct{ Model string }
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			if b.Model == "llama3.1:8b" {
+				fmt.Fprint(w, `{"capabilities":["completion","tools"],"model_info":{"llama.context_length":131072}}`)
+				return
+			}
+			fmt.Fprint(w, `{}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestOllamaCloudModels(t *testing.T) {
+	srv := fakeOllama(t)
+	cache := t.TempDir()
+	_ = os.WriteFile(filepath.Join(cache, "catalog.json"), []byte(`{"glm-5-1":{"Ctx":200000,"Tools":true,"In":1,"Out":3}}`), 0o600)
+	opts := Options{CacheDir: cache, Keys: map[string]string{"OLLAMA_HOST": srv.URL}}
+	ms, _ := Discover(context.Background(), opts)
+	by := map[string]*Model{}
+	for _, m := range ms {
+		if m.ProvID == "ollama" {
+			by[m.ID] = m
+		}
+	}
+	local, glm, qwen := by["llama3.1:8b"], by["glm-5.1:cloud"], by["qwen3-coder:480b-cloud"]
+	if local == nil || glm == nil || qwen == nil {
+		t.Fatalf("models: %v", ms)
+	}
+	if !local.Local() || local.Cloud || !local.Free() || Price(local) != "local" {
+		t.Errorf("local model misclassified: %+v", local)
+	}
+	for _, m := range []*Model{glm, qwen} {
+		if !m.Cloud || m.Local() || m.Free() || Price(m) != "cloud·quota" || m.Cost(llmUsage(1000, 100)) != 0 {
+			t.Errorf("%s: cloud=%v local=%v free=%v price=%q", m.ID, m.Cloud, m.Local(), m.Free(), Price(m))
+		}
+	}
+	if glm.Tier != 3 || qwen.Tier != 3 {
+		t.Errorf("tiers by underlying model: glm=%d qwen3-coder 480b=%d, want 3 and 3", glm.Tier, qwen.Tier)
+	}
+	if glm.Ctx != 200000 {
+		t.Errorf("cloud context should come from the underlying model's catalog entry: %d", glm.Ctx)
+	}
+	opts.LocalOnly = true
+	ms, _ = Discover(context.Background(), opts)
+	for _, m := range ms {
+		if m.Cloud {
+			t.Errorf("--local-only kept a cloud model: %s", m.ID)
+		}
+	}
+	// Routing: free local first, then prepaid cloud quota, then pay-per-token.
+	paid := &Model{Provider: &Provider{ID: "anthropic"}, ProvID: "anthropic", ID: "claude-sonnet-4-5", Priced: true, In: 3, Out: 15, Tools: true, Ctx: 200000, Tier: 3}
+	r := NewRouter()
+	r.SetModels([]*Model{paid, glm, local})
+	if m, _ := r.Pick(3, 1000); m != glm {
+		t.Errorf("T3 should use the cloud quota before paying: %s", m.Key())
+	}
+	local.Tier = 3
+	if m, _ := r.Pick(3, 1000); m != local {
+		t.Errorf("a free local model still comes first: %s", m.Key())
+	}
+}
+
+func TestTierNameColonForms(t *testing.T) {
+	for id, want := range map[string]int{"qwen3-coder:480b-cloud": 3, "qwen3-coder:30b": 2, "kimi-k2.6:cloud": 3, "deepseek-v4-flash:cloud": 2, "gpt-oss:120b-cloud": 0, "minimax-m2.7:cloud": 3} {
+		m := &Model{ID: id, Cloud: strings.Contains(id, "cloud"), Provider: &Provider{Local: true}}
+		if got := tierOf(m); want != 0 && got != want {
+			t.Errorf("%s: tier %d, want %d (judged as %q)", id, got, want, tierName(m))
+		}
 	}
 }

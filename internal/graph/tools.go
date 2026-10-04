@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,7 +31,7 @@ type args struct {
 func Tools(svc *Service) []*tools.Tool {
 	sym := `"symbol":{"type":"string","description":"symbol ID or name: pkg/path.Name, Type.Method, or a bare name"}`
 	lim := `"limit":{"type":"integer","minimum":1,"maximum":500}`
-	mk := func(name, desc, props, req string, run func(ws, deps *Graph, a args) string, summary func(a args) string) *tools.Tool {
+	mk := func(name, desc, props, req string, run func(ws, deps *Graph, a args, src *source) string, summary func(a args) string) *tools.Tool {
 		return &tools.Tool{Kind: tools.ReadOnly,
 			Spec: llm.ToolSpec{Name: name, Description: desc,
 				Schema: json.RawMessage(fmt.Sprintf(`{"type":"object","properties":{%s},"required":[%s],"additionalProperties":false}`, props, req))},
@@ -46,7 +48,7 @@ func Tools(svc *Service) []*tools.Tool {
 				if err != nil {
 					return "", err
 				}
-				out := run(ws, svc.Deps(), a)
+				out := run(ws, svc.Deps(), a, newSource(svc.Root))
 				if note != "" {
 					out = "(" + note + ")\n" + out
 				}
@@ -57,39 +59,49 @@ func Tools(svc *Service) []*tools.Tool {
 	return []*tools.Tool{
 		mk("find_symbol", "Find Go declarations by name in the code graph (faster and cheaper than grep). Returns kind, ID, file:line and signature. include_deps also searches dependencies and the standard library (exported API).",
 			`"query":{"type":"string"},"kind":{"type":"string","enum":["func","method","type","interface","field","var","const"]},"include_deps":{"type":"boolean"},`+lim, `"query"`,
-			func(ws, deps *Graph, a args) string {
+			func(ws, deps *Graph, a args, src *source) string {
 				var kind Kind
 				for k := KFunc; k <= KConst; k++ {
 					if k.String() == a.Kind {
 						kind = k
 					}
 				}
-				ss := ws.Search(a.Query, kind, a.Limit+1)
-				if a.IncludeDeps || len(ss) == 0 {
-					ss = append(ss, deps.Search(a.Query, kind, a.Limit+1-len(ss))...)
+				var ss []*Symbol
+				if strings.Contains(a.Query, ".") { // qualified (Type.Method, pkg.Func, full ID): resolve exactly first
+					ss = ws.Resolve(a.Query)
+					if len(ss) == 0 && a.IncludeDeps {
+						ss = deps.Resolve(a.Query)
+					}
 				}
-				return listSymbols(ss, a.Limit, "no symbol matches "+a.Query)
+				if len(ss) == 0 {
+					q := a.Query[strings.LastIndex(a.Query, ".")+1:]
+					ss = ws.Search(q, kind, a.Limit+1)
+					if a.IncludeDeps || len(ss) == 0 {
+						ss = append(ss, deps.Search(q, kind, a.Limit+1-len(ss))...)
+					}
+				}
+				return listSymbolsWithBody(ss, a.Limit, "no symbol matches "+a.Query, src)
 			}, func(a args) string { return a.Query }),
 		mk("references", "Every use of a Go symbol (calls included), with file:line and the enclosing declaration. Use instead of grepping for a name.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args) string {
+			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
 				return withSymbol(ws, deps, a.Symbol, func(s *Symbol) string {
-					return listRefs(ws.References(s.ID, false), a.Limit, "no references to "+s.ID)
+					return listRefs(ws.References(s.ID, false), a.Limit, "no references to "+s.ID, src)
 				})
 			}, bySym),
 		mk("callers", "Functions and methods that call a Go function or method (static calls and calls through interfaces), with file:line.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args) string {
+			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
 				return withSymbol(ws, deps, a.Symbol, func(s *Symbol) string {
-					return listRefs(ws.References(s.ID, true), a.Limit, "no callers of "+s.ID)
+					return listRefs(ws.References(s.ID, true), a.Limit, "no callers of "+s.ID, src)
 				})
 			}, bySym),
 		mk("callees", "Functions and methods a Go function or method calls, with file:line.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args) string {
+			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
 				return withSymbol(ws, nil, a.Symbol, func(s *Symbol) string {
-					return listCallees(ws, deps, ws.Callees(s.ID), a.Limit, s.ID+" makes no resolved calls")
+					return listCallees(ws, deps, ws.Callees(s.ID), a.Limit, s.ID+" makes no resolved calls", src)
 				})
 			}, bySym),
 		mk("implementations", "For a Go interface (workspace or dependency, e.g. io.Writer): the workspace types implementing it. For a type: the interfaces it implements, dependencies' included.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args) string {
+			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, _ *source) string {
 				return withSymbol(ws, deps, a.Symbol, func(s *Symbol) string {
 					found := ws.ImplementationsOf(s)
 					if s.Kind == KType {
@@ -99,7 +111,7 @@ func Tools(svc *Service) []*tools.Tool {
 				})
 			}, bySym),
 		mk("related_files", "Files most related to a file: its test pair, its package, and files it references or that reference it.",
-			`"path":{"type":"string"},`+lim, `"path"`, func(ws, _ *Graph, a args) string {
+			`"path":{"type":"string"},`+lim, `"path"`, func(ws, _ *Graph, a args, _ *source) string {
 				rs := ws.RelatedFiles(strings.TrimPrefix(a.Path, "./"))
 				if len(rs) == 0 {
 					return a.Path + " is not in the code graph"
@@ -115,7 +127,7 @@ func Tools(svc *Service) []*tools.Tool {
 				return b.String()
 			}, func(a args) string { return a.Path }),
 		mk("impact", "What may break if a Go symbol (or every symbol in a file) changes: declarations that depend on it transitively, the tests that reach it, and affected packages.",
-			sym+`,"path":{"type":"string"},"depth":{"type":"integer","minimum":1,"maximum":6},`+lim, ``, func(ws, _ *Graph, a args) string {
+			sym+`,"path":{"type":"string"},"depth":{"type":"integer","minimum":1,"maximum":6},`+lim, ``, func(ws, _ *Graph, a args, _ *source) string {
 				var ids []string
 				switch {
 				case a.Path != "":
@@ -189,7 +201,7 @@ func listSymbols(ss []*Symbol, limit int, empty string) string {
 	return b.String()
 }
 
-func listRefs(rs []*Ref, limit int, empty string) string {
+func listRefs(rs []*Ref, limit int, empty string, src *source) string {
 	if len(rs) == 0 {
 		return empty + "\n"
 	}
@@ -204,12 +216,12 @@ func listRefs(rs []*Ref, limit int, empty string) string {
 		if r.Call {
 			call = " call"
 		}
-		fmt.Fprintf(&b, "%s:%d  in %s%s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call)
+		fmt.Fprintf(&b, "%s:%d  in %s%s  │ %s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call, src.line(r.Pos.File, int(r.Pos.Line)))
 	}
 	return b.String()
 }
 
-func listCallees(ws, deps *Graph, rs []*Ref, limit int, empty string) string {
+func listCallees(ws, deps *Graph, rs []*Ref, limit int, empty string, src *source) string {
 	if len(rs) == 0 {
 		return empty + "\n"
 	}
@@ -232,9 +244,77 @@ func listCallees(ws, deps *Graph, rs []*Ref, limit int, empty string) string {
 		} else if s := deps.Symbol(r.To); s != nil {
 			where = fmt.Sprintf("declared in %s %s:%d", s.Pkg, s.Pos.File, s.Pos.Line)
 		}
-		fmt.Fprintf(&b, "%s  called at %s:%d  %s\n", r.To, r.Pos.File, r.Pos.Line, where)
+		fmt.Fprintf(&b, "%s  called at %s:%d  %s  │ %s\n", r.To, r.Pos.File, r.Pos.Line, where, src.line(r.Pos.File, int(r.Pos.Line)))
 	}
 	return b.String()
+}
+
+// listSymbolsWithBody adds the first lines of each workspace declaration
+// (signature and the start of the body) to the first results, so the model
+// can often skip a read_file.
+func listSymbolsWithBody(ss []*Symbol, limit int, empty string, src *source) string {
+	if len(ss) == 0 {
+		return empty + "\n"
+	}
+	var b strings.Builder
+	for i, s := range ss {
+		if i == limit {
+			b.WriteString("… more (raise limit)\n")
+			break
+		}
+		b.WriteString(listSymbols([]*Symbol{s}, 1, ""))
+		if i < bodyResults && s.Kind != KField {
+			for _, l := range src.lines(s.Pos.File, int(s.Pos.Line), int(min(s.EndLine, s.Pos.Line+bodyLines-1))) {
+				b.WriteString("    │ " + l + "\n")
+			}
+		}
+	}
+	return b.String()
+}
+
+const (
+	bodyResults = 10 // results that get a body excerpt
+	bodyLines   = 4  // lines per excerpt
+	lineWidth   = 160
+)
+
+// source reads workspace files (through os.Root, like the file tools) for
+// excerpts, caching each file for the duration of one tool call.
+type source struct {
+	root  *os.Root
+	files map[string][]string
+}
+
+func newSource(dir string) *source {
+	r, _ := os.OpenRoot(dir)
+	return &source{root: r, files: map[string][]string{}}
+}
+
+func (s *source) lines(file string, from, to int) []string {
+	ls, ok := s.files[file]
+	if !ok && s.root != nil && !filepath.IsAbs(file) {
+		if b, err := s.root.ReadFile(filepath.FromSlash(file)); err == nil && len(b) < 4<<20 {
+			ls = strings.Split(string(b), "\n")
+		}
+		s.files[file] = ls
+	}
+	var out []string
+	for n := max(from, 1); n <= to && n <= len(ls); n++ {
+		l := strings.TrimRight(ls[n-1], " \t\r")
+		if len(l) > lineWidth {
+			l = l[:lineWidth] + "…"
+		}
+		out = append(out, l)
+	}
+	return out
+}
+
+// line is one trimmed source line ("" when unavailable).
+func (s *source) line(file string, n int) string {
+	if ls := s.lines(file, n, n); len(ls) == 1 {
+		return strings.TrimSpace(ls[0])
+	}
+	return ""
 }
 
 func orStr(s, d string) string {

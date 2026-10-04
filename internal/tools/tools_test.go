@@ -3,12 +3,15 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/rajasatyajit/ternly/internal/llm"
+	"github.com/rajasatyajit/ternly/internal/testutil"
 )
 
 func newReg(t *testing.T, mode string) *Registry {
@@ -147,5 +150,36 @@ func BenchmarkEditFile(b *testing.B) {
 	for b.Loop() {
 		r.Call(context.Background(), llm.ToolCall{ID: "1", Name: "edit_file", Args: args[i%2]})
 		i++
+	}
+}
+
+// A GOCACHE under /tmp is invisible outside the sandbox (its /tmp is a fresh
+// tmpfs) unless bound explicitly.
+func TestSandboxBindsTmpDir(t *testing.T) {
+	sb := NewSandbox(true, false, nil)
+	testutil.Require(t, "bubblewrap", sb.Bwrap != "" && exec.Command(sb.Bwrap, "--ro-bind", "/", "/", "true").Run() == nil)
+	ws := t.TempDir()
+	cache, err := os.MkdirTemp("/tmp", "gocache-probe-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(cache)
+	if sb.Writable(ws, cache) {
+		t.Fatal("a /tmp directory should not count as writable through the sandbox")
+	}
+	for _, bind := range []bool{false, true} {
+		sb.Binds = nil
+		if bind {
+			sb.Binds = []string{cache}
+		}
+		marker := filepath.Join(cache, fmt.Sprint("probe-", bind))
+		_, _, _ = sb.Run(context.Background(), ws, "mkdir -p "+cache+" && echo hi > "+marker, 10)
+		_, err := os.Stat(marker)
+		if bind != (err == nil) {
+			t.Errorf("bind=%v: file written in the sandbox visible outside = %v", bind, err == nil)
+		}
+	}
+	if !sb.Writable(ws, filepath.Join(cache, "x")) {
+		t.Error("Writable should honour Binds")
 	}
 }

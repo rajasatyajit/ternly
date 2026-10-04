@@ -113,10 +113,11 @@ func workspace(p *listPkg, root string) bool {
 
 // builder type-checks workspace packages in parallel.
 type builder struct {
-	root   string
-	fset   *token.FileSet
-	export map[string]string // import path → export data file
-	shared *sharedImporter
+	root    string
+	fset    *token.FileSet
+	export  map[string]string // import path → export data file
+	shared  *sharedImporter
+	workers int // 0: GOMAXPROCS
 }
 
 func newBuilder(root string, pkgs []*listPkg) *builder {
@@ -220,7 +221,11 @@ func (b *builder) buildAll(ctx context.Context, jobs []*listPkg) ([]*Package, ma
 	tps := make([]*types.Package, len(jobs))
 	work := make(chan int)
 	var wg sync.WaitGroup
-	for range runtime.GOMAXPROCS(0) {
+	n := b.workers
+	if n <= 0 {
+		n = runtime.GOMAXPROCS(0)
+	}
+	for range n {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -326,10 +331,14 @@ func hashBytes(b []byte) string {
 	return hex.EncodeToString(h[:12])
 }
 
-// syntaxOnly builds a symbols-only graph when `go list` can't run (no
-// toolchain, unsupported Go version, broken module): every directory with
-// .go files is one package, nothing is type-resolved.
-func syntaxOnly(root string) []*Package {
+// syntaxGraph builds an approximate graph without types, in seconds: the
+// first pass on a new workspace (served while the typed build runs) and the
+// fallback when `go list` can't run. Symbols are exact; references are
+// matched by name — imported-package members, same-package names, and
+// method calls whose name is unique in the workspace — so they can miss
+// uses and, with shadowing, include false ones.
+func syntaxGraph(root string) []*Package {
+	mods := map[string]string{} // module root dir → module path
 	dirs := map[string][]string{}
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -341,22 +350,128 @@ func syntaxOnly(root string) []*Package {
 			}
 			return nil
 		}
-		if strings.HasSuffix(path, ".go") {
+		switch {
+		case d.Name() == "go.mod":
+			if b, err := os.ReadFile(path); err == nil {
+				for _, ln := range strings.Split(string(b), "\n") {
+					if f := strings.Fields(ln); len(f) == 2 && f[0] == "module" {
+						mods[filepath.Dir(path)] = strings.Trim(f[1], `"`)
+					}
+				}
+			}
+		case strings.HasSuffix(path, ".go"):
 			dirs[filepath.Dir(path)] = append(dirs[filepath.Dir(path)], d.Name())
 		}
 		return nil
 	})
-	b := &builder{root: root, fset: token.NewFileSet()}
-	var out []*Package
+	importPath := func(dir string) string {
+		for d := dir; ; d = filepath.Dir(d) {
+			if m, ok := mods[d]; ok {
+				rel, _ := filepath.Rel(d, dir)
+				if rel == "." {
+					return m
+				}
+				return m + "/" + filepath.ToSlash(rel)
+			}
+			if d == root || d == filepath.Dir(d) {
+				rel, _ := filepath.Rel(root, dir)
+				return filepath.ToSlash(rel)
+			}
+		}
+	}
+	type job struct {
+		dir   string
+		names []string
+		p     *Package
+	}
+	var jobs []*job
 	for dir, names := range dirs {
 		sort.Strings(names)
-		p := &Package{Path: b.rel(dir), Dir: b.rel(dir)}
-		files := b.parse(p, dir, names)
-		ex := newExtractor(b, p)
+		jobs = append(jobs, &job{dir: dir, names: names})
+	}
+	b := &builder{root: root, fset: token.NewFileSet()}
+	parallel := func(f func(*job)) {
+		work := make(chan *job)
+		var wg sync.WaitGroup
+		for range runtime.GOMAXPROCS(0) {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := range work {
+					f(j)
+				}
+			}()
+		}
+		for _, j := range jobs {
+			work <- j
+		}
+		close(work)
+		wg.Wait()
+	}
+	// pass 1: declarations
+	parallel(func(j *job) {
+		p := &Package{Path: importPath(j.dir), Dir: b.rel(j.dir)}
+		fset := token.NewFileSet()
+		pb := &builder{root: root, fset: fset}
+		files := pb.parse(p, j.dir, j.names)
+		ex := newExtractor(pb, p)
 		for _, f := range files {
 			ex.declare(f, nil)
 		}
-		out = append(out, p)
+		j.p = p
+	})
+	// index: package → name → ID, and method name → IDs
+	pkgNames := map[string]map[string]string{}
+	methods := map[string][]string{}
+	for _, j := range jobs {
+		m := map[string]string{}
+		for _, s := range j.p.Symbols {
+			switch s.Kind {
+			case KMethod:
+				methods[s.Name] = append(methods[s.Name], s.ID)
+			case KField:
+			default:
+				m[s.Name] = s.ID
+			}
+		}
+		pkgNames[j.p.Path] = m
+	}
+	// pass 2: references by name
+	parallel(func(j *job) {
+		fset := token.NewFileSet()
+		pb := &builder{root: root, fset: fset}
+		scratch := &Package{}
+		files := pb.parse(scratch, j.dir, j.names)
+		ex := newExtractor(pb, j.p)
+		own := pkgNames[j.p.Path]
+		for _, f := range files {
+			imports := map[string]string{}
+			for _, is := range f.Imports {
+				path := strings.Trim(is.Path.Value, `"`)
+				name := pathName(path)
+				if is.Name != nil {
+					name = is.Name.Name
+				}
+				imports[name] = path
+			}
+			ex.nameRefs(f, j.p.Path, imports, own, pkgNames, methods)
+		}
+	})
+	out := make([]*Package, 0, len(jobs))
+	for _, j := range jobs {
+		out = append(out, j.p)
 	}
 	return out
+}
+
+// pathName guesses an import's package name from its path (last element,
+// skipping a /vN major-version suffix and go-/-go decorations).
+func pathName(path string) string {
+	parts := strings.Split(path, "/")
+	n := parts[len(parts)-1]
+	if len(parts) > 1 && len(n) > 1 && n[0] == 'v' && strings.Trim(n[1:], "0123456789") == "" {
+		n = parts[len(parts)-2]
+	}
+	n = strings.TrimSuffix(strings.TrimPrefix(n, "go-"), "-go")
+	return strings.ReplaceAll(n, "-", "_")
 }

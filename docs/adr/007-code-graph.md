@@ -135,9 +135,6 @@ Without them: 15,529 and 1,142 (−9% / −20%). The model used `find_symbol` an
 the call sites anyway. On a small repo with a unique name, grep is already precise. The large gains
 need ambiguous names or large repos.
 
-**Limits.**
-- On first entering a large repo with a cold Go build cache, the graph needs minutes. Tools wait
-  20 s, then tell the model to use grep. A syntax-only first pass would cover that window; not built.
-- Building needs `GOCACHE` under a writable cache the sandbox exposes (the default `~/.cache/go-build`
-  is). A `GOCACHE` in `/tmp` is invisible outside the sandbox's private `/tmp`.
+**Limits.** (M3.1 addressed the first-visit wait, with an approximate first pass, and the
+`/tmp` GOCACHE, with a bind; see ADR 008.)
 - Generic types are not matched by `implementations`. Calls through function values are not edges.

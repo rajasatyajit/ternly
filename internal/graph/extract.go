@@ -392,3 +392,62 @@ func deref(t types.Type) types.Type {
 	}
 	return t
 }
+
+// nameRefs records references by name, without type information (see syntaxGraph).
+func (e *extractor) nameRefs(f *ast.File, pkg string, imports, own map[string]string, pkgNames map[string]map[string]string, methods map[string][]string) {
+	calls := map[*ast.Ident]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		if c, ok := n.(*ast.CallExpr); ok {
+			if id := callee(c.Fun); id != nil {
+				calls[id] = true
+			}
+		}
+		return true
+	})
+	for _, d := range f.Decls {
+		from := ""
+		switch d := d.(type) {
+		case *ast.FuncDecl:
+			from = pkg + "." + d.Name.Name
+			if d.Recv != nil && len(d.Recv.List) > 0 {
+				from = pkg + "." + recvName(d.Recv.List[0].Type) + "." + d.Name.Name
+			}
+		case *ast.GenDecl:
+			if len(d.Specs) > 0 {
+				switch sp := d.Specs[0].(type) {
+				case *ast.TypeSpec:
+					from = pkg + "." + sp.Name.Name
+				case *ast.ValueSpec:
+					from = pkg + "." + sp.Names[0].Name
+				}
+			}
+		}
+		done := map[*ast.Ident]bool{}
+		add := func(id *ast.Ident, to string) {
+			if to != "" && to != from {
+				e.p.Refs = append(e.p.Refs, Ref{From: from, To: to, Pos: e.pos(id.Pos()), Call: calls[id]})
+			}
+		}
+		ast.Inspect(d, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.SelectorExpr:
+				if x, ok := n.X.(*ast.Ident); ok {
+					if path, ok := imports[x.Name]; ok { // pkg.Name
+						add(n.Sel, pkgNames[path][n.Sel.Name])
+						done[x], done[n.Sel] = true, true
+						return false
+					}
+				}
+				if ids := methods[n.Sel.Name]; len(ids) == 1 { // x.M() with M unique in the workspace
+					add(n.Sel, ids[0])
+				}
+				done[n.Sel] = true
+			case *ast.Ident:
+				if !done[n] {
+					add(n, own[n.Name])
+				}
+			}
+			return true
+		})
+	}
+}

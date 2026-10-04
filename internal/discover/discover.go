@@ -47,11 +47,15 @@ type Model struct {
 	Tier     int       `json:"tier"`
 	Tools    bool      `json:"tools"`
 	Priced   bool      `json:"-"`
+	// Cloud: served remotely behind a local endpoint (Ollama Cloud: /api/tags
+	// reports remote_host). Not local for privacy, not free (quota-limited).
+	Cloud bool   `json:"cloud,omitempty"`
+	Base  string `json:"-"` // the underlying model (Ollama's remote_model)
 }
 
 func (m *Model) Key() string      { return m.ProvID + "/" + m.ID }
-func (m *Model) Local() bool      { return m.Provider != nil && m.Provider.Local }
-func (m *Model) Free() bool       { return m.Local() || (m.Priced && m.In == 0 && m.Out == 0) }
+func (m *Model) Local() bool      { return m.Provider != nil && m.Provider.Local && !m.Cloud }
+func (m *Model) Free() bool       { return !m.Cloud && (m.Local() || (m.Priced && m.In == 0 && m.Out == 0)) }
 func (m *Model) Blended() float64 { return 0.8*m.In + 0.2*m.Out } // agents are input-heavy
 
 // Cost of a usage record in USD.
@@ -193,7 +197,7 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 
 	out := models[:0]
 	for _, m := range models {
-		if skipModel.MatchString(m.ID) {
+		if skipModel.MatchString(m.ID) || o.LocalOnly && m.Cloud { // --local-only: nothing leaves the machine
 			continue
 		}
 		cat.enrich(m)
@@ -270,8 +274,43 @@ func listModels(ctx context.Context, p *Provider) ([]*Model, error) {
 	}
 	if p.ID == "ollama" {
 		ollamaCaps(ctx, p, out)
+		ollamaCloud(ctx, p, out)
 	}
 	return out, nil
+}
+
+// ollamaCloud marks models Ollama serves from ollama.com rather than this
+// machine: /api/tags lists them with remote_host and remote_model.
+func ollamaCloud(ctx context.Context, p *Provider, ms []*Model) {
+	cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(cctx, http.MethodGet, strings.TrimSuffix(strings.TrimRight(p.BaseURL, "/"), "/v1")+"/api/tags", nil)
+	resp, err := llm.HTTP.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	var d struct {
+		Models []struct {
+			Name        string `json:"name"`
+			RemoteModel string `json:"remote_model"`
+			RemoteHost  string `json:"remote_host"`
+		} `json:"models"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&d) != nil {
+		return
+	}
+	remote := map[string]string{}
+	for _, m := range d.Models {
+		if m.RemoteHost != "" {
+			remote[m.Name] = m.RemoteModel
+		}
+	}
+	for _, m := range ms {
+		if base, ok := remote[m.ID]; ok {
+			m.Cloud, m.Base = true, base
+		}
+	}
 }
 
 // ollamaCaps asks Ollama which local models really support tool calling + their context size.
@@ -417,6 +456,13 @@ func (c catalog) enrich(m *Model) {
 		m.In, m.Out, m.Priced = 0, 0, true
 		return
 	}
+	if m.Cloud { // quota-limited subscription: no per-token cost; the catalog only informs context and tools
+		m.In, m.Out, m.Priced = 0, 0, true
+		if e, ok := c[norm(tierName(m))]; ok && m.Ctx == 0 {
+			m.Ctx = e.Ctx
+		}
+		return
+	}
 	e, ok := c[norm(m.ID)]
 	if !ok {
 		return
@@ -438,13 +484,25 @@ func (c catalog) enrich(m *Model) {
 var (
 	reT1      = regexp.MustCompile(`(?i)nano|lite|tiny|smol|gemma|phi-?\d|[:\-_](0\.5|1|1\.5|2|3|4|7|8|9)b\b|llama-?3\.2`)
 	reT3      = regexp.MustCompile(`(?i)opus|sonnet|gpt-5(\.\d+)?($|-codex|-pro|-\d)|^o3($|-pro)|gemini-[\d.]+-pro|grok-4|grok-code|kimi-k2|qwen3-coder-(480|plus)|qwen3-max|deepseek-(v3|r1|chat|reasoner)|glm-(4\.[5-9]|5)|devstral-medium|mistral-large|codex|minimax-m2`)
-	reCap2    = regexp.MustCompile(`(?i)mini|small|flash|haiku|lite|turbo|instant`)
+	reCap2    = regexp.MustCompile(`(?i)(^|[-_.:/])mini($|[-_.:])|small|flash|haiku|lite|turbo|instant`) // "mini" as a segment: not minimax
 	reT2      = regexp.MustCompile(`(?i)haiku|mini|flash|small|medium|devstral|codestral|coder|llama.*70b|gpt-4o|gpt-4\.1|grok-3|mistral|qwen|deepseek|command-r`)
 	reParamsB = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)b\b`)
 )
 
-func tierOf(m *Model) int {
+// tierName is the name tiers are judged by: the underlying model for cloud
+// models, with Ollama's tag punctuation normalised (qwen3-coder:480b-cloud →
+// qwen3-coder-480b) so the family patterns match.
+func tierName(m *Model) string {
 	id := m.ID
+	if m.Base != "" {
+		id = m.Base
+	}
+	id = strings.TrimSuffix(strings.TrimSuffix(id, ":cloud"), "-cloud")
+	return strings.ReplaceAll(id, ":", "-")
+}
+
+func tierOf(m *Model) int {
+	id := tierName(m)
 	switch {
 	case reT1.MatchString(id):
 		return 1
@@ -485,6 +543,8 @@ func params(id string) float64 {
 
 func Price(m *Model) string {
 	switch {
+	case m.Cloud:
+		return "cloud·quota"
 	case m.Local():
 		return "local"
 	case !m.Priced:

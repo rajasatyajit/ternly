@@ -45,15 +45,33 @@ func fixture(t testing.TB) string {
 	return root
 }
 
+// build starts a service and waits until any background (typed) build is done.
 func build(t testing.TB, root, cache string, run Runner) (*Service, *Graph) {
 	t.Helper()
 	s := NewService(root, cache, "fix", run)
-	s.Start(bg)
+	ctx, cancel := context.WithCancel(bg)
+	t.Cleanup(func() { cancel(); s.Wait() })
+	s.Start(ctx)
+	waitBuilt(t, s)
 	g, _, err := s.Graph(bg, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s, g
+}
+
+func waitBuilt(t testing.TB, s *Service) {
+	t.Helper()
+	<-s.ready
+	for deadline := time.Now().Add(time.Minute); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		s.mu.Lock()
+		b := s.building
+		s.mu.Unlock()
+		if !b {
+			return
+		}
+	}
+	t.Fatal("background build did not finish")
 }
 
 func ids(ss []*Symbol) string {
@@ -151,6 +169,17 @@ func TestToolsOutput(t *testing.T) {
 			t.Errorf("%s %s:\nwant %q in\n%s", tool, c[0], c[1], out)
 		}
 	}
+	if out := byName["references"](`{"symbol":"NewSquare"}`); !strings.Contains(out, "app/main.go:10  in example.com/fix/app.main call  │ sq := shapes.NewSquare(3)") {
+		t.Errorf("reference lines should carry their source line:\n%s", out)
+	}
+	if out := byName["find_symbol"](`{"query":"NewSquare"}`); !strings.Contains(out, "    │ func NewSquare(n float64) *Square { return &Square{Side: n} }") {
+		t.Errorf("find_symbol should show the declaration's first lines:\n%s", out)
+	}
+	for _, q := range []string{"Square.Area", pk + ".Square.Area", "shapes.Square.Area"} { // qualified queries resolve exactly
+		if out := byName["find_symbol"](`{"query":"` + q + `"}`); !strings.HasPrefix(out, "method "+pk+".Square.Area  shapes/shape.go:17") {
+			t.Errorf("find_symbol %s:\n%s", q, out)
+		}
+	}
 	if out := byName["references"](`{"symbol":"Area"}`); !strings.Contains(out, "matches 3 symbols") {
 		t.Errorf("ambiguous name should list candidates:\n%s", out)
 	}
@@ -160,7 +189,7 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	root := fixture(t)
 	cache := t.TempDir()
 	s, g := build(t, root, cache, localRun)
-	if s.Timing.Mode != "full" {
+	if s.Timing.Mode != "first → typed" {
 		t.Fatalf("first build mode %q", s.Timing.Mode)
 	}
 	// body-only edit in app: only app is re-checked
@@ -189,7 +218,9 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	st := g.Stats()
 	// a new service on the same cache loads instead of rebuilding
 	s2 := NewService(root, cache, "fix", localRun)
-	s2.Start(bg)
+	ctx2, cancel2 := context.WithCancel(bg)
+	t.Cleanup(func() { cancel2(); s2.Wait() })
+	s2.Start(ctx2)
 	g2, _, _ := s2.Graph(bg, time.Minute)
 	if s2.Timing.Mode != "load" || g2.Stats() != st {
 		t.Fatalf("reload: %+v %+v vs %+v", s2.Timing, g2.Stats(), st)
@@ -203,7 +234,7 @@ func TestSyntaxOnlyFallback(t *testing.T) {
 	}
 	s, g := build(t, root, t.TempDir(), fail)
 	_, note, _ := s.Graph(bg, time.Second)
-	if !strings.HasPrefix(note, "syntax-only") || len(g.Resolve("Square.Area")) != 1 || g.Stats().Untyped != 2 {
+	if !strings.HasPrefix(note, "syntax-only (types unavailable") || len(g.Resolve("Square.Area")) != 1 || g.Stats().Untyped != 2 {
 		t.Fatalf("note=%q stats=%+v", note, g.Stats())
 	}
 }
@@ -296,4 +327,71 @@ func TestDependencyCache(t *testing.T) {
 	svc2.mu.Lock()
 	t.Logf("dependency tables: %d, second project built in %v (all cache hits)", len(svc2.man.Deps), svc2.Timing.Deps)
 	svc2.mu.Unlock()
+}
+
+// First visit: an approximate graph is served at once, then replaced in
+// place by the typed graph.
+func TestFirstPassUpgradesInPlace(t *testing.T) {
+	root := fixture(t)
+	gate := make(chan struct{})
+	slow := func(ctx context.Context, dir string, env []string, argv ...string) ([]byte, error) {
+		<-gate // hold the typed build until the approximate graph has been checked
+		return localRun(ctx, dir, env, argv...)
+	}
+	s := NewService(root, t.TempDir(), "fix", slow)
+	ctx, cancel := context.WithCancel(bg)
+	t.Cleanup(func() { cancel(); s.Wait() })
+	s.Start(ctx)
+	g, note, err := s.Graph(bg, 5*time.Second)
+	if err != nil || !strings.HasPrefix(note, "approximate") || g.Stats().Untyped != 2 {
+		t.Fatalf("first pass: err=%v note=%q stats=%+v", err, note, g.Stats())
+	}
+	if got := refsFrom(g.References(pk+".NewSquare", false)); !strings.Contains(got, "app/main.go") {
+		t.Errorf("name-based refs should find shapes.NewSquare from app: %q", got)
+	}
+	if got := refsFrom(g.References(pk+".Total", true)); !strings.Contains(got, "app/main.go") {
+		t.Errorf("name-based call refs: %q", got)
+	}
+	close(gate)
+	waitBuilt(t, s)
+	g, note, _ = s.Graph(bg, time.Second)
+	if note != "" || g.Stats().Untyped != 0 || s.Timing.Mode != "first → typed" {
+		t.Fatalf("upgrade: note=%q stats=%+v mode=%q", note, g.Stats(), s.Timing.Mode)
+	}
+	if got := refsFrom(g.References(pk+".Shape.Area", true)); !strings.Contains(got, pk+".Total") {
+		t.Errorf("typed graph should resolve the interface call: %q", got)
+	}
+}
+
+// After an API change is patched in incrementally, the graph is rebuilt in
+// full once queries pause.
+func TestIdleRebuild(t *testing.T) {
+	root := fixture(t)
+	s, _ := build(t, root, t.TempDir(), localRun)
+	s.mu.Lock()
+	s.IdleRebuild = 50 * time.Millisecond
+	s.mu.Unlock()
+	shape := filepath.Join(root, "shapes", "shape.go")
+	b, _ := os.ReadFile(shape)
+	_ = os.WriteFile(shape, append(b, []byte("\nfunc Triple(s Shape) float64 { return 3 * s.Area() }\n")...), 0o644)
+	_, _, _ = s.Graph(bg, time.Second)
+	s.mu.Lock()
+	inexact := s.inexact
+	s.mu.Unlock()
+	if !inexact {
+		t.Fatalf("an API change should mark the graph inexact (%+v)", s.Timing)
+	}
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		s.mu.Lock()
+		done := !s.inexact && !s.building && s.Timing.Mode == "idle → typed"
+		s.mu.Unlock()
+		if done {
+			g, _, _ := s.Graph(bg, time.Second)
+			if len(g.Resolve("Triple")) != 1 {
+				t.Fatal("rebuilt graph lost the new function")
+			}
+			return
+		}
+	}
+	t.Fatal("no idle rebuild")
 }

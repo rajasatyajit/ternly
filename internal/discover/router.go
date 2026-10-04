@@ -190,7 +190,10 @@ func cheaper(a, b *Model) bool {
 }
 
 func price(m *Model) float64 {
-	if !m.Priced {
+	switch {
+	case m.Cloud: // prepaid quota: after truly free models, before pay-per-token ones
+		return 0.01
+	case !m.Priced:
 		return 3
 	}
 	return m.Blended()

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -58,6 +59,18 @@ type Service struct {
 	note   string // e.g. "syntax-only: go list failed"
 	Timing Timing
 
+	building  bool      // a typed build runs in the background; the current graph is served meanwhile
+	inexact   bool      // incremental API-change re-checks mixed type views: rebuild when idle
+	lastQuery time.Time // for idle detection
+	// IdleRebuild is how long queries must pause before an inexact graph is rebuilt in full.
+	IdleRebuild time.Duration
+
+	bg sync.WaitGroup // background goroutines (see Wait)
+
+	// Workers and MemBudget size full builds (0: from available memory; see sizing).
+	Workers   int
+	MemBudget int64
+
 	dmu      sync.Mutex      // guards the watcher's state (never held across builds)
 	dirty    map[string]bool // files the watcher saw change ("*": rescan everything)
 	watching bool
@@ -73,20 +86,54 @@ type Timing struct {
 
 // NewService prepares a graph for root stored under cacheDir/graphs/projects/key.
 func NewService(root, cacheDir, key string, run Runner) *Service {
-	return &Service{Root: root, dir: filepath.Join(cacheDir, "graphs", "projects", key), cacheDir: cacheDir, run: run, ready: make(chan struct{}), dirty: map[string]bool{}}
+	return &Service{Root: root, dir: filepath.Join(cacheDir, "graphs", "projects", key), cacheDir: cacheDir, run: run, ready: make(chan struct{}), dirty: map[string]bool{}, IdleRebuild: 2 * time.Minute}
 }
 
 // Start builds or loads the graph in the background.
 func (s *Service) Start(ctx context.Context) {
+	s.bg.Add(1)
 	go func() {
+		defer s.bg.Done()
 		s.watchInit() // before building: edits made meanwhile are caught by the next refresh
 		err := s.refresh(ctx)
 		s.mu.Lock()
 		s.err = err
 		s.mu.Unlock()
 		close(s.ready)
+		s.spawn(func() { s.idleLoop(ctx) })
 		s.watchLoop(ctx)
 	}()
+}
+
+// spawn runs f in a goroutine that Wait waits for.
+func (s *Service) spawn(f func()) {
+	s.bg.Add(1)
+	go func() { defer s.bg.Done(); f() }()
+}
+
+// Wait returns when every background goroutine has stopped (cancel the
+// context given to Start first).
+func (s *Service) Wait() { s.bg.Wait() }
+
+// idleLoop rebuilds an inexact graph (after API-change incremental updates)
+// once queries have paused for IdleRebuild.
+func (s *Service) idleLoop(ctx context.Context) {
+	for {
+		s.mu.Lock()
+		tick := min(time.Second, max(s.IdleRebuild/4, 10*time.Millisecond))
+		s.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(tick):
+		}
+		s.mu.Lock()
+		if s.inexact && !s.building && time.Since(s.lastQuery) >= s.IdleRebuild {
+			s.building = true
+			s.spawn(func() { s.background(ctx, "idle") })
+		}
+		s.mu.Unlock()
+	}
 }
 
 // Graph waits (up to wait) for the first build, applies pending changes and
@@ -104,6 +151,7 @@ func (s *Service) Graph(ctx context.Context, wait time.Duration) (*Graph, string
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.lastQuery = time.Now()
 	return s.g, s.note, s.err
 }
 
@@ -111,6 +159,9 @@ func (s *Service) Graph(ctx context.Context, wait time.Duration) (*Graph, string
 func (s *Service) refresh(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.building { // serve the current graph; edits since are applied after the swap
+		return nil
+	}
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return err
 	}
@@ -123,6 +174,19 @@ func (s *Service) refresh(ctx context.Context) error {
 		t0 := time.Now()
 		s.g, s.man = s.load()
 		s.Timing = Timing{Mode: "load", Load: time.Since(t0), Packages: len(s.man.Packages)}
+		if len(s.man.Packages) == 0 { // first visit: an approximate graph now, the typed one in the background
+			t0 = time.Now()
+			g := newGraph(s.Root)
+			for _, p := range syntaxGraph(s.Root) {
+				g.put(p)
+			}
+			s.g = g
+			s.note = "approximate: names matched without types while the typed graph builds"
+			s.Timing = Timing{Mode: "syntax", Check: time.Since(t0), Packages: len(g.pkgs)}
+			s.building = true
+			s.spawn(func() { s.background(ctx, "first") })
+			return nil
+		}
 	}
 	s.drain() // pick up changes made just before this refresh
 	s.dmu.Lock()
@@ -147,51 +211,97 @@ func (s *Service) refresh(ctx context.Context) error {
 	return s.incremental(ctx, changed, gone)
 }
 
-// full builds the whole workspace graph.
-func (s *Service) full(ctx context.Context) error {
+// buildResult is a complete graph, built without holding the service lock.
+type buildResult struct {
+	g      *Graph
+	man    *manifest
+	pkgs   []*Package
+	b      *builder // nil: syntax-only
+	lps    []*listPkg
+	note   string
+	timing Timing
+}
+
+// buildFull builds the whole workspace graph (typed, or syntax-only if `go
+// list` fails). It touches no Service state, so queries keep being served.
+func (s *Service) buildFull(ctx context.Context) buildResult {
 	t0 := time.Now()
 	lps, err := listPackages(ctx, s.run, s.Root, nil, false)
 	tList := time.Since(t0)
-	g := newGraph(s.Root)
-	man := &manifest{Version: formatVersion, Root: s.Root, Packages: map[string]manEntry{}, Unowned: map[string]FileInfo{}, Exports: map[string]string{}}
-	var pkgs []*Package
-	var b *builder
+	r := buildResult{g: newGraph(s.Root), lps: lps,
+		man: &manifest{Version: formatVersion, Root: s.Root, Packages: map[string]manEntry{}, Unowned: map[string]FileInfo{}, Exports: map[string]string{}}}
 	if err != nil {
-		s.note = "syntax-only (types unavailable: " + firstLine(err.Error()) + ")"
-		pkgs = syntaxOnly(s.Root)
+		r.note = "syntax-only (types unavailable: " + firstLine(err.Error()) + ")"
+		r.pkgs = syntaxGraph(s.Root)
 	} else {
-		b = newBuilder(s.Root, lps)
-		s.note = ""
+		r.b = newBuilder(s.Root, lps)
+		budget, workers := s.sizing()
+		r.b.workers = workers
+		prev := debug.SetMemoryLimit(budget) // soft limit: the GC works harder instead of overshooting
+		defer debug.SetMemoryLimit(prev)
 		var jobs []*listPkg
 		for _, p := range lps {
 			if workspace(p, s.Root) {
 				jobs = append(jobs, p)
 			}
 		}
-		pkgs, _ = b.buildAll(ctx, jobs)
+		r.pkgs, _ = r.b.buildAll(ctx, jobs)
 		for _, p := range lps {
 			if p.ForTest == "" && p.Export != "" && !strings.Contains(p.ImportPath, " ") {
-				man.Exports[p.ImportPath] = p.Export
+				r.man.Exports[p.ImportPath] = p.Export
 			}
 		}
 	}
-	tCheck := time.Since(t0) - tList
-	for _, p := range pkgs {
+	for _, p := range r.pkgs {
 		if p != nil {
-			g.put(p)
+			r.g.put(p)
 		}
 	}
-	t1 := time.Now()
-	s.trackUnowned(g, man, nil)
-	if err := s.save(man, pkgs); err != nil {
+	s.trackUnowned(r.g, r.man, nil)
+	r.timing = Timing{Mode: "full", List: tList, Check: time.Since(t0) - tList, Packages: len(r.pkgs), Rechecked: len(r.pkgs)}
+	return r
+}
+
+// install persists a build result and makes it current (s.mu held).
+func (s *Service) install(ctx context.Context, r buildResult) error {
+	t0 := time.Now()
+	if err := s.save(r.man, r.pkgs); err != nil {
 		return err
 	}
-	s.g, s.man = g, man
-	s.Timing = Timing{Mode: "full", List: tList, Check: tCheck, Save: time.Since(t1), Packages: len(pkgs), Rechecked: len(pkgs)}
-	if b != nil { // dependency tables after the workspace graph is usable; the importer has them decoded already
-		go s.depsAfterBuild(ctx, b, lps)
+	r.timing.Save = time.Since(t0)
+	s.g, s.man, s.note, s.Timing, s.inexact = r.g, r.man, r.note, r.timing, false
+	if r.b != nil { // dependency tables after the workspace graph is usable; the importer has them decoded already
+		s.spawn(func() { s.depsAfterBuild(ctx, r.b, r.lps) })
 	}
-	return ctx.Err()
+	return nil
+}
+
+// full builds and installs synchronously (s.mu held): the incremental fallback.
+func (s *Service) full(ctx context.Context) error {
+	return s.install(ctx, s.buildFull(ctx))
+}
+
+// background builds a full typed graph off the lock and swaps it in: after
+// the first-visit approximate pass, and for idle rebuilds of inexact graphs.
+func (s *Service) background(ctx context.Context, why string) {
+	lock, err := lockWait(ctx, filepath.Join(s.dir, "build.lock"))
+	if err != nil {
+		s.mu.Lock()
+		s.building = false
+		s.mu.Unlock()
+		return
+	}
+	r := s.buildFull(ctx)
+	lock.Close()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.building = false
+	if ctx.Err() != nil {
+		return
+	}
+	if err := s.install(ctx, r); err == nil {
+		s.Timing.Mode = why + " → typed"
+	}
 }
 
 func (s *Service) depsAfterBuild(ctx context.Context, b *builder, lps []*listPkg) {
@@ -283,6 +393,7 @@ func (s *Service) incremental(ctx context.Context, changed, gone []string) error
 	var rechecked []*Package
 	var tList time.Duration
 	local := map[string]*types.Package{}
+	apiRound := false
 	for round := 0; len(patterns) > 0 && round < 2; round++ {
 		done := map[string]bool{}
 		tl := time.Now()
@@ -320,6 +431,7 @@ func (s *Service) incremental(ctx context.Context, changed, gone []string) error
 			// API changed: importers — including ones re-checked this round
 			// against the old export data — are checked again against the new package.
 			if old, ok := s.man.Packages[p.Path]; round == 0 && (!ok || old.APIHash != p.APIHash) {
+				apiRound = true
 				for path, e := range s.man.Packages {
 					if path != p.Path && contains(e.Imports, p.Path) && len(e.Files) > 0 {
 						patterns = append(patterns, "./"+filepath.Dir(e.Files[0].Name))
@@ -357,6 +469,9 @@ func (s *Service) incremental(ctx context.Context, changed, gone []string) error
 		return err
 	}
 	s.Timing = Timing{Mode: "incremental", List: tList, Check: tCheck, Save: time.Since(t1), Packages: len(s.man.Packages), Rechecked: len(rechecked)}
+	if apiRound {
+		s.inexact = true // importers saw a mix of old and new types: rebuild exactly when idle
+	}
 	return ctx.Err()
 }
 

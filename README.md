@@ -21,7 +21,8 @@ Recommended on Linux: `sudo pacman -S bubblewrap ripgrep` (sandbox + fast search
 Keys from env or `~/.config/ternly/keys.env` (0600): Anthropic, OpenAI, OpenRouter, Gemini, DeepSeek,
 Groq, Mistral, xAI, Together, Fireworks, Cerebras, Moonshot, Qwen/DashScope, Z.ai — plus any
 OpenAI-compatible endpoint in `config.json`. Local: Ollama (incl. `OLLAMA_HOST`, real tool-support
-detection), LM Studio, llama.cpp, vLLM, Jan. Live prices/context come from OpenRouter's public
+detection; Ollama Cloud models are recognised as remote and quota-limited, so `--local-only`
+excludes them), LM Studio, llama.cpp, vLLM, Jan. Live prices/context come from OpenRouter's public
 catalog (cached 24 h). `ternly -models` prints the table.
 
 ## How it keeps token cost down

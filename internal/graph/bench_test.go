@@ -44,6 +44,10 @@ func TestLargeRepoBenchmark(t *testing.T) {
 	s := NewService(root, cache, "bench", run)
 	s.Start(context.Background())
 	g, note, err := s.Graph(context.Background(), time.Hour)
+	t.Logf("first answer (approximate graph): %v (%s, %d packages, %d symbols, %d refs; note=%q)",
+		time.Since(t0).Round(time.Millisecond), s.Timing.Mode, g.Stats().Packages, g.Stats().Symbols, g.Stats().Refs, note)
+	waitBuilt(t, s)
+	g, note, err = s.Graph(context.Background(), time.Hour)
 	close(stop)
 	if err != nil {
 		t.Fatal(err)
@@ -73,6 +77,7 @@ func TestLargeRepoBenchmark(t *testing.T) {
 	t0 = time.Now()
 	s2 := NewService(root, cache, "bench", run)
 	s2.Start(context.Background())
+	waitBuilt(t, s2)
 	g2, _, _ := s2.Graph(context.Background(), time.Hour)
 	t.Logf("load from cache: %v (%+v)", time.Since(t0).Round(time.Millisecond), g2.Stats())
 
@@ -136,6 +141,7 @@ func TestIncrementalPrecision(t *testing.T) {
 	}
 	s := NewService(root, t.TempDir(), "bench", localRun)
 	s.Start(context.Background())
+	waitBuilt(t, s)
 	g, _, _ := s.Graph(context.Background(), time.Hour)
 	e0, r0 := errs(g)
 	p := filepath.Join(root, file)
@@ -146,7 +152,35 @@ func TestIncrementalPrecision(t *testing.T) {
 	e1, r1 := errs(g)
 	fresh := NewService(root, t.TempDir(), "bench", localRun)
 	fresh.Start(context.Background())
+	waitBuilt(t, fresh)
 	gf, _, _ := fresh.Graph(context.Background(), time.Hour)
 	e2, r2 := errs(gf)
 	t.Logf("type errors: before %d, after incremental %d, fresh full build %d; refs %d → %d (fresh %d)", e0, e1, e2, r0, r1, r2)
+}
+
+// One full typed build per process, sized by TERNLY_GRAPH_WORKERS /
+// TERNLY_GRAPH_BUDGET_MB; reports peak RSS (VmHWM) for the whole process.
+func TestBuildMemory(t *testing.T) {
+	root := os.Getenv("TERNLY_GRAPH_BENCH")
+	if root == "" || os.Getenv("TERNLY_GRAPH_MEM") == "" {
+		t.Skip("TERNLY_GRAPH_BENCH + TERNLY_GRAPH_MEM not set")
+	}
+	s := NewService(root, t.TempDir(), "bench", localRun)
+	fmt.Sscan(os.Getenv("TERNLY_GRAPH_WORKERS"), &s.Workers)
+	var mb int64
+	fmt.Sscan(os.Getenv("TERNLY_GRAPH_BUDGET_MB"), &mb)
+	s.MemBudget = mb << 20
+	budget, workers := s.sizing()
+	t0 := time.Now()
+	r := s.buildFull(context.Background())
+	elapsed := time.Since(t0)
+	st := r.g.Stats()
+	status, _ := os.ReadFile("/proc/self/status")
+	var hwm string
+	for _, ln := range strings.Split(string(status), "\n") {
+		if strings.HasPrefix(ln, "VmHWM:") {
+			hwm = strings.TrimSpace(strings.TrimPrefix(ln, "VmHWM:"))
+		}
+	}
+	t.Logf("workers=%d budget=%d MB: full build %v (check %v), %d packages, peak RSS %s", workers, budget>>20, elapsed.Round(time.Millisecond), r.timing.Check.Round(time.Millisecond), st.Packages, hwm)
 }

@@ -34,6 +34,7 @@ func TestTokenReduction(t *testing.T) {
 	}
 	svc := NewService(root, cache, "bench", localRun)
 	svc.Start(context.Background())
+	waitBuilt(t, svc) // measure the typed graph, not the approximate first pass
 	g, _, err := svc.Graph(context.Background(), time.Hour)
 	if err != nil {
 		t.Fatal(err)

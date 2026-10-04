@@ -127,6 +127,7 @@ type Sandbox struct {
 	Bwrap   string // path to bubblewrap, "" = unsandboxed
 	NoNet   bool
 	Mask    []string // directories hidden from commands (ternly's own config, cache and data)
+	Binds   []string // extra writable directories, e.g. a GOCACHE under /tmp (see Writable)
 	scrub   []string
 	maxWait time.Duration
 }
@@ -220,12 +221,17 @@ func (s *Sandbox) bwrapArgs(root string) []string {
 		a = append(a, "--unshare-net")
 	}
 	// writable: workspace + toolchain caches
-	for _, d := range []string{".cache", "go", ".cargo", ".npm", ".rustup", ".local/share/pnpm", ".gradle", ".m2"} {
+	for _, d := range writableHomeDirs {
 		if p := filepath.Join(home, d); exists(p) {
 			a = append(a, "--bind", p, p)
 		}
 	}
 	a = append(a, "--bind", root, root)
+	for _, p := range s.Binds { // after --tmpfs /tmp, so a bind under /tmp is visible again
+		if exists(p) {
+			a = append(a, "--bind", p, p)
+		}
+	}
 	// masked: credentials
 	for _, d := range []string{".ssh", ".gnupg", ".aws", ".azure", ".config/gcloud", ".kube", ".docker", ".password-store", ".mozilla", ".config/google-chrome", ".config/chromium"} {
 		if p := filepath.Join(home, d); exists(p) {
@@ -243,6 +249,33 @@ func (s *Sandbox) bwrapArgs(root string) []string {
 		}
 	}
 	return append(a, "--chdir", root, "--")
+}
+
+// writableHomeDirs are the toolchain caches the sandbox binds read-write.
+var writableHomeDirs = []string{".cache", "go", ".cargo", ".npm", ".rustup", ".local/share/pnpm", ".gradle", ".m2"}
+
+// Writable reports whether commands in the sandbox can write path and have
+// the result seen outside (it lies in the workspace or a bound cache).
+func (s *Sandbox) Writable(root, path string) bool {
+	if s.Bwrap == "" {
+		return true
+	}
+	under := func(dir string) bool { return path == dir || strings.HasPrefix(path, dir+string(filepath.Separator)) }
+	if under(root) {
+		return true
+	}
+	home, _ := os.UserHomeDir()
+	for _, d := range writableHomeDirs {
+		if p := filepath.Join(home, d); under(p) && exists(p) {
+			return true
+		}
+	}
+	for _, b := range s.Binds {
+		if under(b) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Sandbox) env() []string {

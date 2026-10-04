@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -170,7 +171,14 @@ func run() int {
 
 	pol := tools.NewPolicy(permMode, nil)
 	sb := tools.NewSandbox(!*noSandbox, *noNet, scrub)
-	sb.Mask = []string{cfgDir, cacheDir, dataDir} // keys, checkpoints and sessions stay out of reach of model-run commands
+	sb.Mask = []string{cfgDir, cacheDir, dataDir}                              // keys, checkpoints and sessions stay out of reach of model-run commands
+	if out, err := exec.Command("go", "env", "GOCACHE").Output(); err == nil { // e.g. GOCACHE in /tmp: the sandbox's /tmp is private
+		if gc := strings.TrimSpace(string(out)); filepath.IsAbs(gc) && !sb.Writable(*dir, gc) {
+			if os.MkdirAll(gc, 0o700) == nil {
+				sb.Binds = append(sb.Binds, gc)
+			}
+		}
+	}
 	if !*noSandbox && sb.Bwrap == "" {
 		notes = append(notes, "bubblewrap not found — shell commands run unsandboxed (sudo pacman -S bubblewrap)")
 	}
