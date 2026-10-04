@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "filesystem-docs": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/you/docs"] },
+    "github": { "command": "github-mcp-server", "args": ["stdio"], "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }, "trusted": false }
+  }
+}

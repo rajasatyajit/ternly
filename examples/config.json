@@ -1,0 +1,15 @@
+{
+  "mode": "ask",
+  "budget": 2.00,
+  "verify": null,
+  "no_local": false,
+  "model": "",
+  "tiers": {
+    "ollama/qwen3-coder:30b": 2,
+    "openrouter/some-new-model": 3
+  },
+  "providers": [
+    { "id": "work-vllm", "name": "Team vLLM", "kind": "openai",
+      "base_url": "http://gpu-box:8000/v1", "key_env": "WORK_VLLM_KEY", "local": false }
+  ]
+}
