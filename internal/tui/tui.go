@@ -20,6 +20,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -119,29 +120,33 @@ type block struct {
 // ─────────────────────────── model ───────────────────────────
 
 type Model struct {
-	App         *App
-	vp          viewport.Model
-	ta          textarea.Model
-	md          *glamour.TermRenderer
-	style       string
-	w, h        int
-	blocks      []*block
-	busy        bool
-	cancel      context.CancelFunc
-	frame       int
-	dirty       bool
-	activity    string
-	model       *discover.Model
-	reason      string
-	ledger      agent.Ledger
-	turnCost0   float64 // session cost when the current turn started
-	perm        *permMsg
-	queue       []string
-	hist        []string
-	histIx      int
-	quitAt      time.Time
-	ready       bool
-	discovering bool
+	App           *App
+	vp            viewport.Model
+	ta            textarea.Model
+	md            *glamour.TermRenderer
+	style         string
+	w, h          int
+	blocks        []*block
+	busy          bool
+	cancel        context.CancelFunc
+	frame         int
+	dirty         bool
+	activity      string
+	model         *discover.Model
+	reason        string
+	ledger        agent.Ledger
+	turnCost0     float64 // session cost when the current turn started
+	perm          *permMsg
+	queue         []string
+	hist          []string
+	histIx        int
+	quitAt        time.Time
+	ready         bool
+	discovering   bool
+	picker        *picker
+	pendingSwitch string // switch to this session when the running turn has paused
+	pendingStop   bool   // /stop issued mid-turn
+	paused        bool   // /pause while idle: the next prompt re-activates the session
 }
 
 // App bundles the long-lived services the UI drives.
@@ -152,6 +157,9 @@ type App struct {
 	Discover func() ([]*discover.Model, []string)
 	Notes    []string
 	Version  string
+	Sessions *session.Manager // nil: no persistence (tests)
+	Banner   string           // shown at start (resumed session, fork offer)
+	Pick     bool             // open the session picker at start (bare --resume)
 }
 
 func New(app *App, dark bool) *Model {
@@ -173,6 +181,14 @@ func New(app *App, dark bool) *Model {
 	}
 	m := &Model{App: app, ta: ta, vp: viewport.New(80, 20), style: style, discovering: true}
 	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
+	if app.Sessions != nil {
+		if st := app.Agent.Export(); len(st.History) > 0 {
+			m.loadTranscript(st)
+		}
+	}
+	if app.Banner != "" {
+		m.blocks = append(m.blocks, &block{kind: bInfo, text: sAccent.Render("  ") + app.Banner})
+	}
 	for _, n := range app.Notes {
 		m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("! ") + n})
 	}
@@ -180,10 +196,14 @@ func New(app *App, dark bool) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, tick(), func() tea.Msg {
+	cmds := []tea.Cmd{textarea.Blink, tick(), func() tea.Msg {
 		ms, w := m.App.Discover()
 		return discoveredMsg{ms, w}
-	})
+	}}
+	if m.App.Pick && m.App.Sessions != nil {
+		cmds = append(cmds, func() tea.Msg { return openPickerMsg{} })
+	}
+	return tea.Batch(cmds...)
 }
 
 func tick() tea.Cmd {
@@ -255,7 +275,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addInfo(sOK.Render(txt))
 
 	case agentMsg:
-		m.onAgent(agent.Event(msg))
+		cmds = append(cmds, m.onAgent(agent.Event(msg)))
+
+	case openPickerMsg:
+		m.openPicker()
+
+	case switchedMsg:
+		m.queue, m.paused = nil, false
+		m.loadTranscript(msg.st)
+		title := orStr(m.App.Agent.Title(), m.App.Sessions.Current().ID)
+		if p := msg.st.Settings; p != nil && p.Pin != "" {
+			if mod, err := m.App.Router.Pin(p.Pin); err == nil && mod != nil {
+				m.model, m.reason = mod, "pinned"
+			}
+		}
+		m.addInfo(sOK.Render(fmt.Sprintf("  ⇄ %s “%s” · %d turns · $%.4f", msg.verb, title, msg.st.Ledger.Turns, msg.st.Ledger.Cost)))
+		st := msg.st
+		cmds = append(cmds, func() tea.Msg { // drift snapshots the workspace: off the UI goroutine
+			if cs := m.App.Sessions.Drift(context.Background(), st); len(cs) > 0 {
+				return infoMsg(sWarn.Render(fmt.Sprintf("  %d file(s) changed outside this session since it paused; the model is told on your next prompt", len(cs))))
+			}
+			return nil
+		})
 
 	case tea.KeyMsg:
 		if c, handled := m.onKey(msg); handled {
@@ -273,6 +314,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) onKey(k tea.KeyMsg) (tea.Cmd, bool) {
+	if m.picker != nil && m.perm == nil {
+		return m.pickerKey(k), true
+	}
 	if m.perm != nil {
 		var d tools.Decision
 		switch k.String() {
@@ -377,6 +421,10 @@ func (m *Model) submit(v string) tea.Cmd {
 func (m *Model) start(prompt string) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel, m.busy, m.activity = cancel, true, "Routing"
+	if m.paused { // a prompt after /pause continues the session
+		m.App.Agent.Commit(agent.Record{T: "status", Text: "active"})
+		m.paused = false
+	}
 	m.turnCost0 = m.ledger.Cost
 	if m.discovering {
 		m.activity = "Discovering models"
@@ -388,7 +436,7 @@ func (m *Model) start(prompt string) tea.Cmd {
 	}
 }
 
-func (m *Model) onAgent(e agent.Event) {
+func (m *Model) onAgent(e agent.Event) tea.Cmd {
 	switch e.Kind {
 	case agent.EvText:
 		last := m.blocks[len(m.blocks)-1]
@@ -400,7 +448,7 @@ func (m *Model) onAgent(e agent.Event) {
 		last.rendered = ""
 		m.activity = "Writing"
 		m.dirty = true
-		return
+		return nil
 	case agent.EvModel:
 		m.model, m.reason = e.Model, e.Reason
 		m.activity = "Thinking"
@@ -442,6 +490,18 @@ func (m *Model) onAgent(e agent.Event) {
 				b.state, b.rendered = 2, ""
 			}
 		}
+		if sm := m.App.Sessions; sm != nil {
+			go sm.AutoTitle(context.Background())
+			switch {
+			case m.pendingStop:
+				_ = sm.Close("stopped")
+				return tea.Quit
+			case m.pendingSwitch != "":
+				id := m.pendingSwitch
+				m.pendingSwitch, m.queue = "", nil
+				return m.switchTo(id)
+			}
+		}
 		if len(m.queue) > 0 {
 			next := m.queue[0]
 			m.queue = m.queue[1:]
@@ -451,6 +511,7 @@ func (m *Model) onAgent(e agent.Event) {
 		}
 	}
 	m.refresh(true)
+	return nil
 }
 
 func (m *Model) addInfo(s string) {
@@ -463,6 +524,13 @@ func (m *Model) addInfo(s string) {
 func (m *Model) command(v string) tea.Cmd {
 	f := strings.Fields(v)
 	arg := strings.TrimSpace(strings.TrimPrefix(v, f[0]))
+	if c, ok := m.sessionCommand(f[0], arg); ok {
+		return c
+	}
+	switch f[0] {
+	case "/mode", "/model", "/verify", "/budget", "/limits": // settings are saved with the session
+		defer m.saveSettings()
+	}
 	switch f[0] {
 	case "/help", "/?":
 		m.addInfo(helpText)
@@ -559,6 +627,12 @@ func (m *Model) command(v string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) saveSettings() {
+	if m.App.Sessions != nil {
+		m.App.Sessions.SaveSettings()
+	}
+}
+
 // rewind plans, confirms (via the permission dialog) and applies a rewind off the UI goroutine.
 func (m *Model) rewind(n int, mode string) tea.Cmd {
 	if m.busy {
@@ -653,6 +727,9 @@ const helpText = `  /models [filter]   list discovered models (tier · price $/M
   /undo              revert the last turn (files + conversation)
   /rewind [n] [both|code|chat]   list turns, or restore to before turn n
   /limits [steps N|time 45m|turn-usd X]   per-turn step/time/spend limits
+  /sessions          pick a session (fuzzy)  /switch|/resume <id>   switch in place
+  /new  /fork [n|id]  /rename <title>  /delete <id>  /export [md|json] [file]
+  /pause             stop at a safe point and save   /stop   save as stopped and exit
   /mode ask|edits|yolo   permission mode      /verify <cmd|off>   post-edit check
   /budget <usd>      hard spend cap          /refresh            re-discover providers
   /clear             new conversation        /exit
@@ -700,6 +777,9 @@ func (m *Model) layout() {
 	permH := 0
 	if m.perm != nil {
 		permH = 5
+	}
+	if m.picker != nil {
+		permH += min(len(m.picker.items()), 9) + 4
 	}
 	m.vp.Width = m.w
 	m.vp.Height = max(3, m.h-1-inputH-1-permH)
@@ -781,6 +861,9 @@ func (m *Model) View() string {
 	if m.perm != nil {
 		sb.WriteString(m.permView() + "\n")
 	}
+	if m.picker != nil {
+		sb.WriteString(m.pickerView() + "\n")
+	}
 	box := sBox
 	if m.ta.Focused() {
 		box = sBoxOn
@@ -797,6 +880,9 @@ func (m *Model) header() string {
 		cwd = strings.Replace(cwd, home, "~", 1)
 	}
 	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode())
+	if t := m.App.Agent.Title(); t != "" {
+		right = sAccent.Render(truncate(t, 32)) + sDim.Render(" · ") + right
+	}
 	mid := sDim.Render("  " + cwd)
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right

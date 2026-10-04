@@ -73,22 +73,14 @@ type Agent struct {
 	CP     *checkpoint.Store // nil: checkpoints disabled
 
 	running atomic.Bool
+	pause   atomic.Bool // stop at the next safe point (between tool calls)
 	mu      sync.Mutex
 	verify  string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
-	history []llm.Message
-	turns   []turn
+	state   State  // everything a session persists; changed only through commit
+	journal Journal
+	note    string // harness note prepended to the next prompt (e.g. workspace drift)
 	system  string
-	ledger  Ledger
-	stats   Stats
 	current *discover.Model
-}
-
-// turn records where a user turn starts so it can be rewound.
-type turn struct {
-	prompt string
-	at     time.Time
-	hist   int    // len(history) before the prompt
-	tree   string // workspace checkpoint before the turn's first mutation ("" = none)
 }
 
 func New(reg *tools.Registry, r *discover.Router, emit func(Event)) *Agent {
@@ -97,7 +89,51 @@ func New(reg *tools.Registry, r *discover.Router, emit func(Event)) *Agent {
 	return a
 }
 
-func (a *Agent) Ledger() Ledger { a.mu.Lock(); defer a.mu.Unlock(); return a.ledger }
+func (a *Agent) Ledger() Ledger { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Ledger }
+
+// commit applies r to the state and journals a redacted copy.
+func (a *Agent) commit(r Record) {
+	r.TS = time.Now().UnixMilli()
+	a.mu.Lock()
+	a.state.Apply(r)
+	j := a.journal
+	a.mu.Unlock()
+	if j != nil {
+		j.Record(r.redacted(a.Reg.Redact.Apply))
+	}
+}
+
+// Commit records a change made outside a turn (title, status, settings).
+func (a *Agent) Commit(r Record) { a.commit(r) }
+
+// SetJournal sets where records go (nil: nowhere).
+func (a *Agent) SetJournal(j Journal) { a.mu.Lock(); a.journal = j; a.mu.Unlock() }
+
+// Export returns a copy of the session state.
+func (a *Agent) Export() State { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Clone() }
+
+// Load replaces the session state (switch/resume). It refuses while a turn runs.
+func (a *Agent) Load(s State) error {
+	if a.running.Load() {
+		return errors.New("a turn is running — pause it first")
+	}
+	a.mu.Lock()
+	a.state, a.current, a.note = s.Clone(), nil, ""
+	a.mu.Unlock()
+	return nil
+}
+
+// Title is the session's title ("" until named).
+func (a *Agent) Title() string { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Title }
+
+// SetNote queues a harness note for the next prompt (e.g. files changed outside the session).
+func (a *Agent) SetNote(s string) { a.mu.Lock(); a.note = s; a.mu.Unlock() }
+
+// Pause asks a running turn to stop at its next safe point (between tool calls).
+func (a *Agent) Pause() { a.pause.Store(true) }
+
+// Running reports whether a turn is in progress.
+func (a *Agent) Running() bool { return a.running.Load() }
 
 // Caps returns the per-turn limits and session budget; SetCaps changes them
 // (safe while a turn runs; applies from the next turn).
@@ -107,7 +143,7 @@ func (a *Agent) SetCaps(l Limits, budget float64) {
 	a.Limits, a.Budget = l, budget
 	a.mu.Unlock()
 }
-func (a *Agent) Stats() Stats { a.mu.Lock(); defer a.mu.Unlock(); return a.stats }
+func (a *Agent) Stats() Stats { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Stats }
 
 // VerifyCmd / SetVerify: the post-edit check ("" = off). A running turn keeps
 // the command it started with; a change applies from the next turn.
@@ -117,7 +153,7 @@ func (a *Agent) SetVerify(cmd string) {
 	a.verify = cmd
 	a.mu.Unlock()
 }
-func (a *Agent) Reset() { a.mu.Lock(); a.history, a.turns = nil, nil; a.mu.Unlock() }
+func (a *Agent) Reset() { a.commit(Record{T: "reset"}) }
 func (a *Agent) Current() *discover.Model {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -139,19 +175,34 @@ func estTokens(sys string, msgs []llm.Message) int {
 // Run handles one user turn end-to-end.
 func (a *Agent) Run(ctx context.Context, prompt string) {
 	a.running.Store(true)
-	defer func() { a.running.Store(false); a.Emit(Event{Kind: EvDone, Ledger: a.Ledger()}) }()
+	a.pause.Store(false)
+	defer func() {
+		a.running.Store(false)
+		a.commit(Record{T: "stats", Stats: ptr(a.Stats())})
+		a.mu.Lock()
+		j := a.journal
+		a.mu.Unlock()
+		if j != nil {
+			j.Sync() // turn boundary: make the turn durable
+		}
+		a.Emit(Event{Kind: EvDone, Ledger: a.Ledger()})
+	}()
 	select {
 	case <-a.Router.Ready():
 	case <-ctx.Done():
 		return
 	}
 	a.mu.Lock()
-	a.turns = append(a.turns, turn{prompt: prompt, at: time.Now(), hist: len(a.history)})
-	a.history = append(a.history, llm.Message{Role: "user", Content: prompt})
-	a.ledger.Turns++
-	st := newTurnState(a.ledger.Cost)
+	content := prompt
+	if a.note != "" {
+		content, a.note = a.note+"\n\n"+prompt, ""
+	}
+	st := newTurnState(a.state.Ledger.Cost)
 	st.lim, st.budget, st.verify = a.Limits, a.Budget, a.verify
 	a.mu.Unlock()
+	a.commit(Record{T: "turn", Prompt: prompt})
+	a.commit(Record{T: "msg", Msg: &llm.Message{Role: "user", Content: content}})
+	defer a.endTurn(context.WithoutCancel(ctx), st) // runs before the stats/sync defer above
 
 	tctx := ctx // turn deadline: tools and streams stop, then the turn ends with a summary
 	if st.lim.Time > 0 {
@@ -162,7 +213,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 
 	failures := 0
 	diff := discover.Classify(prompt, 0)
-	need := estTokens(a.system, a.history) + 16000
+	need := estTokens(a.system, a.Export().History) + 16000
 	model, reason := a.Router.Pick(diff, need)
 	if model == nil {
 		a.Emit(Event{Kind: EvError, Text: "No usable model found. Set an API key (e.g. ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY) or start Ollama / LM Studio, then /refresh."})
@@ -173,6 +224,10 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 	verifyTries := 0
 	for step := 0; ; step++ {
 		if ctx.Err() != nil {
+			return
+		}
+		if a.pause.Load() {
+			a.Emit(Event{Kind: EvStatus, Text: "paused — the session is saved; send a prompt to continue"})
 			return
 		}
 		if why := a.limitHit(tctx, st, step); why != "" {
@@ -199,9 +254,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 			a.Emit(Event{Kind: EvError, Text: err.Error()})
 			return
 		}
-		a.mu.Lock()
-		a.history = append(a.history, msg)
-		a.mu.Unlock()
+		a.commit(Record{T: "msg", Msg: &msg})
 
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
@@ -306,23 +359,38 @@ func (a *Agent) stop(ctx context.Context, st *turnState, steps int, why string) 
 }
 
 func (a *Agent) appendUser(s string) {
-	a.mu.Lock()
-	a.history = append(a.history, llm.Message{Role: "user", Content: s})
-	a.mu.Unlock()
+	a.commit(Record{T: "msg", Msg: &llm.Message{Role: "user", Content: s}})
 }
 
-func (a *Agent) count(f func(*Stats)) { a.mu.Lock(); f(&a.stats); a.mu.Unlock() }
+func (a *Agent) count(f func(*Stats)) { a.mu.Lock(); f(&a.state.Stats); a.mu.Unlock() }
+
+// endTurn records the workspace as the turn left it (the drift baseline for
+// resume) and pins it, if the turn changed anything.
+func (a *Agent) endTurn(ctx context.Context, st *turnState) {
+	if a.CP == nil || st.tree == "" {
+		return
+	}
+	tree, err := a.CP.Snapshot(ctx)
+	if err != nil {
+		return
+	}
+	_ = a.CP.Keep(ctx, tree)
+	a.commit(Record{T: "tree", Tree: tree})
+}
+
+func ptr[T any](v T) *T { return &v }
 
 func (a *Agent) setModel(m *discover.Model, reason string) {
 	a.mu.Lock()
 	a.current = m
 	a.mu.Unlock()
+	a.commit(Record{T: "model", Text: m.Key()})
 	a.Emit(Event{Kind: EvModel, Model: m, Reason: reason})
 }
 
 func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm.ToolCall, string, error) {
 	a.mu.Lock()
-	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.history...), Tools: a.Reg.Specs()}
+	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.state.History...), Tools: a.Reg.Specs()}
 	a.mu.Unlock()
 	cl := llm.New(m.Provider.Endpoint())
 	var text strings.Builder
@@ -347,12 +415,8 @@ func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm
 }
 
 func (a *Agent) account(m *discover.Model, u llm.Usage) {
-	a.mu.Lock()
-	a.ledger.Usage.Add(u)
-	a.ledger.Cost += m.Cost(u)
-	l := a.ledger
-	a.mu.Unlock()
-	a.Emit(Event{Kind: EvUsage, Ledger: l})
+	a.commit(Record{T: "usage", Usage: &u, Cost: m.Cost(u)})
+	a.Emit(Event{Kind: EvUsage, Ledger: a.Ledger()})
 }
 
 // runTools executes read-only calls concurrently, everything else in order,
@@ -382,6 +446,11 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		summary := tc.Name
 		if t := a.Reg.Get(tc.Name); t != nil {
 			summary = t.Summary([]byte(tc.Args))
+		}
+		if a.pause.Load() { // safe point: don't start more calls
+			res[i] = tools.Result{Out: "cancelled: paused by the user before this call ran.", IsErr: true, Rejected: true}
+			blocked[i] = true
+			return
 		}
 		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary})
 		t0 := time.Now()
@@ -417,18 +486,20 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		i++
 	}
 
+	for i, tc := range calls {
+		a.commit(Record{T: "msg", Msg: &llm.Message{Role: "tool", ToolCallID: tc.ID, Content: res[i].Out}})
+	}
 	a.mu.Lock()
 	for i, tc := range calls {
-		a.history = append(a.history, llm.Message{Role: "tool", ToolCallID: tc.ID, Content: res[i].Out})
 		r := res[i]
 		switch {
 		case r.Rejected && strings.HasPrefix(r.Out, "permission denied"):
-			a.stats.Denied++
+			a.state.Stats.Denied++
 		case r.Rejected && !blocked[i]:
-			a.stats.Invalid++
+			a.state.Stats.Invalid++
 		}
 		if r.Flagged {
-			a.stats.Flagged++
+			a.state.Stats.Flagged++
 		}
 		if r.IsErr {
 			st.fails++
@@ -469,11 +540,13 @@ func (a *Agent) checkpoint(ctx context.Context, st *turnState) {
 		return
 	}
 	st.tree = tree
+	_ = a.CP.Keep(ctx, tree)
 	a.mu.Lock()
-	a.turns[len(a.turns)-1].tree = tree
-	a.stats.Checkpoints++
-	first := a.stats.Checkpoints == 1
+	n := len(a.state.Turns)
+	a.state.Stats.Checkpoints++
+	first := a.state.Stats.Checkpoints == 1
 	a.mu.Unlock()
+	a.commit(Record{T: "cp", N: n, Tree: tree})
 	if first {
 		if fs, err := a.CP.SecretFiles(ctx); err == nil && len(fs) > 0 {
 			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("checkpoints never capture or restore %d secret-like file(s): %s", len(fs), listFew(fs, 5))})
@@ -497,7 +570,7 @@ func (a *Agent) runVerify(ctx context.Context, cmd string) (string, bool) {
 // passes ~55% of the window (or 120k tokens), keeping the recent tail verbatim.
 func (a *Agent) maybeCompact(ctx context.Context, m *discover.Model) {
 	a.mu.Lock()
-	est := estTokens(a.system, a.history)
+	est := estTokens(a.system, a.state.History)
 	limit := min(m.Ctx*55/100, 120_000)
 	a.mu.Unlock()
 	if est < limit {
@@ -507,9 +580,7 @@ func (a *Agent) maybeCompact(ctx context.Context, m *discover.Model) {
 }
 
 func (a *Agent) Compact(ctx context.Context) error {
-	a.mu.Lock()
-	h := append([]llm.Message(nil), a.history...)
-	a.mu.Unlock()
+	h := a.Export().History
 	// cut on a user-message boundary so tool_call/result pairs stay intact
 	cut := -1
 	users := 0
@@ -543,20 +614,8 @@ func (a *Agent) Compact(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.mu.Lock()
-	a.history = append([]llm.Message{{Role: "user", Content: "[Summary of earlier conversation]\n" + sum}}, a.history[cut:]...)
-	// Turns before the cut can no longer be rewound to; later ones shift down.
-	shift := cut - 1
-	kept := a.turns[:0]
-	for _, t := range a.turns {
-		if t.hist >= cut {
-			t.hist -= shift
-			kept = append(kept, t)
-		}
-	}
-	a.turns = kept
-	a.mu.Unlock()
-	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("context compacted: ~%dk → ~%dk tokens", estTokens("", h)/1000, estTokens("", a.history)/1000)})
+	a.commit(Record{T: "compact", Cut: cut, Text: sum})
+	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("context compacted: ~%dk → ~%dk tokens", estTokens("", h)/1000, estTokens("", a.Export().History)/1000)})
 	return nil
 }
 
@@ -630,6 +689,25 @@ func DetectVerify(root string) string {
 		return "python3 -m compileall -q ."
 	}
 	return ""
+}
+
+// MakeTitle names a session from its first prompt with the cheapest model
+// (falling back to the prompt's first words).
+func (a *Agent) MakeTitle(ctx context.Context, prompt string) string {
+	fallback := strings.Join(strings.Fields(prompt)[:min(6, len(strings.Fields(prompt)))], " ")
+	um := a.Router.Utility(estTokens("", []llm.Message{{Content: prompt}}) + 500)
+	if um == nil {
+		return fallback
+	}
+	req := llm.Request{Model: um.ID, System: "Title this coding-session request in 3 to 6 words. Reply with the title only: no quotes, no trailing period.",
+		Messages: []llm.Message{{Role: "user", Content: tools.Cap(prompt, 2000)}}, MaxTokens: 24}
+	out, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, req))
+	a.account(um, u)
+	t := strings.Trim(strings.TrimSpace(strings.SplitN(out, "\n", 2)[0]), "\"'.")
+	if err != nil || t == "" || len(t) > 80 {
+		return fallback
+	}
+	return t
 }
 
 func listFew(xs []string, n int) string {

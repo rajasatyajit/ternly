@@ -36,6 +36,9 @@ func startInPTY(c *exec.Cmd, out io.Writer, cols, rows uint16) (*os.File, error)
 		s.Close()
 		return nil, err
 	}
+	if r, ok := out.(interface{ SetReply(io.Writer) }); ok {
+		r.SetReply(m) // let the test terminal answer queries
+	}
 	c.Stdin, c.Stdout, c.Stderr = s, s, s
 	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
 	if err := c.Start(); err != nil {

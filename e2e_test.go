@@ -10,7 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+
+	"github.com/rajasatyajit/ternly/internal/session"
 )
 
 // End-to-end tests run the real ternly (run()) in a child process: the test
@@ -19,6 +22,13 @@ func TestMain(m *testing.M) {
 	if a := os.Getenv("TERNLY_TEST_ARGS"); a != "" {
 		var args []string
 		_ = json.Unmarshal([]byte(a), &args)
+		if ph := os.Getenv("TERNLY_TEST_CRASH_PHASE"); ph != "" { // die like a crash between switch phases
+			session.CrashHook = func(p string) {
+				if p == ph {
+					_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)
+				}
+			}
+		}
 		os.Args = append([]string{"ternly"}, args...)
 		os.Exit(run())
 	}
@@ -56,6 +66,11 @@ func newProvider(t *testing.T, steps ...step) *fakeProvider {
 			} `json:"messages"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		if strings.Contains(body.Messages[0].Content, "Title this coding-session") { // auto-title: not part of the script
+			b, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "Scripted Title"}}}})
+			fmt.Fprintf(w, "data: %s\n\ndata: [DONE]\n\n", b)
+			return
+		}
 		f.mu.Lock()
 		if last := body.Messages[len(body.Messages)-1]; last.Role == "tool" {
 			f.tools = append(f.tools, last.Content)

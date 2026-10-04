@@ -63,12 +63,23 @@ which were skipped. `/undo` and `/rewind` restore it, and the repo is deleted wh
 File tools access the workspace through Go's `os.Root`, so a path swapped to a symlink mid-call can't
 escape. ternly's config, cache and session dirs are hidden from sandboxed commands.
 
+## Sessions
+Every session is saved as it happens: a crash-safe, append-only log under `~/.local/share/ternly`
+(owner-only, redacted, hidden from sandboxed commands). Starting ternly in a directory resumes its
+most recent session, with a one-line banner, unless you pass `--new` or set `auto_resume: false`.
+`-c` continues the latest session and `--resume <id>` a chosen one; a bare `--resume` lets you choose.
+If files changed while the session was paused, the model is told which.
+In the TUI: `/sessions` (fuzzy picker), `/switch <id>` (alias `/resume`), `/new`, `/fork [n|id]`,
+`/rename`, `/delete`, `/export md|json`, `/pause` (stop at a safe point and save) and `/stop`. All of
+them switch in place, without a restart. Checkpoints of all a project's sessions share one store
+(`checkpoint_cap_mb`, default 2048, prunes the oldest sessions' checkpoints after a warning).
+
 ## License
 Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
-`--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`.
+`--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new`.
 TUI: `/models /model /review /cost /compact /mode /verify /budget /limits /undo /rewind /refresh /clear` ·
 Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history.
 

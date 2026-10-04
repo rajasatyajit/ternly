@@ -15,6 +15,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/testutil"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -148,7 +149,7 @@ func historyValid(t *testing.T, a *Agent) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	pending := map[string]bool{}
-	for _, m := range a.history {
+	for _, m := range a.state.History {
 		for _, tc := range m.ToolCalls {
 			pending[tc.ID] = true
 		}
@@ -360,12 +361,11 @@ func TestUndoAndRewind(t *testing.T) {
 		reply{text: "just chatting"},
 	)
 	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
-	cp, err := checkpoint.Open(a.Reg.Root, t.TempDir(), "t")
+	repo, err := checkpoint.OpenRepo(a.Reg.Root, t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cp.Destroy()
-	a.CP = cp
+	a.CP, _ = repo.Session("t")
 	write(t, a, "keep.txt", "user file\n")
 	for _, p := range []string{"write v1", "change via shell", "hello"} {
 		a.Run(bg, p)
@@ -392,7 +392,7 @@ func TestUndoAndRewind(t *testing.T) {
 		t.Fatalf("after undo: a=%q gen=%v turns=%d", read(a, "a.txt"), exists(a, "gen"), len(a.Turns()))
 	}
 	a.mu.Lock()
-	h := len(a.history)
+	h := len(a.state.History)
 	a.mu.Unlock()
 	if h != 4 { // turn 1: prompt, tool call, tool result, final answer
 		t.Fatalf("history after undo: %d messages, want 4", h)
@@ -482,5 +482,120 @@ func TestVerifyChangedMidTurn(t *testing.T) {
 	a.Run(bg, "change 2 to 3")
 	if v := rec.text(EvVerify); v != "true\nexit 7\n" {
 		t.Fatalf("verify commands per turn = %q, want the turn-start command each time", v)
+	}
+}
+
+type memJournal struct {
+	mu    sync.Mutex
+	recs  []Record
+	syncs int
+}
+
+func (j *memJournal) Record(r Record) { j.mu.Lock(); j.recs = append(j.recs, r); j.mu.Unlock() }
+func (j *memJournal) Sync()           { j.mu.Lock(); j.syncs++; j.mu.Unlock() }
+
+func replay(recs []Record) State {
+	var s State
+	for _, r := range recs {
+		s.Apply(r)
+	}
+	return s
+}
+
+func sameState(t *testing.T, live, rep State) {
+	t.Helper()
+	lj, _ := json.Marshal([]any{live.History, live.Turns, live.Ledger, live.Stats, live.Tree})
+	rj, _ := json.Marshal([]any{rep.History, rep.Turns, rep.Ledger, rep.Stats, rep.Tree})
+	if string(lj) != string(rj) {
+		t.Fatalf("replay differs from live state:\nlive   %s\nreplay %s", lj, rj)
+	}
+}
+
+// Live state and the state rebuilt from its journal are identical, through
+// tool calls, checkpoints, usage, a rewind and a reset-free history.
+func TestReplayEqualsLive(t *testing.T) {
+	testutil.Require(t, "git", testutil.Have("git"))
+	f := newFake(t,
+		reply{calls: [][2]string{call("write_file", `{"path":"a.txt","content":"v1\n"}`)}}, reply{text: "wrote v1"},
+		reply{calls: [][2]string{call("read_file", `{"path":"a.txt"}`), call("bash", `{"command":"echo v2 > a.txt"}`)}}, reply{text: "v2 now"},
+		reply{text: "third"},
+	)
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	repo, _ := checkpoint.OpenRepo(a.Reg.Root, t.TempDir(), "proj")
+	a.CP, _ = repo.Session("s")
+	j := &memJournal{}
+	a.SetJournal(j)
+	for _, p := range []string{"one", "two", "three"} {
+		a.Run(bg, p)
+	}
+	p, _ := a.PlanRewind(bg, 3, RewindChat)
+	_, _ = a.Rewind(bg, p)
+	sameState(t, a.Export(), replay(j.recs))
+	if j.syncs != 3 {
+		t.Errorf("journal synced %d times, want once per turn", j.syncs)
+	}
+	if s := replay(j.recs); s.Tree == "" || len(s.Turns) != 2 || s.Turns[0].Tree == "" {
+		t.Fatalf("checkpoint/tree records missing: %+v", s.Turns)
+	}
+}
+
+// A history cut off mid-tool-call (crash, kill) is repaired into a valid one.
+func TestRepairDanglingToolCalls(t *testing.T) {
+	s := State{History: []llm.Message{
+		{Role: "user", Content: "go"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{{ID: "a", Name: "read_file"}, {ID: "b", Name: "bash"}}},
+		{Role: "tool", ToolCallID: "a", Content: "ok"},
+		{Role: "user", Content: "next"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{{ID: "c", Name: "bash"}}},
+	}, Turns: []Turn{{Hist: 0}, {Hist: 3}}}
+	if n := s.Repair(); n != 2 {
+		t.Fatalf("repaired %d, want 2", n)
+	}
+	want := []string{"user", "assistant", "tool:a", "tool:b", "user", "assistant", "tool:c"}
+	var got []string
+	for _, m := range s.History {
+		got = append(got, strings.TrimSuffix(m.Role+":"+m.ToolCallID, ":"))
+	}
+	if strings.Join(got, " ") != strings.Join(want, " ") || s.Turns[1].Hist != 4 {
+		t.Fatalf("history %v, turn 2 at %d", got, s.Turns[1].Hist)
+	}
+	if s.Repair() != 0 {
+		t.Fatal("repair is not idempotent")
+	}
+}
+
+// /pause stops at the next safe point: calls not yet started are answered as
+// cancelled, the turn ends, and the history stays valid.
+func TestPauseAtSafePoint(t *testing.T) {
+	f := newFake(t, reply{calls: [][2]string{
+		call("write_file", `{"path":"1.txt","content":"x"}`), call("write_file", `{"path":"2.txt","content":"x"}`), call("write_file", `{"path":"3.txt","content":"x"}`)}},
+		reply{text: "should not be reached"})
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	a.Emit = func(e Event) {
+		if e.Kind == EvToolEnd && e.Tool == "write_file" {
+			a.Pause() // user pauses while the first call runs
+		}
+	}
+	a.Run(bg, "write three files")
+	if exists(a, "2.txt") || !exists(a, "1.txt") || len(f.requests()) != 1 {
+		t.Fatalf("pause not honoured: 1=%v 2=%v requests=%d", exists(a, "1.txt"), exists(a, "2.txt"), len(f.requests()))
+	}
+	h := a.Export().History
+	if last := h[len(h)-1]; last.Role != "tool" || !strings.Contains(last.Content, "paused by the user") {
+		t.Fatalf("last message %+v", last)
+	}
+	historyValid(t, a)
+}
+
+func TestJournalIsRedacted(t *testing.T) {
+	f := newFake(t, reply{text: "noted"})
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	a.Reg.Redact = tools.NewRedactor(map[string]string{"X_API_KEY": "sk-live-0123456789abcdef"})
+	j := &memJournal{}
+	a.SetJournal(j)
+	a.Run(bg, "my key is sk-live-0123456789abcdef, store it")
+	b, _ := json.Marshal(j.recs)
+	if strings.Contains(string(b), "0123456789abcdef") || !strings.Contains(string(b), "[REDACTED]") {
+		t.Fatalf("journal not redacted: %s", b)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -20,11 +21,14 @@ func open(t testing.TB) (*Store, string) {
 	t.Helper()
 	testutil.Require(t, "git", testutil.Have("git"))
 	root, _ := filepath.EvalSymlinks(t.TempDir())
-	s, err := Open(root, t.TempDir(), "test")
+	repo, err := OpenRepo(root, t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = s.Destroy() })
+	s, err := repo.Session("test")
+	if err != nil {
+		t.Fatal(err)
+	}
 	return s, root
 }
 
@@ -293,43 +297,133 @@ func TestSecretsNeverSnapshotted(t *testing.T) {
 	}
 }
 
-// Retention follows the session: Destroy deletes the repo; repos whose
-// process died (lock free) and M1's shared repos are swept on the next Open;
-// a live session's repo is never touched.
-func TestSessionRetention(t *testing.T) {
+func objects(t *testing.T, r *Repo) map[string]bool {
+	out, err := r.run(ctx, "", nil, "cat-file", "--batch-all-objects", "--batch-check=%(objectname)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := map[string]bool{}
+	for _, o := range strings.Fields(out) {
+		m[o] = true
+	}
+	return m
+}
+
+// Sessions share one object store; dropping a session and collecting frees
+// only what nothing else reaches; a fork reaches its parent's checkpoints.
+func TestSharedStoreRefsAndGC(t *testing.T) {
+	testutil.Require(t, "git", testutil.Have("git"))
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	repo, err := OpenRepo(root, t.TempDir(), "proj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.grace = "now" // single process, every live index is referenced by its head ref
+	a, _ := repo.Session("a")
+	b, _ := repo.Session("b")
+	write(t, root, "shared.txt", strings.Repeat("common\n", 1000))
+	ta := snap(t, a)
+	_ = a.Keep(ctx, ta)
+	write(t, root, "only-b.txt", "unique to b")
+	tb := snap(t, b)
+	_ = b.Keep(ctx, tb)
+	if objects(t, repo)[ta] != true || len(objects(t, repo)) < 4 {
+		t.Fatal("objects missing")
+	}
+	before := len(objects(t, repo))
+
+	fork, _ := repo.Session("b-fork")
+	if err := repo.CopyRefs(ctx, "b", "b-fork"); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Drop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.GC(ctx, func(id string) bool { return id != "b" }); err != nil {
+		t.Fatal(err)
+	}
+	if !objects(t, repo)[tb] {
+		t.Fatal("GC freed a tree the fork still references")
+	}
+	_ = os.Remove(filepath.Join(root, "only-b.txt"))
+	if _, err := fork.Restore(ctx, tb); err != nil || read(root, "only-b.txt") != "unique to b" {
+		t.Fatalf("fork restore: %v", err)
+	}
+	_ = fork.Drop(ctx)
+	if err := repo.GC(ctx, func(id string) bool { return id == "a" }); err != nil {
+		t.Fatal(err)
+	}
+	after := objects(t, repo)
+	if after[tb] || !after[ta] || len(after) >= before {
+		t.Fatalf("GC: tb kept=%v ta kept=%v objects %d→%d", after[tb], after[ta], before, len(after))
+	}
+	if ids, _ := repo.Sessions(ctx); strings.Join(ids, ",") != "a" {
+		t.Fatalf("sessions with refs: %v", ids)
+	}
+}
+
+// A collector in another process must not prune objects a live session's
+// index refers to (they are reachable through its head ref) nor objects it
+// wrote moments ago (grace period).
+func TestGCSparesLiveSessions(t *testing.T) {
 	testutil.Require(t, "git", testutil.Have("git"))
 	root, _ := filepath.EvalSymlinks(t.TempDir())
 	cache := t.TempDir()
-	write(t, root, "a.txt", "a")
-	live, err := Open(root, cache, "live")
-	if err != nil {
+	repo, _ := OpenRepo(root, cache, "proj")
+	live, _ := repo.Session("live")
+	write(t, root, "a.txt", "v1")
+	t1 := snap(t, live) // only head references it
+	other, _ := OpenRepo(root, cache, "proj")
+	other.grace = "now"
+	if err := other.GC(ctx, func(id string) bool { return id == "live" }); err != nil {
 		t.Fatal(err)
 	}
-	defer live.Destroy()
-	crashed, _ := Open(root, cache, "crashed")
-	snap(t, crashed)
-	crashed.Close() // the process died: lock released, repo left behind
-	if _, err := Open(root, cache, "live"); err == nil {
-		t.Fatal("second process opened a session that is in use")
+	write(t, root, "a.txt", "v2")
+	snap(t, live) // reuses index entries; would fail on pruned objects
+	if _, err := live.Restore(ctx, t1); err != nil || read(root, "a.txt") != "v1" {
+		t.Fatalf("restore after foreign GC: %v %q", err, read(root, "a.txt"))
 	}
-	legacy := filepath.Join(cache, "checkpoints", filepath.Base(filepath.Dir(live.gitDir))+".git")
-	_ = os.MkdirAll(legacy, 0o700)
+	// objects with no ref at all survive the default grace period
+	h, _ := repo.run(ctx, "", []byte("fresh blob"), "hash-object", "-w", "--stdin")
+	repo2, _ := OpenRepo(root, cache, "proj") // default grace
+	_ = repo2.GC(ctx, func(string) bool { return true })
+	if !objects(t, repo)[strings.TrimSpace(h)] {
+		t.Fatal("default GC pruned a fresh unreferenced object")
+	}
+}
 
-	next, err := Open(root, cache, "next")
-	if err != nil {
-		t.Fatal(err)
+func TestEnforceCap(t *testing.T) {
+	testutil.Require(t, "git", testutil.Have("git"))
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	repo, _ := OpenRepo(root, t.TempDir(), "proj")
+	repo.grace = "now"
+	for i, id := range []string{"old", "mid", "new"} {
+		s, _ := repo.Session(id)
+		write(t, root, id+".bin", strings.Repeat(fmt.Sprintf("%d-random-ish-%s-", i, id), 40000)) // ~1 MB each, distinct
+		tr := snap(t, s)
+		_ = s.Keep(ctx, tr)
+		_ = os.Remove(filepath.Join(root, id+".bin"))
+		snap(t, s) // head moves off the big blob; only the cp ref keeps it
 	}
-	for dir, want := range map[string]bool{crashed.gitDir: false, legacy: false, live.gitDir: true, next.gitDir: true} {
-		if _, err := os.Stat(dir); (err == nil) != want {
-			t.Errorf("%s exists=%v, want %v", dir, err == nil, want)
-		}
+	_, _ = repo.run(ctx, "", nil, "gc", "--quiet", "--prune=now")
+	full := repo.Size()
+	limit := full - full/4 // forces pruning of at least one session
+	msg, err := repo.EnforceCap(ctx, limit, []string{"old", "mid"})
+	if err != nil || !strings.Contains(msg, "will be pruned at the next start") {
+		t.Fatalf("first pass must only warn: %q %v", msg, err)
 	}
-	if err := next.Destroy(); err != nil {
-		t.Fatal(err)
+	if ids, _ := repo.Sessions(ctx); len(ids) != 3 {
+		t.Fatal("warning pass pruned something")
 	}
-	if _, err := os.Stat(next.gitDir); !os.IsNotExist(err) {
-		t.Fatal("Destroy left the repository")
+	msg, err = repo.EnforceCap(ctx, limit, []string{"old", "mid"})
+	if err != nil || !strings.Contains(msg, "pruned checkpoints of") || repo.Size() > limit {
+		t.Fatalf("second pass: %q %v size %d > cap %d", msg, err, repo.Size(), limit)
 	}
+	ids, _ := repo.Sessions(ctx)
+	if slices.Contains(ids, "old") || !slices.Contains(ids, "new") {
+		t.Fatalf("pruned the wrong sessions: %v left", ids)
+	}
+	t.Logf("cap %s: %s", HumanSize(limit), msg)
 }
 
 // Set TERNLY_BIG_TREE to a large directory (e.g. a copy of $(go env GOROOT)/src) to time it.
@@ -338,15 +432,47 @@ func TestBigTreeTiming(t *testing.T) {
 	if dir == "" {
 		t.Skip("TERNLY_BIG_TREE not set")
 	}
-	s, err := Open(dir, t.TempDir(), "big")
+	repo, err := OpenRepo(dir, t.TempDir(), "big")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Destroy()
+	s, _ := repo.Session("big")
 	ms := func(f func()) time.Duration { t0 := time.Now(); f(); return time.Since(t0).Round(time.Millisecond) }
 	first := ms(func() { snap(t, s) })
 	again := ms(func() { snap(t, s) })
 	var secrets []string
 	scan := ms(func() { secrets, err = s.SecretFiles(ctx) })
 	t.Logf("first snapshot %v, unchanged %v, secret scan %v (%d secret-like files: %v, err %v)", first, again, scan, len(secrets), secrets, err)
+}
+
+// Disk use of 20 sessions on one project: one shared store versus one store
+// per session (the M1.1 design). Set TERNLY_BIG_TREE.
+func TestDiskSharedVsPerSession(t *testing.T) {
+	dir := os.Getenv("TERNLY_BIG_TREE")
+	if dir == "" {
+		t.Skip("TERNLY_BIG_TREE not set")
+	}
+	const n = 20
+	edit := filepath.Join(dir, "ternly-disk-test.txt")
+	defer os.Remove(edit)
+	cache := t.TempDir()
+	shared, _ := OpenRepo(dir, cache, "shared")
+	t0 := time.Now()
+	for i := range n {
+		s, _ := shared.Session(fmt.Sprintf("s%02d", i))
+		_ = os.WriteFile(edit, []byte(fmt.Sprintf("session %d", i)), 0o644)
+		_ = s.Keep(ctx, snap(t, s))
+	}
+	sharedTime := time.Since(t0)
+	var per int64
+	t0 = time.Now()
+	for i := range n {
+		r, _ := OpenRepo(dir, cache, fmt.Sprintf("per%02d", i))
+		s, _ := r.Session("only")
+		_ = os.WriteFile(edit, []byte(fmt.Sprintf("session %d", i)), 0o644)
+		_ = s.Keep(ctx, snap(t, s))
+		per += r.Size()
+	}
+	perTime := time.Since(t0)
+	t.Logf("%d sessions: shared store %s (%v to snapshot all), per-session stores %s (%v)", n, HumanSize(shared.Size()), sharedTime.Round(time.Millisecond), HumanSize(per), perTime.Round(time.Millisecond))
 }

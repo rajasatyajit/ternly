@@ -6,6 +6,8 @@
   "model": "",
   "limits": { "steps": 60, "turn_minutes": 30, "turn_usd": 2.00 },
   "checkpoints": true,
+  "checkpoint_cap_mb": 2048,
+  "auto_resume": true,
   "tiers": {
     "ollama/qwen3-coder:30b": 2,
     "openrouter/some-new-model": 3

@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -25,6 +24,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
 )
@@ -43,8 +43,10 @@ type fileConfig struct {
 		TurnMinutes *float64 `json:"turn_minutes"`
 		TurnUSD     *float64 `json:"turn_usd"`
 	} `json:"limits"`
-	Checkpoints *bool `json:"checkpoints"`
-	Providers   []struct {
+	Checkpoints     *bool `json:"checkpoints"`
+	CheckpointCapMB *int  `json:"checkpoint_cap_mb"`
+	AutoResume      *bool `json:"auto_resume"`
+	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
 		Kind    string `json:"kind"`
@@ -71,7 +73,12 @@ func run() int {
 		listModels = flag.Bool("models", false, "list discovered models and exit")
 		dir        = flag.String("C", ".", "workspace directory")
 		showVer    = flag.Bool("version", false, "print version")
+		cont       = flag.Bool("c", false, "continue the most recent session in this directory")
+		resumeID   = flag.String("resume", "", "resume session `id` (bare --resume: choose one)")
+		newSession = flag.Bool("new", false, "start a new session instead of auto-resuming the last one")
 	)
+	flag.BoolVar(cont, "continue", false, "same as -c")
+	os.Args = append(os.Args[:1], bareResume(os.Args[1:])...)
 	flag.Parse()
 	if *showVer {
 		fmt.Println("ternly", version)
@@ -215,19 +222,83 @@ func run() int {
 	if v := fc.Limits.TurnUSD; v != nil {
 		ag.Limits.TurnUSD = *v
 	}
+	project, err := session.OpenProject(dataDir, reg.Root)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sessions:", err)
+		return 2
+	}
+	var repo *checkpoint.Repo
 	if fc.Checkpoints == nil || *fc.Checkpoints {
-		if cp, err := checkpoint.Open(reg.Root, cacheDir, sessionID()); err != nil {
+		if project.AdoptedKey != "" { // the workspace moved: its checkpoints move with its sessions
+			_ = os.Rename(filepath.Join(cacheDir, "checkpoints", project.AdoptedKey+".git"), filepath.Join(cacheDir, "checkpoints", project.Key+".git"))
+		}
+		if repo, err = checkpoint.OpenRepo(reg.Root, cacheDir, project.Key); err != nil {
 			notes = append(notes, "checkpoints off ("+err.Error()+") — /undo and /rewind can only rewind the conversation")
-		} else {
-			ag.CP = cp
-			defer cp.Destroy()                      // retention follows the session; until M2 a session ends with the process
-			go func() { _, _ = cp.Snapshot(ctx) }() // baseline now, so the first edit doesn't wait to index a big repo
+			repo = nil
 		}
 	}
-	pin := pick(*model, fc.Model, "")
+	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
+	if *resumeID == "?" && *prompt != "" {
+		list, _ := project.List()
+		fmt.Fprintln(os.Stderr, "choose a session: ternly --resume <id> -p …")
+		for _, m := range list {
+			fmt.Fprintf(os.Stderr, "  %s  %-40s %s ago · %d turns · $%.4f%s\n", m.ID, orStr(m.Title, "(untitled)"), time.Since(m.Active).Round(time.Minute), m.Turns, m.Cost, map[bool]string{true: " · open elsewhere"}[m.Locked])
+		}
+		return 2
+	}
+	auto := *prompt == "" && !*newSession && (fc.AutoResume == nil || *fc.AutoResume) // headless one-shots never auto-resume
+	sess, st, banner, err := chooseSession(project, *cont, *resumeID, auto && *resumeID == "")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	restoredPin, err := mgr.Attach(sess, st, true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "session:", err)
+		return 2
+	}
+	defer mgr.Close("paused") // Esc/Ctrl+C/exit: resumable later; /stop closes it as stopped first
+	if *mode != "" {          // CLI flags win over restored settings
+		pol.SetMode(permMode)
+	}
+	if *verify != "" {
+		ag.SetVerify(vcmd)
+	}
+	if *budget >= 0 {
+		lim, _ := ag.Caps()
+		ag.SetCaps(lim, *budget)
+	}
+	if st.Settings == nil {
+		mgr.SaveSettings() // a new session records the settings it starts with
+	}
+	capMB := 2048
+	if fc.CheckpointCapMB != nil {
+		capMB = *fc.CheckpointCapMB
+	}
+	// Started once events can be shown: drift since the session paused (or a
+	// baseline snapshot so the first edit doesn't wait), then checkpoint GC and the disk cap.
+	background := func() {
+		go func() {
+			if cs := mgr.Drift(ctx, st); len(cs) > 0 {
+				ag.Emit(agent.Event{Kind: agent.EvStatus, Text: fmt.Sprintf("%d file(s) changed outside this session since it paused; the model is told on your next prompt", len(cs))})
+			} else if ag.CP != nil {
+				_, _ = ag.CP.Snapshot(ctx)
+			}
+			if repo == nil {
+				return
+			}
+			_ = repo.GC(ctx, project.Saved)
+			if msg, err := repo.EnforceCap(ctx, int64(capMB)<<20, pruneOrder(project, sess.ID)); msg != "" && err == nil {
+				ag.Emit(agent.Event{Kind: agent.EvStatus, Text: msg})
+			}
+		}()
+	}
+	pin := pick(*model, restoredPin, fc.Model)
 
 	if *prompt != "" {
-		return headless(ctx, ag, router, discoverFn, pin, *prompt, &emit, notes)
+		code := headless(ctx, ag, router, discoverFn, pin, *prompt, &emit, notes, background)
+		mgr.AutoTitle(ctx)
+		return code
 	}
 
 	app := &tui.App{Agent: ag, Router: router, Reg: reg, Discover: func() ([]*discover.Model, []string) {
@@ -239,13 +310,14 @@ func run() int {
 			}
 		}
 		return ms, w
-	}, Notes: notes, Version: version}
+	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?"}
 	dark := darkTerminal()
 	lipgloss.SetHasDarkBackground(dark) // pre-seed: no blocking OSC query for adaptive colours
 	m := tui.New(app, dark)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
 	emit = func(e agent.Event) { p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
+	background()
 	if _, err := p.Run(); err != nil && ctx.Err() == nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
@@ -258,17 +330,78 @@ func run() int {
 	return 0
 }
 
-// sessionID names this process's session until durable sessions (M2) exist.
-func sessionID() string {
-	b := make([]byte, 6)
-	_, _ = rand.Read(b)
-	return fmt.Sprintf("%s-%x", time.Now().Format("20060102-150405"), b)
+// bareResume turns a value-less --resume (last, or followed by another flag)
+// into --resume=?, meaning "let me choose".
+func bareResume(args []string) []string {
+	for i, a := range args {
+		if a == "--" {
+			break
+		}
+		if (a == "-resume" || a == "--resume") && (i+1 == len(args) || strings.HasPrefix(args[i+1], "-")) {
+			args[i] = "-resume=?"
+		}
+	}
+	return args
+}
+
+// chooseSession opens the session to start with: an explicit id, the latest
+// (-c), the auto-resume pick, or a new one. The banner describes the choice.
+func chooseSession(p *session.Project, cont bool, id string, auto bool) (*session.Session, agent.State, string, error) {
+	list, _ := p.List()
+	switch {
+	case id != "" && id != "?":
+		s, st, err := p.Open(id)
+		if err == session.ErrLocked {
+			err = fmt.Errorf("session %s is open in another ternly process; start with --new and /fork %s to branch it", id, id)
+		}
+		return s, st, resumedBanner(st, s.Meta()), err
+	case cont:
+		if len(list) == 0 {
+			break
+		}
+		if list[0].Locked {
+			return nil, agent.State{}, "", fmt.Errorf("the latest session (%s) is open in another ternly process; use --new, then /fork %s", list[0].ID, list[0].ID)
+		}
+		s, st, err := p.Open(list[0].ID)
+		return s, st, resumedBanner(st, list[0]), err
+	case auto || id == "?": // bare --resume: start as auto-resume would, then the TUI opens the picker
+		pick, locked := session.Resumable(list)
+		if pick != nil {
+			if s, st, err := p.Open(pick.ID); err == nil {
+				return s, st, resumedBanner(st, *pick), nil
+			}
+		}
+		if locked != nil {
+			s, err := p.Create()
+			return s, agent.State{}, fmt.Sprintf("session “%s” is open in another ternly process — started a new one; /fork %s branches it", orStr(locked.Title, locked.ID), locked.ID), err
+		}
+	}
+	s, err := p.Create()
+	return s, agent.State{}, "", err
+}
+
+func resumedBanner(st agent.State, m session.Meta) string {
+	return fmt.Sprintf("↺ resumed “%s” · %s ago · %d turns · $%.4f — /sessions to switch, /new for a fresh one",
+		orStr(st.Title, m.ID), time.Since(st.Active).Round(time.Minute), st.Ledger.Turns, st.Ledger.Cost)
+}
+
+// pruneOrder lists sessions whose checkpoints the disk cap may drop: oldest
+// activity first, never the current one or one open in another process.
+func pruneOrder(p *session.Project, current string) []string {
+	list, _ := p.List()
+	var ids []string
+	for i := len(list) - 1; i >= 0; i-- {
+		if m := list[i]; m.ID != current && !m.Locked {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
 }
 
 // tuiMsg converts agent events into the TUI's message type.
 func tuiMsg(e agent.Event) tea.Msg { return tui.AgentMsg(e) }
 
-func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, disc func() ([]*discover.Model, []string), pin, prompt string, emit *func(agent.Event), notes []string) int {
+func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, disc func() ([]*discover.Model, []string), pin, prompt string, emit *func(agent.Event), notes []string, background func()) int {
 	for _, n := range notes {
 		fmt.Fprintln(os.Stderr, "note:", n)
 	}
@@ -309,6 +442,7 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 			fmt.Fprintf(os.Stderr, "\n$%.4f · %.0f%% cache hits\n", e.Ledger.Cost, e.Ledger.CacheRate()*100)
 		}
 	}
+	background()
 	ictx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 	t0 := time.Now()

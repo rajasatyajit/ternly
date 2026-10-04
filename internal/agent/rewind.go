@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
@@ -20,9 +21,9 @@ type TurnInfo struct {
 func (a *Agent) Turns() []TurnInfo {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	out := make([]TurnInfo, len(a.turns))
-	for i, t := range a.turns {
-		out[i] = TurnInfo{N: i + 1, Prompt: t.prompt, At: t.at, Changed: t.tree != ""}
+	out := make([]TurnInfo, len(a.state.Turns))
+	for i, t := range a.state.Turns {
+		out[i] = TurnInfo{N: i + 1, Prompt: t.Prompt, At: t.At, Changed: t.Tree != ""}
 	}
 	return out
 }
@@ -56,19 +57,20 @@ func (a *Agent) PlanRewind(ctx context.Context, n int, mode string) (Plan, error
 		return Plan{}, fmt.Errorf("unknown mode %q (use both, code or chat)", mode)
 	}
 	a.mu.Lock()
+	turns := a.state.Turns
 	if n == 0 {
-		n = len(a.turns)
+		n = len(turns)
 	}
-	if n < 1 || n > len(a.turns) {
+	if n < 1 || n > len(turns) {
 		a.mu.Unlock()
-		return Plan{}, fmt.Errorf("no turn %d (this conversation has %d)", n, len(a.turns))
+		return Plan{}, fmt.Errorf("no turn %d (this conversation has %d)", n, len(turns))
 	}
-	p := Plan{N: n, Mode: mode, Prompt: a.turns[n-1].prompt, Drop: len(a.history) - a.turns[n-1].hist}
+	p := Plan{N: n, Mode: mode, Prompt: turns[n-1].Prompt, Drop: len(a.state.History) - turns[n-1].Hist}
 	// The workspace before turn n equals the first checkpoint at or after it:
 	// turns without a checkpoint changed nothing.
-	for _, t := range a.turns[n-1:] {
-		if t.tree != "" {
-			p.Tree = t.tree
+	for _, t := range turns[n-1:] {
+		if t.Tree != "" {
+			p.Tree = t.Tree
 			break
 		}
 	}
@@ -82,6 +84,9 @@ func (a *Agent) PlanRewind(ctx context.Context, n int, mode string) (Plan, error
 		}
 		cs, err := a.CP.Pending(ctx, p.Tree)
 		if err != nil {
+			if strings.Contains(err.Error(), "bad tree object") || strings.Contains(err.Error(), "not a tree object") || strings.Contains(err.Error(), "bad object") {
+				return Plan{}, errors.New("that turn's checkpoint was pruned to stay under the disk cap (checkpoint_cap_mb); use mode chat")
+			}
 			return Plan{}, err
 		}
 		p.Changes = cs
@@ -106,12 +111,7 @@ func (a *Agent) Rewind(ctx context.Context, p Plan) ([]checkpoint.Change, error)
 		}
 	}
 	if p.Mode != RewindCode {
-		a.mu.Lock()
-		if p.N <= len(a.turns) {
-			a.history = a.history[:a.turns[p.N-1].hist]
-			a.turns = a.turns[:p.N-1]
-		}
-		a.mu.Unlock()
+		a.commit(Record{T: "rewind", N: p.N, Mode: p.Mode})
 	}
 	return done, nil
 }

@@ -4,18 +4,17 @@
 // A checkpoint is a git tree id; .gitignore'd files are never captured, restored or deleted,
 // and neither are files that look like secrets (SecretPatterns).
 //
-// Each session owns its own shadow repository, locked while the session is
-// live and deleted with it (Destroy), so copied workspace content never
-// outlives the session that captured it.
+// One object store per project (Repo) is shared by all of its sessions; each
+// session (Store) has its own index and refs under refs/ternly/<session>/,
+// so content is stored once and GC keeps exactly what saved sessions reach.
 package checkpoint
 
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,14 +22,22 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
+// Repo is one project's shadow object store.
+type Repo struct {
+	root, gitDir string
+	git          string
+	excludes     string // user's global core.excludesFile, kept because global config is disabled
+	grace        string // gc prune expiry; objects younger than this survive even if unreferenced
+}
+
+// Store is one session's view of the Repo: its own index and refs.
 type Store struct {
-	root, gitDir, index string
-	git                 string
-	excludes            string // user's global core.excludesFile, kept because global config is disabled
-	lock                *os.File
-	mu                  sync.Mutex
+	*Repo
+	session, index string
+	mu             sync.Mutex
 }
 
 // SecretPatterns (gitignore syntax) are never snapshotted. Directories and
@@ -62,42 +69,34 @@ type Change struct {
 	Path   string
 }
 
-// Open creates the shadow repository for one session of root under cacheDir
-// and holds its lock until Close or Destroy. Repositories of this root whose
-// lock is free (their process died) are deleted first, as are pre-M1.1
-// shared repositories.
-func Open(root, cacheDir, session string) (*Store, error) {
+// OpenRepo opens (creating if needed) the object store for the project whose
+// workspace is root, keyed by key. Pre-M2 per-session repositories under
+// checkpoints/<key>/ are removed: they never outlived their process.
+func OpenRepo(root, cacheDir, key string) (*Repo, error) {
 	gitBin, err := exec.LookPath("git")
 	if err != nil {
 		return nil, errors.New("git not found")
 	}
-	if session == "" || strings.ContainsAny(session, "/\\.") {
-		return nil, fmt.Errorf("invalid session id %q", session)
+	if !validID(key) {
+		return nil, fmt.Errorf("invalid project key %q", key)
 	}
-	sum := sha256.Sum256([]byte(root))
-	key := hex.EncodeToString(sum[:8])
-	base := filepath.Join(cacheDir, "checkpoints", key)
-	_ = os.RemoveAll(filepath.Join(cacheDir, "checkpoints", key+".git")) // M1 layout: one shared repo per root
-	sweep(base)
-	s := &Store{root: root, git: gitBin, gitDir: filepath.Join(base, session+".git")}
-	s.index = filepath.Join(s.gitDir, "index")
+	base := filepath.Join(cacheDir, "checkpoints")
+	_ = os.RemoveAll(filepath.Join(base, key)) // M1.1 layout
+	r := &Repo{root: root, git: gitBin, gitDir: filepath.Join(base, key+".git"), grace: "1.hour.ago"}
 	if out, err := exec.Command(gitBin, "config", "--global", "--path", "core.excludesFile").Output(); err == nil {
-		s.excludes = strings.TrimSpace(string(out))
+		r.excludes = strings.TrimSpace(string(out))
 	}
-	// Lock before init: a concurrent sweep only claims existing lock files.
-	if err := os.MkdirAll(s.gitDir, 0o700); err != nil {
-		return nil, err
-	}
-	if s.lock, err = lockFile(filepath.Join(s.gitDir, "ternly.lock"), true); err != nil {
-		return nil, fmt.Errorf("session %s is in use by another ternly process", session)
-	}
-	if out, err := exec.Command(gitBin, "init", "-q", "--bare", s.gitDir).CombinedOutput(); err != nil {
-		s.Close()
-		return nil, fmt.Errorf("git init: %v: %s", err, out)
+	if _, err := os.Stat(filepath.Join(r.gitDir, "HEAD")); err != nil {
+		if err := os.MkdirAll(base, 0o700); err != nil {
+			return nil, err
+		}
+		if out, err := exec.Command(gitBin, "init", "-q", "--bare", r.gitDir).CombinedOutput(); err != nil {
+			return nil, fmt.Errorf("git init: %v: %s", err, out)
+		}
 	}
 	// Highest-precedence attributes: store and restore bytes exactly (no EOL
 	// conversion, filters or ident expansion from the repo's .gitattributes).
-	info := filepath.Join(s.gitDir, "info")
+	info := filepath.Join(r.gitDir, "info")
 	if err := os.MkdirAll(info, 0o700); err != nil {
 		return nil, err
 	}
@@ -107,15 +106,214 @@ func Open(root, cacheDir, session string) (*Store, error) {
 	if err := os.WriteFile(filepath.Join(info, "exclude"), excludeFile(), 0o600); err != nil {
 		return nil, err
 	}
-	return s, nil
+	return r, nil
 }
 
-func lockFile(p string, create bool) (*os.File, error) {
-	flags := os.O_RDWR
-	if create {
-		flags |= os.O_CREATE
+func validID(s string) bool { return s != "" && !strings.ContainsAny(s, "/\\. \x00") }
+
+// Session returns the handle for one session's checkpoints.
+func (r *Repo) Session(id string) (*Store, error) {
+	if !validID(id) {
+		return nil, fmt.Errorf("invalid session id %q", id)
 	}
-	f, err := os.OpenFile(p, flags, 0o600)
+	st := &Store{Repo: r, session: id, index: filepath.Join(r.gitDir, "index-"+id)}
+	if _, err := os.Stat(st.index); err != nil {
+		r.seedIndex(st.index)
+	}
+	return st, nil
+}
+
+// seedIndex starts a new session's index as a copy of the project's most
+// recently used one: git reuses its cached file stats instead of re-hashing
+// the whole workspace, and re-checks any entry whose stats changed.
+func (r *Repo) seedIndex(dst string) {
+	idx, _ := filepath.Glob(filepath.Join(r.gitDir, "index-*"))
+	var newest string
+	var mod int64
+	for _, p := range idx {
+		if strings.Contains(filepath.Base(p), ".") || strings.HasSuffix(p, "index-none") {
+			continue
+		}
+		if fi, err := os.Stat(p); err == nil && fi.ModTime().UnixNano() > mod {
+			newest, mod = p, fi.ModTime().UnixNano()
+		}
+	}
+	if newest == "" {
+		return
+	}
+	if b, err := os.ReadFile(newest); err == nil && os.WriteFile(dst, b, 0o600) == nil {
+		// keep the original mtime: git's racy-entry check compares entry
+		// times against the index file's own mtime
+		t := time.Unix(0, mod)
+		_ = os.Chtimes(dst, t, t)
+	}
+}
+
+// SetRoot points the repo at a moved workspace (trees are path-independent).
+func (r *Repo) SetRoot(root string) { r.root = root }
+
+func (s *Store) ref(name string) string { return "refs/ternly/" + s.session + "/" + name }
+
+// Keep pins tree (a checkpoint) for this session until the session is dropped.
+func (s *Store) Keep(ctx context.Context, tree string) error {
+	_, err := s.run(ctx, s.index, nil, "update-ref", s.ref("cp-"+tree), tree)
+	return err
+}
+
+// Drop deletes the session's refs and index; GC then frees what only it reached.
+func (s *Store) Drop(ctx context.Context) error {
+	if err := s.dropRefs(ctx, s.session); err != nil {
+		return err
+	}
+	_ = os.Remove(s.index)
+	return nil
+}
+
+func (r *Repo) refs(ctx context.Context, session string) ([]string, error) {
+	prefix := "refs/ternly/"
+	if session != "" {
+		prefix += session + "/"
+	}
+	out, err := r.run(ctx, "", nil, "for-each-ref", "--format=%(refname)", prefix)
+	return strings.Fields(out), err
+}
+
+func (r *Repo) dropRefs(ctx context.Context, session string) error {
+	refs, err := r.refs(ctx, session)
+	if err != nil || len(refs) == 0 {
+		return err
+	}
+	var in strings.Builder
+	for _, ref := range refs {
+		in.WriteString("delete " + ref + "\n")
+	}
+	_, err = r.run(ctx, "", []byte(in.String()), "update-ref", "--stdin")
+	return err
+}
+
+// CopyRefs gives session to the same checkpoints as from (used by /fork; no objects are copied).
+func (r *Repo) CopyRefs(ctx context.Context, from, to string) error {
+	if !validID(to) {
+		return fmt.Errorf("invalid session id %q", to)
+	}
+	refs, err := r.refs(ctx, from)
+	if err != nil {
+		return err
+	}
+	var in strings.Builder
+	for _, ref := range refs {
+		name := strings.TrimPrefix(ref, "refs/ternly/"+from+"/")
+		fmt.Fprintf(&in, "update refs/ternly/%s/%s %s\n", to, name, ref)
+	}
+	_, err = r.run(ctx, "", []byte(in.String()), "update-ref", "--stdin")
+	return err
+}
+
+// Sessions lists the ids of sessions that hold refs.
+func (r *Repo) Sessions(ctx context.Context) ([]string, error) {
+	refs, err := r.refs(ctx, "")
+	var ids []string
+	for _, ref := range refs {
+		if id, _, ok := strings.Cut(strings.TrimPrefix(ref, "refs/ternly/"), "/"); ok && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids, err
+}
+
+// GC drops refs and index files of sessions keep rejects, then prunes objects
+// no remaining ref reaches (older than the grace period, so objects a live
+// session in another process just wrote survive). One collector at a time.
+func (r *Repo) GC(ctx context.Context, keep func(session string) bool) error {
+	lock, err := lockFile(filepath.Join(r.gitDir, "gc.lock"))
+	if err != nil {
+		return nil // another process is collecting
+	}
+	defer lock.Close()
+	ids, err := r.Sessions(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if !keep(id) {
+			if err := r.dropRefs(ctx, id); err != nil {
+				return err
+			}
+		}
+	}
+	idx, _ := filepath.Glob(filepath.Join(r.gitDir, "index-*"))
+	for _, p := range idx {
+		if id := strings.TrimPrefix(filepath.Base(p), "index-"); !strings.Contains(id, ".") && !keep(id) {
+			_ = os.Remove(p)
+		}
+	}
+	_, err = r.run(ctx, "", nil, "gc", "--quiet", "--prune="+r.grace)
+	return err
+}
+
+// Size is the bytes used by the object store.
+func (r *Repo) Size() int64 {
+	var n int64
+	_ = filepath.WalkDir(filepath.Join(r.gitDir, "objects"), func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if fi, err := d.Info(); err == nil {
+				n += fi.Size()
+			}
+		}
+		return nil
+	})
+	return n
+}
+
+// EnforceCap keeps the store under capBytes. The first time it is over, it
+// only warns (and remembers that it did); the next time, it drops the
+// checkpoints of sessions in oldestFirst order until under the cap.
+func (r *Repo) EnforceCap(ctx context.Context, capBytes int64, oldestFirst []string) (string, error) {
+	marker := filepath.Join(r.gitDir, "cap-warned")
+	size := r.Size()
+	if capBytes <= 0 || size <= capBytes {
+		_ = os.Remove(marker)
+		return "", nil
+	}
+	if _, err := os.Stat(marker); err != nil {
+		_ = os.WriteFile(marker, nil, 0o600)
+		return fmt.Sprintf("checkpoints use %s, over the %s cap: the oldest sessions' checkpoints will be pruned at the next start (raise checkpoint_cap_mb to keep them)", HumanSize(size), HumanSize(capBytes)), nil
+	}
+	before, n := size, 0
+	for _, id := range oldestFirst {
+		if size <= capBytes {
+			break
+		}
+		if err := r.dropRefs(ctx, id); err != nil {
+			return "", err
+		}
+		n++
+		if _, err := r.run(ctx, "", nil, "gc", "--quiet", "--prune="+r.grace); err != nil {
+			return "", err
+		}
+		size = r.Size()
+	}
+	if size <= capBytes {
+		_ = os.Remove(marker)
+	}
+	return fmt.Sprintf("pruned checkpoints of %d oldest session(s): %s → %s (cap %s)", n, HumanSize(before), HumanSize(size), HumanSize(capBytes)), nil
+}
+
+// HumanSize formats a byte count as B, KB, MB or GB.
+func HumanSize(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1f GB", float64(n)/(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f KB", float64(n)/(1<<10))
+	}
+	return fmt.Sprintf("%d B", n)
+}
+
+func lockFile(p string) (*os.File, error) {
+	f, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}
@@ -124,39 +322,6 @@ func lockFile(p string, create bool) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
-}
-
-// sweep deletes session repositories under base whose lock nobody holds.
-func sweep(base string) {
-	ents, _ := os.ReadDir(base)
-	for _, e := range ents {
-		if !e.IsDir() || !strings.HasSuffix(e.Name(), ".git") {
-			continue
-		}
-		dir := filepath.Join(base, e.Name())
-		if f, err := lockFile(filepath.Join(dir, "ternly.lock"), false); err == nil {
-			_ = os.RemoveAll(dir)
-			f.Close()
-		}
-	}
-}
-
-// Close releases the session lock, keeping the repository (a later Open of
-// the same root sweeps it unless the session is resumed — M2).
-func (s *Store) Close() {
-	if s.lock != nil {
-		s.lock.Close()
-		s.lock = nil
-	}
-}
-
-// Destroy deletes the session's repository and every checkpoint in it.
-func (s *Store) Destroy() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	err := os.RemoveAll(s.gitDir)
-	s.Close()
-	return err
 }
 
 // SecretFiles lists workspace files skipped only because they match
@@ -231,22 +396,25 @@ func (s *Store) ignored(ctx context.Context, paths []string, byUs bool) ([]strin
 	return out, nil
 }
 
-func (s *Store) cmd(ctx context.Context, index string, args ...string) *exec.Cmd {
+func (r *Repo) cmd(ctx context.Context, index string, args ...string) *exec.Cmd {
 	cfg := []string{"-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false",
 		"-c", "core.quotePath=false", "-c", "advice.addEmbeddedRepo=false"}
-	if s.excludes != "" {
-		cfg = append(cfg, "-c", "core.excludesFile="+s.excludes)
+	if r.excludes != "" {
+		cfg = append(cfg, "-c", "core.excludesFile="+r.excludes)
 	}
-	c := exec.CommandContext(ctx, s.git, append(cfg, args...)...)
-	c.Dir = s.root
+	c := exec.CommandContext(ctx, r.git, append(cfg, args...)...)
+	c.Dir = r.root
 	// User/system config can define filters (git-lfs) or fsmonitor hooks; checkpoints must not run them.
-	c.Env = append(os.Environ(), "GIT_DIR="+s.gitDir, "GIT_WORK_TREE="+s.root, "GIT_INDEX_FILE="+index,
+	c.Env = append(os.Environ(), "GIT_DIR="+r.gitDir, "GIT_WORK_TREE="+r.root, "GIT_INDEX_FILE="+index,
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
 	return c
 }
 
-func (s *Store) run(ctx context.Context, index string, stdin []byte, args ...string) (string, error) {
-	c := s.cmd(ctx, index, args...)
+func (r *Repo) run(ctx context.Context, index string, stdin []byte, args ...string) (string, error) {
+	if index == "" { // repo-level command: no index involved
+		index = filepath.Join(r.gitDir, "index-none")
+	}
+	c := r.cmd(ctx, index, args...)
 	if stdin != nil {
 		c.Stdin = bytes.NewReader(stdin)
 	}
@@ -275,7 +443,16 @@ func (s *Store) snapshot(ctx context.Context) (string, error) {
 		}
 	}
 	out, err := s.run(ctx, s.index, nil, "write-tree")
-	return strings.TrimSpace(out), err
+	if err != nil {
+		return "", err
+	}
+	tree := strings.TrimSpace(out)
+	// head keeps everything in this session's index reachable, so another
+	// process's GC can't prune objects this index still refers to.
+	if _, err := s.run(ctx, s.index, nil, "update-ref", s.ref("head"), tree); err != nil {
+		return "", err
+	}
+	return tree, nil
 }
 
 // Diff lists paths that differ from tree `from` to tree `to`.
