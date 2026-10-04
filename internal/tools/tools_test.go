@@ -101,3 +101,51 @@ func TestGlob(t *testing.T) {
 		}
 	}
 }
+
+// /mode changed while tools run: no data race (run under -race).
+func TestModeChangedConcurrently(t *testing.T) {
+	r := newReg(t, "ask")
+	edit := r.Get("edit_file")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 2000; i++ {
+			r.Policy.SetMode([]string{"ask", "edits", "yolo"}[i%3])
+		}
+	}()
+	for i := 0; i < 2000; i++ {
+		_, _ = r.Policy.Check(context.Background(), edit, "edit_file", "a.txt")
+	}
+	<-done
+	if m := r.Policy.Mode(); m != "ask" && m != "edits" && m != "yolo" {
+		t.Fatalf("mode %q", m)
+	}
+}
+
+func benchReg(b *testing.B) *Registry {
+	r, err := NewRegistry(b.TempDir(), NewPolicy("yolo", nil), NewSandbox(false, false, nil), NewRedactor(nil))
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = os.MkdirAll(filepath.Join(r.Root, "pkg", "sub"), 0o755)
+	_ = os.WriteFile(filepath.Join(r.Root, "pkg", "sub", "f.go"), []byte(strings.Repeat("func f() int { return 42 }\n", 200)), 0o644)
+	return r
+}
+
+func BenchmarkReadFile(b *testing.B) {
+	r := benchReg(b)
+	tc := llm.ToolCall{ID: "1", Name: "read_file", Args: `{"path":"pkg/sub/f.go"}`}
+	for b.Loop() {
+		r.Call(context.Background(), tc)
+	}
+}
+
+func BenchmarkEditFile(b *testing.B) {
+	r := benchReg(b)
+	args := [2]string{`{"path":"pkg/sub/f.go","old_string":"return 42 }\nfunc","new_string":"return 43 }\nfunc"}`, `{"path":"pkg/sub/f.go","old_string":"return 43 }\nfunc","new_string":"return 42 }\nfunc"}`}
+	i := 0
+	for b.Loop() {
+		r.Call(context.Background(), llm.ToolCall{ID: "1", Name: "edit_file", Args: args[i%2]})
+		i++
+	}
+}

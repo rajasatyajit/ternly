@@ -364,11 +364,11 @@ func TestUndoAndRewind(t *testing.T) {
 		reply{text: "just chatting"},
 	)
 	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
-	cp, err := checkpoint.Open(a.Reg.Root, t.TempDir())
+	cp, err := checkpoint.Open(a.Reg.Root, t.TempDir(), "t")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cp.Close()
+	defer cp.Destroy()
 	a.CP = cp
 	write(t, a, "keep.txt", "user file\n")
 	for _, p := range []string{"write v1", "change via shell", "hello"} {
@@ -454,5 +454,37 @@ func BenchmarkCallKey(b *testing.B) {
 	args := `{"path":"internal/agent/agent.go","offset":120,"limit":80}`
 	for b.Loop() {
 		st.seen[st.callKey("read_file", args)]++
+	}
+}
+
+// /verify changed while a turn runs: no data race (run under -race), the
+// running turn keeps the command it started with, the next turn uses the new one.
+func TestVerifyChangedMidTurn(t *testing.T) {
+	f := newFake(t,
+		reply{calls: [][2]string{call("edit_file", `{"path":"a.txt","old_string":"1","new_string":"2"}`)}},
+		reply{text: "Changed it; unverified."},
+		reply{calls: [][2]string{call("edit_file", `{"path":"a.txt","old_string":"2","new_string":"3"}`)}},
+		reply{text: "Changed it again; unverified."},
+	)
+	f.delay = 30 * time.Millisecond
+	a, rec := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	write(t, a, "a.txt", "1\n")
+	a.SetVerify("true")
+	started := make(chan struct{})
+	go func() {
+		for a.Ledger().Turns == 0 {
+			time.Sleep(time.Millisecond)
+		}
+		close(started)
+		for i := 0; i < 50; i++ { // hammer the setter while the turn reads it
+			a.SetVerify("exit 7")
+			_ = a.VerifyCmd()
+		}
+	}()
+	a.Run(bg, "change 1 to 2")
+	<-started
+	a.Run(bg, "change 2 to 3")
+	if v := rec.text(EvVerify); v != "true\nexit 7\n" {
+		t.Fatalf("verify commands per turn = %q, want the turn-start command each time", v)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -208,6 +209,15 @@ func TestOversizedOutputs(t *testing.T) {
 	if res := raw(r, "read_file", `{"path":"wide.txt","limit":2000}`); len(res.Out) > maxReadBytes+2048 || !strings.Contains(res.Out, "continue with offset=") {
 		t.Errorf("read_file returned %d bytes", len(res.Out))
 	}
+	// edit_file must refuse a file it can't hold in full rather than truncate it on write-back
+	big := filepath.Join(r.Root, "big.txt")
+	_ = os.WriteFile(big, []byte(strings.Repeat("z", maxFileBytes+10)), 0o644)
+	if res := raw(r, "edit_file", `{"path":"big.txt","old_string":"zz","new_string":"y","replace_all":true}`); !res.IsErr {
+		t.Error("edit_file accepted an oversized file")
+	}
+	if fi, _ := os.Stat(big); fi.Size() != maxFileBytes+10 {
+		t.Fatalf("oversized file was modified: %d bytes", fi.Size())
+	}
 	// one 6 MB line: precise error, no hang or OOM
 	_ = os.WriteFile(filepath.Join(r.Root, "oneline.txt"), []byte(strings.Repeat("y", 6<<20)), 0o644)
 	if res := raw(r, "read_file", `{"path":"oneline.txt"}`); len(res.Out) > maxToolBytes+512 {
@@ -307,4 +317,36 @@ func TestInjectionFlagRates(t *testing.T) {
 		return nil
 	})
 	t.Logf("false positives: %d/%d files (%.2f%%) under %s", flagged, files, 100*float64(flagged)/float64(max(files, 1)), dir)
+}
+
+// grep output must name files relative to the workspace on both search paths.
+func TestGrepOutputPaths(t *testing.T) {
+	for _, useRG := range []bool{true, false} {
+		r := newReg(t, "yolo")
+		if useRG {
+			if _, err := lookRG("rg"); err != nil {
+				continue
+			}
+		} else {
+			old := lookRG
+			lookRG = func(string) (string, error) { return "", os.ErrNotExist }
+			defer func() { lookRG = old }()
+		}
+		_ = os.MkdirAll(filepath.Join(r.Root, "sub", "node_modules"), 0o755)
+		_ = os.WriteFile(filepath.Join(r.Root, "a.txt"), []byte("needle\n"), 0o644)
+		_ = os.WriteFile(filepath.Join(r.Root, "sub", "b.go"), []byte("x\nneedle\n"), 0o644)
+		_ = os.WriteFile(filepath.Join(r.Root, "sub", "node_modules", "c.js"), []byte("needle\n"), 0o644)
+		for args, want := range map[string]string{
+			`{"pattern":"needle"}`:                   "a.txt:1:needle\nsub/b.go:2:needle",
+			`{"pattern":"needle","path":"sub"}`:      "sub/b.go:2:needle",
+			`{"pattern":"needle","path":"sub/b.go"}`: "sub/b.go:2:needle",
+		} {
+			res := raw(r, "grep", args)
+			got := strings.Split(strings.TrimSpace(Unframe(res.Out)), "\n")
+			sort.Strings(got)
+			if strings.Join(got, "\n") != want {
+				t.Errorf("rg=%v %s:\n got %q\nwant %q", useRG, args, strings.Join(got, "\n"), want)
+			}
+		}
+	}
 }

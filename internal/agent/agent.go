@@ -68,13 +68,13 @@ type Agent struct {
 	Reg    *tools.Registry
 	Router *discover.Router
 	Emit   func(Event)
-	Verify string // command run after edits; "" disables
 	Budget float64
 	Limits Limits
 	CP     *checkpoint.Store // nil: checkpoints disabled
 
 	running atomic.Bool
 	mu      sync.Mutex
+	verify  string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
 	history []llm.Message
 	turns   []turn
 	system  string
@@ -108,7 +108,16 @@ func (a *Agent) SetCaps(l Limits, budget float64) {
 	a.mu.Unlock()
 }
 func (a *Agent) Stats() Stats { a.mu.Lock(); defer a.mu.Unlock(); return a.stats }
-func (a *Agent) Reset()       { a.mu.Lock(); a.history, a.turns = nil, nil; a.mu.Unlock() }
+
+// VerifyCmd / SetVerify: the post-edit check ("" = off). A running turn keeps
+// the command it started with; a change applies from the next turn.
+func (a *Agent) VerifyCmd() string { a.mu.Lock(); defer a.mu.Unlock(); return a.verify }
+func (a *Agent) SetVerify(cmd string) {
+	a.mu.Lock()
+	a.verify = cmd
+	a.mu.Unlock()
+}
+func (a *Agent) Reset() { a.mu.Lock(); a.history, a.turns = nil, nil; a.mu.Unlock() }
 func (a *Agent) Current() *discover.Model {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -141,7 +150,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 	a.history = append(a.history, llm.Message{Role: "user", Content: prompt})
 	a.ledger.Turns++
 	st := newTurnState(a.ledger.Cost)
-	st.lim, st.budget = a.Limits, a.Budget
+	st.lim, st.budget, st.verify = a.Limits, a.Budget, a.verify
 	a.mu.Unlock()
 
 	tctx := ctx // turn deadline: tools and streams stop, then the turn ends with a summary
@@ -196,13 +205,13 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
-			if st.edited && a.Verify != "" {
-				out, ok := a.verify(tctx)
+			if st.edited && st.verify != "" {
+				out, ok := a.runVerify(tctx, st.verify)
 				st.edited = false
 				if ok {
-					st.lastPass, st.lastCheck = step, "passed ("+a.Verify+")"
+					st.lastPass, st.lastCheck = step, "passed ("+st.verify+")"
 				} else {
-					st.lastCheck = "failed (" + a.Verify + ")"
+					st.lastCheck = "failed (" + st.verify + ")"
 					verifyTries++
 					if verifyTries > 3 {
 						a.Emit(Event{Kind: EvError, Text: "verification still failing after 3 fix attempts — stopping so you can take a look"})
@@ -216,7 +225,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 						}
 					}
 					framed, _ := a.Reg.Frame.Wrap("verify", out)
-					a.appendUser("Automatic verification (`" + a.Verify + "`) failed:\n" + framed + "\nFix the root cause, then stop.")
+					a.appendUser("Automatic verification (`" + st.verify + "`) failed:\n" + framed + "\nFix the root cause, then stop.")
 					continue
 				}
 			}
@@ -463,13 +472,19 @@ func (a *Agent) checkpoint(ctx context.Context, st *turnState) {
 	a.mu.Lock()
 	a.turns[len(a.turns)-1].tree = tree
 	a.stats.Checkpoints++
+	first := a.stats.Checkpoints == 1
 	a.mu.Unlock()
+	if first {
+		if fs, err := a.CP.SecretFiles(ctx); err == nil && len(fs) > 0 {
+			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("checkpoints never capture or restore %d secret-like file(s): %s", len(fs), listFew(fs, 5))})
+		}
+	}
 }
 
-func (a *Agent) verify(ctx context.Context) (string, bool) {
-	a.Emit(Event{Kind: EvVerify, Text: a.Verify})
+func (a *Agent) runVerify(ctx context.Context, cmd string) (string, bool) {
+	a.Emit(Event{Kind: EvVerify, Text: cmd})
 	t0 := time.Now()
-	out, code, err := a.Reg.Sandbox.Run(ctx, a.Reg.Root, a.Verify, 600)
+	out, code, err := a.Reg.Sandbox.Run(ctx, a.Reg.Root, cmd, 600)
 	ok := err == nil && code == 0
 	a.Emit(Event{Kind: EvToolEnd, ToolID: "verify", Tool: "verify", OK: ok, Text: out, Elapsed: time.Since(t0)})
 	if err != nil {
@@ -615,6 +630,13 @@ func DetectVerify(root string) string {
 		return "python3 -m compileall -q ."
 	}
 	return ""
+}
+
+func listFew(xs []string, n int) string {
+	if len(xs) <= n {
+		return strings.Join(xs, ", ")
+	}
+	return strings.Join(xs[:n], ", ") + fmt.Sprintf(", … +%d", len(xs)-n)
 }
 
 func short(err error) string {

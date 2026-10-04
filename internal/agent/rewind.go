@@ -42,6 +42,7 @@ type Plan struct {
 	Tree    string              // workspace state before turn N ("" = unchanged since)
 	Changes []checkpoint.Change // effect on the workspace
 	Drop    int                 // conversation messages removed
+	Secrets []string            // secret-like files a code restore never touches
 }
 
 // PlanRewind prepares a rewind to the state before turn n (1-based; 0 = last turn).
@@ -84,6 +85,7 @@ func (a *Agent) PlanRewind(ctx context.Context, n int, mode string) (Plan, error
 			return Plan{}, err
 		}
 		p.Changes = cs
+		p.Secrets, _ = a.CP.SecretFiles(ctx)
 	}
 	if mode == RewindCode {
 		p.Drop = 0

@@ -134,6 +134,7 @@ type Model struct {
 	model       *discover.Model
 	reason      string
 	ledger      agent.Ledger
+	turnCost0   float64 // session cost when the current turn started
 	perm        *permMsg
 	queue       []string
 	hist        []string
@@ -376,6 +377,7 @@ func (m *Model) submit(v string) tea.Cmd {
 func (m *Model) start(prompt string) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel, m.busy, m.activity = cancel, true, "Routing"
+	m.turnCost0 = m.ledger.Cost
 	if m.discovering {
 		m.activity = "Discovering models"
 	}
@@ -517,7 +519,7 @@ func (m *Model) command(v string) tea.Cmd {
 	case "/mode":
 		switch arg {
 		case "ask", "edits", "yolo":
-			m.App.Reg.Policy.Mode = arg
+			m.App.Reg.Policy.SetMode(arg)
 			m.addInfo(sOK.Render("  permission mode: " + arg))
 		default:
 			m.addInfo(sErr.Render("  usage: /mode ask|edits|yolo"))
@@ -526,10 +528,10 @@ func (m *Model) command(v string) tea.Cmd {
 		if arg == "off" {
 			arg = ""
 		}
-		if arg != "" {
-			m.App.Agent.Verify = arg
+		if arg != "" || strings.TrimSpace(v) == "/verify off" {
+			m.App.Agent.SetVerify(arg)
 		}
-		m.addInfo(fmt.Sprintf("  verify: %s", orStr(m.App.Agent.Verify, "off")))
+		m.addInfo(fmt.Sprintf("  verify: %s", orStr(m.App.Agent.VerifyCmd(), "off")))
 	case "/budget":
 		lim, b := m.App.Agent.Caps()
 		if _, err := fmt.Sscanf(arg, "%f", &b); err == nil {
@@ -575,6 +577,9 @@ func (m *Model) rewind(n int, mode string) tea.Cmd {
 			files = checkpoint.Describe(p.Changes, 6)
 		}
 		desc := fmt.Sprintf("rewind to before turn %d (%s): %s; %d conversation messages dropped", p.N, p.Mode, files, p.Drop)
+		if len(p.Secrets) > 0 {
+			desc += fmt.Sprintf("; never restored (secret-like): %s", strings.Join(p.Secrets[:min(len(p.Secrets), 4)], ", "))
+		}
 		if ask == nil || ask(ctx, "rewind", desc, len(p.Changes) > 0) == tools.Deny {
 			return infoMsg(sDim.Render("  rewind cancelled"))
 		}
@@ -791,7 +796,7 @@ func (m *Model) header() string {
 	if home, _ := os.UserHomeDir(); home != "" {
 		cwd = strings.Replace(cwd, home, "~", 1)
 	}
-	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode)
+	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode())
 	mid := sDim.Render("  " + cwd)
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right
@@ -824,6 +829,11 @@ func (m *Model) statusBar() string {
 		right += sDim.Render(fmt.Sprintf(" ⚡%.0f%%", l.CacheRate()*100))
 	}
 	right += "  " + sAccent.Render(fmt.Sprintf("$%.4f", l.Cost))
+	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
+		if spent := l.Cost - m.turnCost0; spent >= 0.75*lim.TurnUSD { // warn before the turn limit stops work
+			right = sWarn.Render(fmt.Sprintf("turn $%.2f/$%.2f", spent, lim.TurnUSD)) + "  " + right
+		}
+	}
 	gap := max(1, m.w-lipgloss.Width(left)-lipgloss.Width(right)-1)
 	return " " + left + strings.Repeat(" ", gap) + right
 }

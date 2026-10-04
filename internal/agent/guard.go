@@ -40,6 +40,7 @@ type turnState struct {
 	cost0      float64
 	lim        Limits
 	budget     float64
+	verify     string
 	epoch      int            // advances on every successful edit
 	seen       map[string]int // epoch|tool|canonical args → count
 	fails      int            // consecutive failed tool calls

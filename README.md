@@ -56,8 +56,15 @@ with no edit in between, and long failure streaks, are treated as loops: the mod
 escalated, then the turn is stopped. Per-turn step, time and spend limits (`/limits`, config
 `limits`) and the session budget end a turn with a zero-cost summary you can `continue` from.
 Success claims with no passing build or test since the last edit are challenged. Before a turn's first
-change, the workspace is checkpointed into a private git repo under `~/.cache/ternly/checkpoints`
-(including shell side effects; your `.git` is never touched). `/undo` and `/rewind` restore it.
+change, the workspace is checkpointed into a per-session private git repo under
+`~/.cache/ternly/checkpoints` (including shell side effects; your `.git` is never touched). Secret-like
+files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are never captured, and you are told
+which were skipped. `/undo` and `/rewind` restore it, and the repo is deleted when the session ends.
+File tools access the workspace through Go's `os.Root`, so a path swapped to a symlink mid-call can't
+escape. ternly's config, cache and session dirs are hidden from sandboxed commands.
+
+## License
+Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,

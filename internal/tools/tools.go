@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -47,6 +50,7 @@ type Registry struct {
 	Sandbox *Sandbox
 	Redact  *Redactor
 	Frame   *Framer
+	fs      *os.Root // all file access goes through it: no escape even if paths change under us
 	mu      sync.RWMutex
 	tools   map[string]*Tool
 	order   []string
@@ -60,7 +64,11 @@ func NewRegistry(root string, pol *Policy, sb *Sandbox, rd *Redactor) (*Registry
 	if abs, err = filepath.EvalSymlinks(abs); err != nil {
 		return nil, err
 	}
-	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), tools: map[string]*Tool{}}
+	fsys, err := os.OpenRoot(abs)
+	if err != nil {
+		return nil, err
+	}
+	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), fs: fsys, tools: map[string]*Tool{}}
 	r.builtin()
 	return r, nil
 }
@@ -204,6 +212,22 @@ func (r *Registry) resolve(p string) (string, error) {
 	return full, nil
 }
 
+// inRoot converts a resolved absolute path to the form os.Root expects.
+func (r *Registry) inRoot(p string) string {
+	if s, err := filepath.Rel(r.Root, p); err == nil {
+		return s
+	}
+	return p // absolute: os.Root rejects it
+}
+
+// rootErr turns os.Root's escape error into the tools' own.
+func rootErr(err error) error {
+	if err != nil && strings.Contains(err.Error(), "escapes from parent") {
+		return ErrOutside
+	}
+	return err
+}
+
 func (r *Registry) rel(p string) string {
 	if s, err := filepath.Rel(r.Root, p); err == nil {
 		return s
@@ -221,14 +245,22 @@ func arg[T any](raw json.RawMessage) (T, error) {
 	return v, err
 }
 
-var skipDirs = map[string]bool{".git": true, "node_modules": true, "vendor": true, "target": true,
-	"dist": true, "build": true, ".venv": true, "venv": true, "__pycache__": true, ".next": true, ".cache": true}
+var skipDirNames = []string{".git", "node_modules", "vendor", "target", "dist", "build", ".venv", "venv", "__pycache__", ".next", ".cache"}
+
+var skipDirs = func() map[string]bool {
+	m := map[string]bool{}
+	for _, d := range skipDirNames {
+		m[d] = true
+	}
+	return m
+}()
 
 const (
 	maxReadLines = 400
 	maxLineLen   = 1000
 	maxOutBytes  = 12 << 10
 	maxReadBytes = 48 << 10
+	maxFileBytes = 16 << 20 // edit_file / grep fallback refuse to slurp more
 )
 
 func (r *Registry) builtin() {
@@ -251,7 +283,7 @@ func (r *Registry) builtin() {
 			if err != nil {
 				return "", err
 			}
-			f, err := openRegular(p)
+			f, err := r.openRegular(r.inRoot(p))
 			if err != nil {
 				return "", err
 			}
@@ -320,12 +352,12 @@ func (r *Registry) builtin() {
 				return "", err
 			}
 			if v.OldString == "" {
-				if _, err := os.Stat(p); err == nil {
+				if _, err := r.fs.Lstat(r.inRoot(p)); err == nil {
 					return "", errors.New("file exists; provide old_string to edit it")
 				}
 				return r.write(p, v.NewString)
 			}
-			b, err := readRegular(p)
+			b, err := r.readRegular(r.inRoot(p))
 			if err != nil {
 				return "", err
 			}
@@ -381,15 +413,15 @@ func (r *Registry) builtin() {
 				return "", err
 			}
 			var hits []string
-			_ = filepath.WalkDir(r.Root, func(p string, d fs.DirEntry, err error) error {
+			_ = fs.WalkDir(r.fs.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 				if err != nil || ctx.Err() != nil {
-					return filepath.SkipDir
+					return fs.SkipDir
 				}
-				if d.IsDir() && p != r.Root && skipDirs[d.Name()] {
-					return filepath.SkipDir
+				if d.IsDir() && p != "." && skipDirs[d.Name()] {
+					return fs.SkipDir
 				}
-				if rel := r.rel(p); !d.IsDir() && re.MatchString(filepath.ToSlash(rel)) {
-					hits = append(hits, rel)
+				if !d.IsDir() && re.MatchString(p) {
+					hits = append(hits, p)
 				}
 				if len(hits) > 500 {
 					return fs.SkipAll
@@ -451,69 +483,111 @@ func (r *Registry) builtin() {
 // lookRG is swapped in tests to exercise the pure-Go grep fallback.
 var lookRG = exec.LookPath
 
-// openRegular opens p without blocking on FIFOs/devices and refuses non-regular files.
-func openRegular(p string) (*os.File, error) {
-	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+// openRegular opens rel (inside the root) without blocking on FIFOs/devices
+// and refuses non-regular files.
+func (r *Registry) openRegular(rel string) (*os.File, error) {
+	f, err := r.fs.OpenFile(rel, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return nil, err
+		return nil, rootErr(err)
 	}
 	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
 		f.Close()
 		if err == nil {
-			err = fmt.Errorf("%s is not a regular file", filepath.Base(p))
+			err = fmt.Errorf("%s is not a regular file", filepath.Base(rel))
 		}
 		return nil, err
 	}
 	return f, nil
 }
 
-func readRegular(p string) ([]byte, error) {
-	f, err := openRegular(p)
+func (r *Registry) readRegular(rel string) ([]byte, error) {
+	f, err := r.openRegular(rel)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return io.ReadAll(f)
+	if fi, err := f.Stat(); err == nil && fi.Size() > maxFileBytes {
+		return nil, fmt.Errorf("%s is %d MB; files over %d MB are not edited or searched in full", filepath.Base(rel), fi.Size()>>20, maxFileBytes>>20)
+	}
+	return io.ReadAll(io.LimitReader(f, maxFileBytes+1))
 }
 
+// write atomically replaces p (a resolved path) via a temp file, all inside the root.
 func (r *Registry) write(p, content string) (string, error) {
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return "", err
+	rel := r.inRoot(p)
+	dir := filepath.Dir(rel)
+	if err := r.fs.MkdirAll(dir, 0o755); err != nil {
+		return "", rootErr(err)
 	}
 	mode := os.FileMode(0o644)
-	if fi, err := os.Stat(p); err == nil {
+	if fi, err := r.fs.Stat(rel); err == nil {
 		mode = fi.Mode().Perm()
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(p), ".ternly-*")
+	var rnd [6]byte
+	_, _ = rand.Read(rnd[:])
+	tmp := filepath.Join(dir, ".ternly-"+hex.EncodeToString(rnd[:]))
+	f, err := r.fs.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
+		return "", rootErr(err)
+	}
+	defer r.fs.Remove(tmp) // no-op after a successful rename
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
 		return "", err
 	}
-	defer os.Remove(tmp.Name())
-	if _, err := tmp.WriteString(content); err != nil {
-		tmp.Close()
+	_ = f.Chmod(mode) // fchmod on the open file: Root.Chmod is racy on Unix
+	if err := f.Close(); err != nil {
 		return "", err
 	}
-	if err := tmp.Close(); err != nil {
-		return "", err
+	if err := r.fs.Rename(tmp, rel); err != nil { // atomic replace
+		return "", rootErr(err)
 	}
-	_ = os.Chmod(tmp.Name(), mode)
-	if err := os.Rename(tmp.Name(), p); err != nil { // atomic replace
-		return "", err
-	}
-	return fmt.Sprintf("wrote %s (%d lines)", r.rel(p), lines(content)), nil
+	return fmt.Sprintf("wrote %s (%d lines)", rel, lines(content)), nil
 }
 
 func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool) (string, error) {
-	if rg, err := lookRG("rg"); err == nil {
-		args := []string{"--line-number", "--no-heading", "--color=never", "--max-columns=300", "--max-count=50", "-e", pat}
+	rel := r.inRoot(path)
+	// ripgrep only on Linux: it searches the directory we opened through the
+	// root (inherited as fd 3, walked via /dev/fd/3), so a path swapped to a
+	// symlink after our check can't redirect it. Elsewhere: the Go fallback.
+	if rg, err := lookRG("rg"); err == nil && runtime.GOOS == "linux" {
+		f, err := r.fs.Open(rel)
+		if err != nil {
+			return "", rootErr(err)
+		}
+		defer f.Close()
+		fi, err := f.Stat()
+		if err != nil {
+			return "", err
+		}
+		if !fi.IsDir() && !fi.Mode().IsRegular() {
+			return "", fmt.Errorf("%s is not a regular file or directory", filepath.Base(rel))
+		}
+		args := []string{"--line-number", "--no-heading", "--with-filename", "--color=never", "--max-columns=300", "--max-count=50",
+			"--no-require-git", "-e", pat} // no .git above /dev/fd/3, but .gitignore files should still apply
+		for _, d := range skipDirNames {
+			args = append(args, "--glob", "!"+d)
+		}
 		if icase {
 			args = append(args, "-i")
 		}
 		if glob != "" {
 			args = append(args, "--glob", glob)
 		}
-		out, _ := exec.CommandContext(ctx, rg, append(args, path)...).Output()
-		s := strings.ReplaceAll(string(out), r.Root+string(filepath.Separator), "")
+		c := exec.CommandContext(ctx, rg, append(args, "/dev/fd/3")...)
+		c.ExtraFiles = []*os.File{f}
+		out, _ := c.Output()
+		name := filepath.ToSlash(rel)
+		s := string(out)
+		if fi.IsDir() {
+			prefix := name + "/"
+			if name == "." {
+				prefix = ""
+			}
+			s = strings.ReplaceAll(s, "/dev/fd/3/", prefix)
+		} else {
+			s = strings.ReplaceAll(s, "/dev/fd/3:", name+":")
+		}
 		if s == "" {
 			return "no matches", nil
 		}
@@ -533,24 +607,24 @@ func (r *Registry) grep(ctx context.Context, pat, path, glob string, icase bool)
 	}
 	var sb strings.Builder
 	count := 0
-	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+	start := filepath.ToSlash(r.inRoot(path))
+	_ = fs.WalkDir(r.fs.FS(), start, func(rel string, d fs.DirEntry, err error) error {
 		if err != nil || ctx.Err() != nil || count >= 200 {
-			return filepath.SkipDir
+			return fs.SkipDir
 		}
 		if d.IsDir() {
-			if p != path && skipDirs[d.Name()] {
-				return filepath.SkipDir
+			if rel != start && skipDirs[d.Name()] {
+				return fs.SkipDir
 			}
 			return nil
 		}
-		if !d.Type().IsRegular() { // symlinks may point outside the workspace; FIFOs block
+		if !d.Type().IsRegular() { // don't follow symlinks; FIFOs would block
 			return nil
 		}
-		rel := r.rel(p)
-		if gre != nil && !gre.MatchString(filepath.ToSlash(rel)) {
+		if gre != nil && !gre.MatchString(rel) {
 			return nil
 		}
-		b, err := os.ReadFile(p)
+		b, err := r.readRegular(rel)
 		if err != nil || bytes.IndexByte(b[:min(len(b), 8000)], 0) >= 0 {
 			return nil
 		}

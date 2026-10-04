@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -83,6 +84,7 @@ func run() int {
 	home, _ := os.UserHomeDir()
 	cfgDir := filepath.Join(home, ".config", "ternly")
 	cacheDir := filepath.Join(home, ".cache", "ternly")
+	dataDir := filepath.Join(home, ".local", "share", "ternly") // sessions (M2)
 	var notes []string
 	for _, d := range [][2]string{{filepath.Join(home, ".config", "vane"), cfgDir}, {filepath.Join(home, ".cache", "vane"), cacheDir}} {
 		switch moved, err := migrateLegacy(d[0], d[1]); { // pre-rename installs
@@ -92,7 +94,9 @@ func run() int {
 			notes = append(notes, "migrated "+d[0]+" → "+d[1])
 		}
 	}
-	_ = os.MkdirAll(cacheDir, 0o700)
+	for _, d := range []string{cacheDir, dataDir} {
+		_ = os.MkdirAll(d, 0o700) // must exist so the sandbox can mask it
+	}
 
 	var fc fileConfig
 	if b, err := os.ReadFile(filepath.Join(cfgDir, "config.json")); err == nil {
@@ -157,6 +161,7 @@ func run() int {
 
 	pol := tools.NewPolicy(permMode, nil)
 	sb := tools.NewSandbox(!*noSandbox, *noNet, scrub)
+	sb.Mask = []string{cfgDir, cacheDir, dataDir} // keys, checkpoints and sessions stay out of reach of model-run commands
 	if !*noSandbox && sb.Bwrap == "" {
 		notes = append(notes, "bubblewrap not found — shell commands run unsandboxed (sudo pacman -S bubblewrap)")
 	}
@@ -186,16 +191,17 @@ func run() int {
 	router := discover.NewRouter()
 	var emit func(agent.Event)
 	ag := agent.New(reg, router, func(e agent.Event) { emit(e) })
-	ag.Verify = agent.DetectVerify(reg.Root)
+	vcmd := agent.DetectVerify(reg.Root)
 	if fc.Verify != nil {
-		ag.Verify = *fc.Verify
+		vcmd = *fc.Verify
 	}
 	if *verify != "" {
-		ag.Verify = *verify
+		vcmd = *verify
 	}
-	if ag.Verify == "off" {
-		ag.Verify = ""
+	if vcmd == "off" {
+		vcmd = ""
 	}
+	ag.SetVerify(vcmd)
 	ag.Budget = fc.Budget
 	if *budget >= 0 {
 		ag.Budget = *budget
@@ -210,15 +216,12 @@ func run() int {
 		ag.Limits.TurnUSD = *v
 	}
 	if fc.Checkpoints == nil || *fc.Checkpoints {
-		if cp, err := checkpoint.Open(reg.Root, cacheDir); err != nil {
+		if cp, err := checkpoint.Open(reg.Root, cacheDir, sessionID()); err != nil {
 			notes = append(notes, "checkpoints off ("+err.Error()+") — /undo and /rewind can only rewind the conversation")
 		} else {
 			ag.CP = cp
-			defer cp.Close()
-			go func() { // baseline now, so the first edit doesn't wait for a full index of a big repo
-				_, _ = cp.Snapshot(ctx)
-				_ = cp.Maintain(ctx)
-			}()
+			defer cp.Destroy()                      // retention follows the session; until M2 a session ends with the process
+			go func() { _, _ = cp.Snapshot(ctx) }() // baseline now, so the first edit doesn't wait to index a big repo
 		}
 	}
 	pin := pick(*model, fc.Model, "")
@@ -253,6 +256,13 @@ func run() int {
 			l.Turns, l.Cost, l.Usage.In+l.Usage.CacheRead+l.Usage.CacheWrite, l.Usage.Out, l.CacheRate()*100)
 	}
 	return 0
+}
+
+// sessionID names this process's session until durable sessions (M2) exist.
+func sessionID() string {
+	b := make([]byte, 6)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%s-%x", time.Now().Format("20060102-150405"), b)
 }
 
 // tuiMsg converts agent events into the TUI's message type.

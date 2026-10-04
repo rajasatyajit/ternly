@@ -28,6 +28,8 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
+      - LICENSE
+      - NOTICE
 
 checksum:
   name_template: checksums.txt

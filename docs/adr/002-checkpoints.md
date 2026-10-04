@@ -18,7 +18,8 @@ discipline. Requirement: git checkpoints before edits, `/undo` and `/rewind`.
    (`rm`, codegen, `go mod tidy`).
 2. Commit into the user's repository (Aider style). Pollutes history and branches, and requires
    a repo.
-3. **Shadow git repository**: `GIT_DIR=~/.cache/ternly/checkpoints/<sha256(root)[:16]>.git`,
+3. **Shadow git repository**: `GIT_DIR=~/.cache/ternly/checkpoints/<sha256(root)[:16]>/<session>.git`
+   (per session since M1.1; see ADR 003),
    `GIT_WORK_TREE=root`, private index. A checkpoint is `git add -A && git write-tree` (a tree id).
 
 ## Decision
@@ -42,9 +43,9 @@ snapshotted or deleted), and git deduplicates content.
 - Needs `git` on PATH. Otherwise checkpoints are disabled with a note.
 - Nested repositories are recorded as gitlinks, so their contents are not checkpointed.
 - Disk: shadow objects are about 0.55× the tracked tree size on first snapshot (measured below).
-  No refs are kept, so `git gc --auto` (run in the background at start) eventually prunes old
-  sessions' objects.
-- Checkpoints live for the session; conversation persistence (`/resume`) is M4.
+  Since M1.1 the whole repository is deleted with its session (ADR 003). Secret-pattern files
+  are never captured.
+- Checkpoints live for the session; durable sessions (`/resume`) are M2.
 - Ignored files are never restored or deleted. That is deliberate.
 
 ## Measurement

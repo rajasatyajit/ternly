@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +20,11 @@ func open(t testing.TB) (*Store, string) {
 		t.Skip("git not installed")
 	}
 	root, _ := filepath.EvalSymlinks(t.TempDir())
-	s, err := Open(root, t.TempDir())
+	s, err := Open(root, t.TempDir(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(s.Close)
+	t.Cleanup(func() { _ = s.Destroy() })
 	return s, root
 }
 
@@ -226,4 +227,128 @@ func BenchmarkSnapshotOneEdit10k(b *testing.B) {
 		write(b, root, "pkg000/f00000.go", strings.Repeat("x", i%7)+"package p\n")
 		snap(b, s)
 	}
+}
+
+func names(t *testing.T, s *Store, tree string) string {
+	out, err := s.run(ctx, s.index, nil, "ls-tree", "-r", "--name-only", tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestSecretsNeverSnapshotted(t *testing.T) {
+	s, root := open(t)
+	secrets := map[string]string{".env": "API_KEY=s3cr3t", "config/.env.local": "x", "id_ed25519": "key", "certs/server.pem": "pem",
+		"tls.key": "k", "aws_credentials.json": "c", "store.p12": "p"}
+	kept := map[string]string{"main.go": "package main", "internal/credentials/credentials.go": "package credentials",
+		"id_gen.go": "package main", "README.md": "readme"}
+	for p, c := range secrets {
+		write(t, root, p, c)
+	}
+	for p, c := range kept {
+		write(t, root, p, c)
+	}
+	t0 := snap(t, s)
+	in := names(t, s, t0)
+	for p := range secrets {
+		if strings.Contains(in, p) {
+			t.Errorf("secret %s was snapshotted", p)
+		}
+	}
+	for p := range kept {
+		if !strings.Contains(in, p) {
+			t.Errorf("%s was wrongly excluded", p)
+		}
+	}
+	got, err := s.SecretFiles(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(got)
+	var want []string
+	for p := range secrets {
+		want = append(want, p)
+	}
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("SecretFiles = %v, want %v", got, want)
+	}
+	// A gitignored directory full of secret-like files is not expanded or reported.
+	write(t, root, ".gitignore", "node_modules/\n")
+	write(t, root, "node_modules/pkg/test.pem", "x")
+	write(t, root, "certs/deep/node_modules/x.pem", "x")
+	if again, _ := s.SecretFiles(ctx); len(again) != len(secrets) {
+		t.Fatalf("SecretFiles with ignored dir = %v", again)
+	}
+	// Restore never touches secrets: an edited .env keeps its new value, a new key file stays.
+	write(t, root, ".env", "API_KEY=rotated")
+	write(t, root, "new.pem", "n")
+	write(t, root, "main.go", "package changed")
+	if _, err := s.Restore(ctx, t0); err != nil {
+		t.Fatal(err)
+	}
+	if read(root, ".env") != "API_KEY=rotated" || read(root, "new.pem") != "n" || read(root, "main.go") != "package main" {
+		t.Fatalf("restore: .env=%q new.pem=%q main.go=%q", read(root, ".env"), read(root, "new.pem"), read(root, "main.go"))
+	}
+}
+
+// Retention follows the session: Destroy deletes the repo; repos whose
+// process died (lock free) and M1's shared repos are swept on the next Open;
+// a live session's repo is never touched.
+func TestSessionRetention(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	cache := t.TempDir()
+	write(t, root, "a.txt", "a")
+	live, err := Open(root, cache, "live")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Destroy()
+	crashed, _ := Open(root, cache, "crashed")
+	snap(t, crashed)
+	crashed.Close() // the process died: lock released, repo left behind
+	if _, err := Open(root, cache, "live"); err == nil {
+		t.Fatal("second process opened a session that is in use")
+	}
+	legacy := filepath.Join(cache, "checkpoints", filepath.Base(filepath.Dir(live.gitDir))+".git")
+	_ = os.MkdirAll(legacy, 0o700)
+
+	next, err := Open(root, cache, "next")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for dir, want := range map[string]bool{crashed.gitDir: false, legacy: false, live.gitDir: true, next.gitDir: true} {
+		if _, err := os.Stat(dir); (err == nil) != want {
+			t.Errorf("%s exists=%v, want %v", dir, err == nil, want)
+		}
+	}
+	if err := next.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(next.gitDir); !os.IsNotExist(err) {
+		t.Fatal("Destroy left the repository")
+	}
+}
+
+// Set TERNLY_BIG_TREE to a large directory (e.g. a copy of $(go env GOROOT)/src) to time it.
+func TestBigTreeTiming(t *testing.T) {
+	dir := os.Getenv("TERNLY_BIG_TREE")
+	if dir == "" {
+		t.Skip("TERNLY_BIG_TREE not set")
+	}
+	s, err := Open(dir, t.TempDir(), "big")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Destroy()
+	ms := func(f func()) time.Duration { t0 := time.Now(); f(); return time.Since(t0).Round(time.Millisecond) }
+	first := ms(func() { snap(t, s) })
+	again := ms(func() { snap(t, s) })
+	var secrets []string
+	scan := ms(func() { secrets, err = s.SecretFiles(ctx) })
+	t.Logf("first snapshot %v, unchanged %v, secret scan %v (%d secret-like files: %v, err %v)", first, again, scan, len(secrets), secrets, err)
 }

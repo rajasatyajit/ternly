@@ -29,7 +29,7 @@ const (
 type Asker func(ctx context.Context, tool, summary string, danger bool) Decision
 
 type Policy struct {
-	Mode    string // ask | edits | yolo
+	mode    string // ask | edits | yolo; via Mode/SetMode (changed by the UI mid-turn)
 	Ask     Asker
 	Trusted map[string]bool // MCP servers trusted in config
 	mu      sync.Mutex
@@ -37,8 +37,11 @@ type Policy struct {
 }
 
 func NewPolicy(mode string, ask Asker) *Policy {
-	return &Policy{Mode: mode, Ask: ask, always: map[string]bool{}, Trusted: map[string]bool{}}
+	return &Policy{mode: mode, Ask: ask, always: map[string]bool{}, Trusted: map[string]bool{}}
 }
+
+func (p *Policy) Mode() string        { p.mu.Lock(); defer p.mu.Unlock(); return p.mode }
+func (p *Policy) SetMode(mode string) { p.mu.Lock(); p.mode = mode; p.mu.Unlock() }
 
 var (
 	// Never run, regardless of mode.
@@ -53,7 +56,7 @@ var (
 )
 
 func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool, string) {
-	key := name
+	key, mode := name, p.Mode()
 	switch t.Kind {
 	case ReadOnly:
 		return true, ""
@@ -66,7 +69,7 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 		if !danger && reSafe.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
 			return true, ""
 		}
-		if p.Mode == "yolo" && !danger {
+		if mode == "yolo" && !danger {
 			return true, ""
 		}
 		f := strings.Fields(cmd)
@@ -76,13 +79,16 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 		}
 		return p.ask(ctx, name, summary, danger, key)
 	case Edit:
-		if p.Mode == "edits" || p.Mode == "yolo" || p.isAlways("edit") {
+		if mode == "edits" || mode == "yolo" || p.isAlways("edit") {
 			return true, ""
 		}
 		key = "edit"
 	case External:
 		srv := strings.SplitN(strings.TrimPrefix(name, "mcp__"), "__", 2)[0]
-		if p.Trusted[srv] || p.Mode == "yolo" || p.isAlways(name) {
+		p.mu.Lock()
+		trusted := p.Trusted[srv]
+		p.mu.Unlock()
+		if trusted || mode == "yolo" || p.isAlways(name) {
 			return true, ""
 		}
 	}
@@ -97,9 +103,9 @@ func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key
 		case danger:
 			return false, " (non-interactive: potentially destructive commands always need a person to confirm)"
 		case strings.HasPrefix(key, "bash:"):
-			return false, " (non-interactive, mode " + p.Mode + ": only single read-only/build/test commands run without confirmation — no &&, ;, |, redirects or paths outside the workspace; run checks one at a time, e.g. `go test ./...`)"
+			return false, " (non-interactive, mode " + p.Mode() + ": only single read-only/build/test commands run without confirmation — no &&, ;, |, redirects or paths outside the workspace; run checks one at a time, e.g. `go test ./...`)"
 		}
-		return false, " (non-interactive, mode " + p.Mode + ": this needs confirmation; the user can rerun with --mode edits or yolo)"
+		return false, " (non-interactive, mode " + p.Mode() + ": this needs confirmation; the user can rerun with --mode edits or yolo)"
 	}
 	switch p.Ask(ctx, name, summary, danger) {
 	case AllowAlways:
@@ -120,6 +126,7 @@ func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key
 type Sandbox struct {
 	Bwrap   string // path to bubblewrap, "" = unsandboxed
 	NoNet   bool
+	Mask    []string // directories hidden from commands (ternly's own config, cache and data)
 	scrub   []string
 	maxWait time.Duration
 }
@@ -198,8 +205,13 @@ func (s *Sandbox) bwrapArgs(root string) []string {
 	}
 	a = append(a, "--bind", root, root)
 	// masked: credentials
-	for _, d := range []string{".ssh", ".gnupg", ".aws", ".azure", ".config/gcloud", ".kube", ".docker", ".config/ternly", ".password-store", ".mozilla", ".config/google-chrome", ".config/chromium"} {
+	for _, d := range []string{".ssh", ".gnupg", ".aws", ".azure", ".config/gcloud", ".kube", ".docker", ".password-store", ".mozilla", ".config/google-chrome", ".config/chromium"} {
 		if p := filepath.Join(home, d); exists(p) {
+			a = append(a, "--tmpfs", p)
+		}
+	}
+	for _, p := range s.Mask { // after the writable ~/.cache bind, so it wins
+		if exists(p) {
 			a = append(a, "--tmpfs", p)
 		}
 	}

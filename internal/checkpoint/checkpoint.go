@@ -1,7 +1,12 @@
 // Package checkpoint snapshots the workspace into a private ("shadow") git
 // repository, so any turn's changes — including shell side effects — can be
 // undone without touching the user's .git, index, branches or stash.
-// A checkpoint is a git tree id; .gitignore'd files are never captured, restored or deleted.
+// A checkpoint is a git tree id; .gitignore'd files are never captured, restored or deleted,
+// and neither are files that look like secrets (SecretPatterns).
+//
+// Each session owns its own shadow repository, locked while the session is
+// live and deleted with it (Destroy), so copied workspace content never
+// outlives the session that captured it.
 package checkpoint
 
 import (
@@ -14,15 +19,41 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 type Store struct {
 	root, gitDir, index string
 	git                 string
 	excludes            string // user's global core.excludesFile, kept because global config is disabled
+	lock                *os.File
 	mu                  sync.Mutex
+}
+
+// SecretPatterns (gitignore syntax) are never snapshotted. Directories and
+// source files are re-included so e.g. credentials.go or an id_gen.go keep
+// their undo history; the price is that a directory named "credentials" is
+// still captured file by file.
+var SecretPatterns = []string{".env*", "*.pem", "*.key", "id_*", "*credentials*", "*.p12"}
+
+var keepExts = []string{"go", "rs", "c", "h", "cc", "cpp", "hpp", "java", "kt", "kts", "scala", "py", "rb", "php",
+	"js", "mjs", "cjs", "ts", "tsx", "jsx", "swift", "cs", "ex", "exs", "erl", "hs", "ml", "lua", "sh", "zig", "dart",
+	"vue", "svelte", "sql", "proto", "md", "rst", "adoc"}
+
+func excludeFile() []byte {
+	var b strings.Builder
+	b.WriteString("# written by ternly: likely secrets are never checkpointed\n")
+	for _, p := range SecretPatterns {
+		b.WriteString(p + "\n")
+	}
+	for _, e := range keepExts {
+		b.WriteString("!*." + e + "\n")
+	}
+	b.WriteString("!*/\n")
+	return []byte(b.String())
 }
 
 // Change is one path that differs between two trees (git diff-tree statuses).
@@ -31,44 +62,178 @@ type Change struct {
 	Path   string
 }
 
-// Open creates (or reuses) the shadow repository for root under cacheDir.
-func Open(root, cacheDir string) (*Store, error) {
+// Open creates the shadow repository for one session of root under cacheDir
+// and holds its lock until Close or Destroy. Repositories of this root whose
+// lock is free (their process died) are deleted first, as are pre-M1.1
+// shared repositories.
+func Open(root, cacheDir, session string) (*Store, error) {
 	gitBin, err := exec.LookPath("git")
 	if err != nil {
 		return nil, errors.New("git not found")
 	}
+	if session == "" || strings.ContainsAny(session, "/\\.") {
+		return nil, fmt.Errorf("invalid session id %q", session)
+	}
 	sum := sha256.Sum256([]byte(root))
-	s := &Store{root: root, git: gitBin, gitDir: filepath.Join(cacheDir, "checkpoints", hex.EncodeToString(sum[:8])+".git")}
-	s.index = filepath.Join(s.gitDir, fmt.Sprintf("index-%d", os.Getpid())) // per process: concurrent sessions don't share a lock
+	key := hex.EncodeToString(sum[:8])
+	base := filepath.Join(cacheDir, "checkpoints", key)
+	_ = os.RemoveAll(filepath.Join(cacheDir, "checkpoints", key+".git")) // M1 layout: one shared repo per root
+	sweep(base)
+	s := &Store{root: root, git: gitBin, gitDir: filepath.Join(base, session+".git")}
+	s.index = filepath.Join(s.gitDir, "index")
 	if out, err := exec.Command(gitBin, "config", "--global", "--path", "core.excludesFile").Output(); err == nil {
 		s.excludes = strings.TrimSpace(string(out))
 	}
-	if _, err := os.Stat(filepath.Join(s.gitDir, "HEAD")); err != nil {
-		if err := os.MkdirAll(filepath.Dir(s.gitDir), 0o700); err != nil {
-			return nil, err
-		}
-		if out, err := exec.Command(gitBin, "init", "-q", "--bare", s.gitDir).CombinedOutput(); err != nil {
-			return nil, fmt.Errorf("git init: %v: %s", err, out)
-		}
+	// Lock before init: a concurrent sweep only claims existing lock files.
+	if err := os.MkdirAll(s.gitDir, 0o700); err != nil {
+		return nil, err
+	}
+	if s.lock, err = lockFile(filepath.Join(s.gitDir, "ternly.lock"), true); err != nil {
+		return nil, fmt.Errorf("session %s is in use by another ternly process", session)
+	}
+	if out, err := exec.Command(gitBin, "init", "-q", "--bare", s.gitDir).CombinedOutput(); err != nil {
+		s.Close()
+		return nil, fmt.Errorf("git init: %v: %s", err, out)
 	}
 	// Highest-precedence attributes: store and restore bytes exactly (no EOL
 	// conversion, filters or ident expansion from the repo's .gitattributes).
-	attr := filepath.Join(s.gitDir, "info", "attributes")
-	if err := os.MkdirAll(filepath.Dir(attr), 0o700); err != nil {
+	info := filepath.Join(s.gitDir, "info")
+	if err := os.MkdirAll(info, 0o700); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(attr, []byte("* -text -eol -crlf -filter -ident -working-tree-encoding\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(info, "attributes"), []byte("* -text -eol -crlf -filter -ident -working-tree-encoding\n"), 0o600); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(info, "exclude"), excludeFile(), 0o600); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-// Close removes this process's index file.
-func (s *Store) Close() { _ = os.Remove(s.index) }
+func lockFile(p string, create bool) (*os.File, error) {
+	flags := os.O_RDWR
+	if create {
+		flags |= os.O_CREATE
+	}
+	f, err := os.OpenFile(p, flags, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+// sweep deletes session repositories under base whose lock nobody holds.
+func sweep(base string) {
+	ents, _ := os.ReadDir(base)
+	for _, e := range ents {
+		if !e.IsDir() || !strings.HasSuffix(e.Name(), ".git") {
+			continue
+		}
+		dir := filepath.Join(base, e.Name())
+		if f, err := lockFile(filepath.Join(dir, "ternly.lock"), false); err == nil {
+			_ = os.RemoveAll(dir)
+			f.Close()
+		}
+	}
+}
+
+// Close releases the session lock, keeping the repository (a later Open of
+// the same root sweeps it unless the session is resumed — M2).
+func (s *Store) Close() {
+	if s.lock != nil {
+		s.lock.Close()
+		s.lock = nil
+	}
+}
+
+// Destroy deletes the session's repository and every checkpoint in it.
+func (s *Store) Destroy() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := os.RemoveAll(s.gitDir)
+	s.Close()
+	return err
+}
+
+// SecretFiles lists workspace files skipped only because they match
+// SecretPatterns (files ignored by .gitignore are not listed).
+func (s *Store) SecretFiles(ctx context.Context) ([]string, error) {
+	// --directory collapses ignored directories (node_modules/), keeping the
+	// listing cheap, but also directories whose files are all ignored
+	// (certs/ holding only *.pem); expand those recursively.
+	ls := func(directory bool, spec ...string) ([]string, error) {
+		args := []string{"ls-files", "-z", "--others", "--ignored", "--exclude-standard"}
+		if directory {
+			args = append(args, "--directory", "--no-empty-directory")
+		}
+		out, err := s.run(ctx, s.index, nil, append(append(args, "--"), spec...)...)
+		return strings.FieldsFunc(out, func(r rune) bool { return r == 0 }), err
+	}
+	top, err := ls(true, ".")
+	if err != nil {
+		return nil, err
+	}
+	var files, dirs []string
+	for _, p := range top {
+		if strings.HasSuffix(p, "/") {
+			dirs = append(dirs, p)
+		} else {
+			files = append(files, p)
+		}
+	}
+	ign, err := s.ignored(ctx, dirs, false)
+	if err != nil {
+		return nil, err
+	}
+	var expand []string
+	for _, d := range dirs {
+		if !slices.Contains(ign, d) {
+			expand = append(expand, d)
+		}
+	}
+	if len(expand) > 0 {
+		more, err := ls(false, expand...)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, more...)
+	}
+	return s.ignored(ctx, files, true)
+}
+
+// ignored returns the paths git ignores; with byUs, only those decided by our info/exclude.
+func (s *Store) ignored(ctx context.Context, paths []string, byUs bool) ([]string, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	in := []byte(strings.Join(paths, "\x00") + "\x00")
+	res, err := s.run(ctx, s.index, in, "check-ignore", "-z", "-v", "--stdin")
+	if err != nil {
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.ExitCode() != 1 { // 1: nothing ignored
+			return nil, err
+		}
+	}
+	var out []string
+	f := strings.Split(res, "\x00") // source, line, pattern, path
+	for i := 0; i+3 < len(f); i += 4 {
+		if strings.HasPrefix(f[i+2], "!") {
+			continue // re-included
+		}
+		if !byUs || strings.HasSuffix(f[i], filepath.Join("info", "exclude")) {
+			out = append(out, f[i+3])
+		}
+	}
+	return out, nil
+}
 
 func (s *Store) cmd(ctx context.Context, index string, args ...string) *exec.Cmd {
 	cfg := []string{"-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false",
-		"-c", "core.quotePath=false", "-c", "advice.addEmbeddedRepo=false", "-c", "gc.autoDetach=false"}
+		"-c", "core.quotePath=false", "-c", "advice.addEmbeddedRepo=false"}
 	if s.excludes != "" {
 		cfg = append(cfg, "-c", "core.excludesFile="+s.excludes)
 	}
@@ -211,13 +376,6 @@ func (s *Store) pruneEmpty(dir string) {
 		}
 		dir = filepath.Dir(dir)
 	}
-}
-
-// Maintain runs `git gc --auto`, which prunes objects no checkpoint of a live
-// session needs once enough have accumulated.
-func (s *Store) Maintain(ctx context.Context) error {
-	_, err := s.run(ctx, s.index, nil, "gc", "--auto", "--quiet")
-	return err
 }
 
 // Describe summarises changes as "3 restored, 1 deleted: a.go, b.go, …".

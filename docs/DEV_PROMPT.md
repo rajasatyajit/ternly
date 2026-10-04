@@ -201,22 +201,150 @@ Requirements:
   and report exactly what was skipped. "Any and all" is not literally achievable, so make coverage
   explicit in `docs/compat.md`.
 
+## 9. Capability discovery: suggest, confirm, install, hot-reload
+ternly should notice when a task needs a capability it doesn't have — a skill, plugin, MCP server or
+subagent — find the best candidates, and let the user install one without restarting.
+
+**Detecting a gap.** Use cheap signals first and spend model tokens last:
+- the task names an external system or format with no matching tool (Postgres, Jira, Figma, Terraform, PDF…)
+- a tool fails because the capability is missing
+- the model says it lacks access
+- the model repeatedly works around a missing integration
+
+Only when the cheap signals are ambiguous, classify with the cheapest utility model under a tight
+token cap, and cache the result. Suggest at most once per need. Remember dismissals per project, and
+never interrupt a turn mid-stream: queue the suggestion for the next turn boundary.
+
+**Sources.** Keep a local, offline-searchable index of catalogs, refreshed in the background (daily
+by default), stored in ternly's own store (see requirement 4):
+- the official MCP registry
+- Claude Code plugin marketplaces (`marketplace.json` in git repos)
+- public skills repositories (`SKILL.md`)
+- Gemini CLI extensions
+- npm/PyPI packages that ship MCP servers
+- user-configured registries
+
+Verify each source's current URL and format before integrating it. Do not hard-code endpoints you
+haven't confirmed.
+
+**Ranking.** Rank candidates on:
+- relevance to the task
+- trust: official or verified publisher, maintenance recency, adoption, license
+- security footprint: what it executes, network access, permissions requested
+- adapter coverage: how much of it ternly can actually load
+- context cost: how many tokens its skill text or tool schemas add
+
+Show a short ranked list (top 3) with the best one preselected. Each entry gets a one-line reason,
+publisher, source, pinned version or commit, and what it will run. Nothing installs without explicit
+confirmation. Installs are pinned by commit or hash, and hooks and MCP servers run sandboxed, per
+requirement 8.
+
+**Hot reload, no restart.**
+- Install in the background with progress shown in the status bar. If install or validation fails,
+  nothing changes.
+- The tool, skill and command registry is an immutable snapshot behind an atomic pointer. Swap it
+  only at a turn boundary, so a streaming request never sees a half-loaded registry. Accept that the
+  tool list changing invalidates the prompt cache once.
+- Start MCP servers concurrently and register their tools only after `initialize` and `tools/list`
+  succeed.
+- `/plugin` covers list, add, remove, enable, disable and update — all applied live. A file watcher
+  on plugin directories reloads manual edits.
+- Tell the model what was added, in one line, on the next turn.
+
+Measure and report: index search latency, time from confirmation to usable, and tokens added per
+installed capability.
+
+## 10. Sessions: pause, stop, resume
+- **Durable store.** Every session is persisted as a crash-safe, append-only event log: messages,
+  tool calls and results, model choices, ledger, checkpoint refs, plan/todo state and settings.
+  Store it under the user data dir, keyed by a stable repo identity: real path plus git root-commit
+  hash, so renamed directories still match where possible.
+  - Files are `0600`, already-redacted content only.
+  - The directory is masked from the sandbox, like the config and cache dirs.
+- **Pause and stop.**
+  - Esc interrupts the current turn.
+  - `/pause` stops at the next safe point (between tool calls) and persists.
+  - `/stop` ends the session.
+  - Ctrl+C and crashes must also leave a resumable log.
+  - Tool calls interrupted mid-flight are recorded as cancelled with a synthetic result. A resumed
+    history must always be valid for every provider (no `tool_call` without a result).
+- **Resume.**
+  - `ternly -c/--continue` resumes the latest session; `ternly --resume [id]` resumes a chosen one.
+  - Restore the conversation (compacted if needed), pinned model, permission mode, budgets and
+    ledger.
+  - Then detect workspace drift since the session paused, by comparing the last checkpoint tree with
+    the current one. Give the model a concise summary of files changed outside the session before it
+    acts.
+- **Auto-resume on startup.** When ternly starts in a directory that has previous sessions, it
+  automatically resumes the most recent one by last activity. It shows a one-line banner: session
+  title, age, turns, cost, `/sessions` to switch, `/new` for a fresh one. `--new` and the config key
+  `auto_resume: false` opt out.
+- **Concurrency.** Use a per-session lock (`flock`) so two ternly processes never write the same
+  session. A second process on the same repo offers to fork the session or start a new one.
+- **Targets.** Measure resume time for a 1,000-turn session (target under 100 ms to interactive) and
+  the per-event append cost (target under 1 ms, never blocking the UI).
+
+## 11. Switch sessions in place
+`/sessions` opens an interactive, fuzzy-searchable picker of this directory's sessions: title,
+last active, turns, cost, status. Titles are auto-generated from the first prompt by the cheapest
+model and can be changed with `/rename`.
+
+Selecting a session (or `/switch <id>`, alias `/resume <id>`) works in place, without restarting:
+1. Pause and persist the current session at a safe point.
+2. Release its lock.
+3. Load the target session.
+4. Swap the agent's state atomically.
+5. Re-render the transcript.
+
+Also provide `/new`, `/fork` (branch the current session from its latest turn or a chosen
+checkpoint), `/delete` (with confirmation) and `/export` (markdown or JSON). Switching must never
+lose data, even if the target fails to load. Prove this with a test that kills the process mid-switch.
+
 # Delivery
 
-Work in milestones, each one shippable:
+## Status
+M0 (rename and release) and M1 (guardrails, checkpoints, `/undo` and `/rewind`) are complete and
+approved. Decisions:
+- **License:** Apache-2.0 (`LICENSE` + `NOTICE`, PKGBUILD `license=('Apache-2.0')`).
+- **Git:** `git init`, commit M0 and M1 as separate commits.
+- **CI:** add `.github/workflows/ci.yml` running a gofmt check, `go vet`, `go test -race` and
+  `goreleaser check` on every push and PR.
+
+## M1.1 — hardening, one commit, before anything else
+a) **Security.** The sandbox binds `~/.cache` read-write, so checkpoint objects — including copied
+   untracked secrets — are readable by model-driven shell commands across projects.
+   - Mask `~/.cache/ternly` (and the session data dir) in the bwrap profile.
+   - Exclude secret-pattern files from snapshots by default (`.env*`, `*.pem`, `*.key`, `id_*`,
+     `*credentials*`, `*.p12`) and report what was skipped.
+   - Delete a session's shadow repo when the session is deleted. With requirement 10, checkpoint
+     refs now outlive the process, so retention follows the session.
+   - Add a test proving a sandboxed command cannot read checkpoint or session data.
+b) **Path escape (TOCTOU).** Close it with `os.Root` (Go ≥1.24). Verify which `Root` methods exist
+   in Go 1.26 first, then migrate the file tools and the grep fallback. Add a symlink-swap race test.
+c) **`/verify` data race.** Fix it, with a `-race` test that changes it mid-turn.
+d) **TUI test.** Add a pty-driven end-to-end test covering `/undo`, `/rewind` and `/limits` in the
+   real TUI.
+e) **Budget visibility.** Show the per-turn budget in the status bar once usage passes 75%.
+
+## Milestones
+Work in milestones, each one shippable. The order changed: sessions come early because memory,
+capability discovery and in-place switching all build on durable session state.
 
 | Milestone | Scope |
 |---|---|
 | M0 | rename to ternly + release metadata (requirement 0) |
 | M1 | guardrails + git checkpoints/undo + schema validation |
-| M2 | code graph (Go first) + graph tools + central dependency cache |
-| M3 | memory subsystem + `/memory` |
-| M4 | slash-command parity |
-| M5 | plugin/skill/agent adapters |
-| M6 | multi-language graph + fabrication eval + measured routing tiers |
+| M1.1 | hardening (above) + license, git history, CI |
+| M2 | sessions: durable log, pause/stop/resume, auto-resume, `/sessions` `/switch` `/new` `/fork` (requirements 10, 11) |
+| M3 | code graph (Go first) + graph tools + central dependency cache (requirement 5) |
+| M4 | memory subsystem + `/memory`, sharing the store with sessions where it measurably fits (requirement 4) |
+| M5 | slash-command parity (requirement 6) |
+| M6 | plugin/skill/agent adapters + capability discovery, ranking and hot reload (requirements 8, 9) |
+| M7 | multi-language graph + fabrication eval + measured routing tiers (requirement 7) |
 
-Start by reading the code and completing M0. Then post the M1 plan with ADRs, implement M1 fully,
-and stop for review before M2.
+Next: complete M1.1 and stop for review. Then, after approval, post the M2 plan with ADRs,
+implement it, and stop for review again. Follow the same plan → ADR → implement → measure → stop
+cycle for every later milestone.
 
 After each milestone, report:
 1. what changed (files)
