@@ -6,8 +6,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -74,12 +76,18 @@ func run() int {
 	home, _ := os.UserHomeDir()
 	cfgDir := filepath.Join(home, ".config", "ternly")
 	cacheDir := filepath.Join(home, ".cache", "ternly")
-	migrateLegacy(filepath.Join(home, ".config", "vane"), cfgDir) // pre-rename installs
-	migrateLegacy(filepath.Join(home, ".cache", "vane"), cacheDir)
+	var notes []string
+	for _, d := range [][2]string{{filepath.Join(home, ".config", "vane"), cfgDir}, {filepath.Join(home, ".cache", "vane"), cacheDir}} {
+		switch moved, err := migrateLegacy(d[0], d[1]); { // pre-rename installs
+		case err != nil:
+			notes = append(notes, "migrating "+d[0]+": "+err.Error())
+		case moved:
+			notes = append(notes, "migrated "+d[0]+" → "+d[1])
+		}
+	}
 	_ = os.MkdirAll(cacheDir, 0o700)
 
 	var fc fileConfig
-	var notes []string
 	if b, err := os.ReadFile(filepath.Join(cfgDir, "config.json")); err == nil {
 		if err := json.Unmarshal(b, &fc); err != nil {
 			notes = append(notes, "config.json: "+err.Error())
@@ -299,13 +307,22 @@ func darkTerminal() bool {
 }
 
 // migrateLegacy moves a pre-rename (vane) directory to its ternly location once.
-// It never overwrites: if the new path exists, the old one is left untouched.
-func migrateLegacy(oldDir, newDir string) {
-	if _, err := os.Stat(newDir); err == nil {
-		return
+// It never overwrites: if anything exists at newDir (even a dangling symlink) or
+// its existence can't be determined, the old directory is left untouched.
+// rename(2) also refuses to replace a non-empty directory, which closes the race
+// between the check and the move.
+func migrateLegacy(oldDir, newDir string) (bool, error) {
+	if _, err := os.Lstat(newDir); !errors.Is(err, fs.ErrNotExist) {
+		return false, nil
 	}
-	if fi, err := os.Stat(oldDir); err == nil && fi.IsDir() {
-		_ = os.MkdirAll(filepath.Dir(newDir), 0o700)
-		_ = os.Rename(oldDir, newDir)
+	if fi, err := os.Stat(oldDir); err != nil || !fi.IsDir() {
+		return false, nil
 	}
+	if err := os.MkdirAll(filepath.Dir(newDir), 0o700); err != nil {
+		return false, err
+	}
+	if err := os.Rename(oldDir, newDir); err != nil {
+		return false, err
+	}
+	return true, nil
 }

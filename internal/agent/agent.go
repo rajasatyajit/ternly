@@ -373,7 +373,7 @@ Engineering standards (non-negotiable):
 	if v := DetectVerify(root); v != "" {
 		fmt.Fprintf(&sb, "Project check command: %s\n", v)
 	}
-	for _, f := range []string{"AGENTS.md", "TERNLY.md", "CLAUDE.md", ".cursorrules"} {
+	for _, f := range []string{"TERNLY.md", "AGENTS.md", "CLAUDE.md", ".cursorrules"} { // tool-specific file wins
 		if b, err := os.ReadFile(filepath.Join(root, f)); err == nil {
 			fmt.Fprintf(&sb, "\n# Project instructions (%s)\n%s\n", f, tools.Cap(string(b), 8000))
 			break

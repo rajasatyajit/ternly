@@ -1,0 +1,21 @@
+pkgbase = ternly-bin
+	pkgdesc = Terminal coding agent that routes each task to the cheapest capable LLM (paid, free or local)
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/rajasatyajit/ternly
+	arch = x86_64
+	arch = aarch64
+	license = unknown
+	optdepends = bubblewrap: sandbox for shell commands
+	optdepends = ripgrep: faster grep tool
+	optdepends = git: checkpoints and /undo
+	provides = ternly
+	conflicts = ternly
+	options = !strip
+	options = !debug
+	source_x86_64 = ternly-0.1.0-x86_64.tar.gz::https://github.com/rajasatyajit/ternly/releases/download/v0.1.0/ternly_0.1.0_linux_amd64.tar.gz
+	sha256sums_x86_64 = SKIP
+	source_aarch64 = ternly-0.1.0-aarch64.tar.gz::https://github.com/rajasatyajit/ternly/releases/download/v0.1.0/ternly_0.1.0_linux_arm64.tar.gz
+	sha256sums_aarch64 = SKIP
+
+pkgname = ternly-bin

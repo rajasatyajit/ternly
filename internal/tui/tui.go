@@ -716,7 +716,7 @@ func (m *Model) statusBar() string {
 
 func (m *Model) welcome() string {
 	var sb strings.Builder
-	sb.WriteString("\n" + shine("  ◆ ternly", 3) + sDim.Render("  "+m.App.Version+" — one harness, every model, minimum tokens") + "\n")
+	sb.WriteString("\n" + shine("  ◆ ternly", 3) + sDim.Render("  "+m.App.Version+" · Code, ternly.") + "\n")
 	if m.discovering {
 		sb.WriteString(sDim.Render("  discovering providers and local models…"))
 		return sb.String()

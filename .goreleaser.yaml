@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Static (CGO_ENABLED=0) ternly binaries for linux/darwin × amd64/arm64.
+# Snapshot test: goreleaser release --snapshot --clean
+version: 2
+
+project_name: ternly
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ternly
+    main: .
+    binary: ternly
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    # stable names: the AUR PKGBUILD (packaging/aur/ternly-bin) downloads these
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

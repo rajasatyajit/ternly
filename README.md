@@ -1,4 +1,7 @@
-# ternly
+# ◆ ternly
+
+*Code, ternly.* — named for the Arctic tern (long-distance, energy-efficient migration — the longest known of any
+animal) and the Latin *terni*, "three each": ternly's three routing tiers.
 
 One terminal coding agent for **every model you can reach** — paid APIs, free tiers and local
 servers, auto-discovered — routing each task to the **cheapest model that can do it well** and
@@ -8,7 +11,10 @@ only paying for a stronger one when the cheap one demonstrably fails.
 git clone https://github.com/rajasatyajit/ternly && cd ternly && make install   # → ~/.local/bin/ternly
 cd your-project && ternly
 ```
-(After the first `go mod tidy` is committed, `go install github.com/rajasatyajit/ternly@latest` also works.)
+Also: `go install github.com/rajasatyajit/ternly@latest`, prebuilt static binaries on the
+[releases page](https://github.com/rajasatyajit/ternly/releases) (linux/darwin, amd64/arm64), or
+`ternly-bin` from the AUR (`packaging/aur/ternly-bin`). Upgrading from *vane*? `~/.config/vane` and
+`~/.cache/vane` are moved to their ternly paths on first run (never overwriting existing ones).
 Recommended on Linux: `sudo pacman -S bubblewrap ripgrep` (sandbox + fast search).
 
 ## What it discovers
@@ -30,7 +36,7 @@ catalog (cached 24 h). `ternly -models` prints the table.
 | `--budget` / `/budget` hard cap, live `$` in status bar | no surprises |
 
 ## How it keeps quality up
-Strict engineering system prompt (+ `AGENTS.md`/`CLAUDE.md`), auto-detected post-edit verification
+Strict engineering system prompt (+ the first of `TERNLY.md`, `AGENTS.md`, `CLAUDE.md`), auto-detected post-edit verification
 (`go build && go vet`, `cargo check`, `npm run typecheck|lint|build`, `ruff`) fed back to the model,
 `/review` with the strongest available model, parallel read-only tool calls.
 

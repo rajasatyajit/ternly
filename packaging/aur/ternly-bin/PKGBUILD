@@ -1,0 +1,27 @@
+# Maintainer: Satyajit Rajaraman <satyajit.rajaraman@gmail.com>
+#
+# Prebuilt static binaries from the GoReleaser archives (see .goreleaser.yaml).
+# Release steps: bump pkgver, then `updpkgsums && makepkg --printsrcinfo > .SRCINFO`
+# to replace the SKIP checksums with the published archives' sha256.
+pkgname=ternly-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Terminal coding agent that routes each task to the cheapest capable LLM (paid, free or local)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/rajasatyajit/ternly'
+license=('unknown')
+provides=('ternly')
+conflicts=('ternly')
+optdepends=('bubblewrap: sandbox for shell commands'
+            'ripgrep: faster grep tool'
+            'git: checkpoints and /undo')
+options=('!strip' '!debug')
+source_x86_64=("ternly-${pkgver}-x86_64.tar.gz::${url}/releases/download/v${pkgver}/ternly_${pkgver}_linux_amd64.tar.gz")
+source_aarch64=("ternly-${pkgver}-aarch64.tar.gz::${url}/releases/download/v${pkgver}/ternly_${pkgver}_linux_arm64.tar.gz")
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+  install -Dm755 ternly "${pkgdir}/usr/bin/ternly"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
