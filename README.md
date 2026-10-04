@@ -85,13 +85,39 @@ In the TUI: `/sessions` (fuzzy picker), `/switch <id>` (alias `/resume`), `/new`
 them switch in place, without a restart. Checkpoints of all a project's sessions share one store
 (`checkpoint_cap_mb`, default 2048, prunes the oldest sessions' checkpoints after a warning).
 
+## Memory
+ternly remembers across turns and sessions, whichever model is active. At the end of each turn it
+records, in the background:
+
+- what the turn was about and which files it changed (session tier, kept 30 days);
+- *verified fixes*: a check that failed and then passed, with its first error line (project);
+- explicit standing instructions in your prompts, such as "always …", "never …", "prefer …" or
+  "from now on …". "In all projects" makes one apply everywhere (user tier).
+
+The model can also `remember` decisions and conventions, and `recall` them.
+
+At the start of a turn, the most relevant notes go into your message, framed as context, never
+instructions (notes can be outdated, so the model re-checks before an edit depends on one). They are capped at `memory_budget` tokens (default 600). Ranking
+combines BM25 over words and code identifiers, the files and symbols you mention (and, in Go, their
+code-graph neighbours), and recency. If Ollama serves a local embedding model (e.g.
+`nomic-embed-text`), vectors are added: memory text never leaves the machine for embedding.
+
+Secrets are refused, not stored redacted. Text that reads like instructions to an AI is refused
+from the model and from automatic sources. Every item records where it came from (session, turn,
+files, commit, source).
+
+`/memory` lists what's stored; `/memory search|forget|edit|add [user]` manage it. Stores live in
+`~/.local/share/ternly` (hidden from sandboxed commands) and are shared safely by concurrent sessions.
+`memory: false` turns memory off; `memory_vectors: false` keeps it lexical. Measurements are in
+`docs/adr/009-memory.md`.
+
 ## License
 Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
 `--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new`.
-TUI: `/models /model /review /cost /compact /mode /verify /budget /limits /undo /rewind /refresh /clear` ·
+TUI: `/models /model /review /cost /compact /mode /verify /budget /limits /undo /rewind /memory /refresh /clear` ·
 Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history.
 
 Config examples in `examples/` → copy to `~/.config/ternly/`.

@@ -20,6 +20,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -160,6 +161,7 @@ type App struct {
 	Sessions *session.Manager // nil: no persistence (tests)
 	Banner   string           // shown at start (resumed session, fork offer)
 	Pick     bool             // open the session picker at start (bare --resume)
+	Memory   *memory.Memory   // nil: memory off
 }
 
 func New(app *App, dark bool) *Model {
@@ -527,6 +529,9 @@ func (m *Model) command(v string) tea.Cmd {
 	if c, ok := m.sessionCommand(f[0], arg); ok {
 		return c
 	}
+	if c, ok := m.memoryCommand(f[0], arg); ok {
+		return c
+	}
 	switch f[0] {
 	case "/mode", "/model", "/verify", "/budget", "/limits": // settings are saved with the session
 		defer m.saveSettings()
@@ -732,6 +737,7 @@ const helpText = `  /models [filter]   list discovered models (tier · price $/M
   /pause             stop at a safe point and save   /stop   save as stopped and exit
   /mode ask|edits|yolo   permission mode      /verify <cmd|off>   post-edit check
   /budget <usd>      hard spend cap          /refresh            re-discover providers
+  /memory [search|forget|edit|add]   view and edit what ternly remembers
   /clear             new conversation        /exit
   keys: Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history`
 

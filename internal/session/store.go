@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/logstore"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -119,7 +120,7 @@ func validID(id string) bool {
 type Session struct {
 	ID   string
 	dir  string
-	log  *Log
+	log  *logstore.Log
 	lock *os.File
 	mu   sync.Mutex
 	meta Meta
@@ -173,11 +174,12 @@ func (p *Project) open(id string) (*Session, []agent.Record, error) {
 	if err != nil {
 		return nil, nil, ErrLocked
 	}
-	l, recs, _, err := openLog(filepath.Join(dir, "events.log"))
+	l, payloads, _, err := logstore.Open(filepath.Join(dir, "events.log"))
 	if err != nil {
 		lock.Close()
 		return nil, nil, err
 	}
+	recs := decodeRecords(payloads)
 	return &Session{ID: id, dir: dir, log: l, lock: lock, meta: Meta{ID: id}}, recs, nil
 }
 
@@ -198,7 +200,8 @@ func lockFile(p string) (*os.File, error) {
 // Record implements agent.Journal.
 func (s *Session) Record(r agent.Record) {
 	s.observe(r)
-	s.log.Record(r)
+	b, _ := json.Marshal(r)
+	s.log.Append(b)
 }
 
 // Sync implements agent.Journal: fsync in the background and refresh the listing cache.
@@ -370,8 +373,19 @@ func (p *Project) Records(id string) ([]agent.Record, error) {
 		return nil, err
 	}
 	defer f.Close()
-	recs, _, err := readRecords(f)
-	return recs, err
+	payloads, _, err := logstore.ReadAll(f)
+	return decodeRecords(payloads), err
+}
+
+func decodeRecords(payloads [][]byte) []agent.Record {
+	recs := make([]agent.Record, 0, len(payloads))
+	for _, p := range payloads {
+		var r agent.Record
+		if json.Unmarshal(p, &r) == nil {
+			recs = append(recs, r)
+		}
+	}
+	return recs
 }
 
 var _ agent.Journal = (*Session)(nil)

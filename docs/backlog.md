@@ -21,11 +21,22 @@ milestone named, or noted as open.
   Cloud): drop the model from routing for the session on 404/410 and fail over, instead of ending
   the turn with an error.
 
+## Memory (M4)
+- **Paraphrases need vectors, and vectors have a ceiling.** Lexical retrieval finds paraphrased
+  questions 10% of the time. `nomic-embed-text` raises that to 70% among 40 notes, but only to 28%
+  among 700 same-domain sentences, which is the model's own pure-cosine ceiling (25%). A stronger local
+  embedding model, or asking the model to `recall` with its own keywords, would help. (ADR 009)
+- **Notes after `/compact`.** A note is injected once per session, because it is then in the context.
+  Compaction can summarise it away, and it isn't re-offered until a new session.
+- **Structure outside Go.** The structural signal uses files and symbols named in the prompt and
+  files changed in the session; code-graph neighbours exist only for Go (M7 adds languages).
+- **Automatic turn summaries** take their "outcome" from the first sentence of the model's answer,
+  which is sometimes a weak summary.
+
 ## UI (M5)
 - **bubbletea v2 migration** (ADR 006). It removes the 5 s start-up stall in terminals that ignore
   status queries, and enables keyboard enhancements.
 
 ## Infrastructure
-- **CI** is blocked by a GitHub account billing lock (check-run annotation: "The job was not started
-  because your account is locked due to a billing issue"). The workflows are ready; they need the
-  account unlocked.
+- **CI** was blocked by a GitHub account billing lock during M3. It is resolved: both jobs (Linux
+  check, macOS) ran green on `085fe9d`.

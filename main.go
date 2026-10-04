@@ -26,6 +26,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
+	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
@@ -49,6 +50,9 @@ type fileConfig struct {
 	CheckpointCapMB *int  `json:"checkpoint_cap_mb"`
 	AutoResume      *bool `json:"auto_resume"`
 	CodeGraph       *bool `json:"code_graph"`
+	Memory          *bool `json:"memory"`         // long-term memory (default on)
+	MemoryBudget    *int  `json:"memory_budget"`  // tokens of notes injected per turn (default 600)
+	MemoryVectors   *bool `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
 	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
@@ -248,11 +252,12 @@ func run() int {
 		}
 	}
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
+	var gs *graph.Service
 	if _, err := os.Stat(filepath.Join(reg.Root, "go.mod")); err == nil && (fc.CodeGraph == nil || *fc.CodeGraph) {
 		if project.AdoptedKey != "" { // the graph records its root path: rebuild rather than move
 			_ = os.RemoveAll(filepath.Join(cacheDir, "graphs", "projects", project.AdoptedKey))
 		}
-		gs := graph.NewService(reg.Root, cacheDir, project.Key, func(ctx context.Context, dir string, env []string, argv ...string) ([]byte, error) {
+		gs = graph.NewService(reg.Root, cacheDir, project.Key, func(ctx context.Context, dir string, env []string, argv ...string) ([]byte, error) {
 			return sb.Output(ctx, dir, env, argv...) // go list compiles repo code: sandboxed
 		})
 		gs.Start(ctx) // the first thing ternly does in a codebase: load or build its graph
@@ -260,6 +265,58 @@ func run() int {
 			reg.Add(t)
 		}
 		ag.AddInstructions(graph.Guidance)
+	}
+	var mem *memory.Memory
+	if fc.Memory == nil || *fc.Memory {
+		if mem, err = memory.Open(project.Dir, filepath.Join(dataDir, "user")); err != nil {
+			notes = append(notes, "memory off: "+err.Error())
+			mem = nil
+		}
+	}
+	if mem != nil {
+		defer mem.Close()
+		mem.Root, mem.Redact, mem.Suspicious = reg.Root, reg.Redact.Apply, tools.Suspicious
+		mem.SessionID = func() string {
+			if s := mgr.Current(); s != nil {
+				return s.ID
+			}
+			return ""
+		}
+		if fc.MemoryBudget != nil {
+			mem.Budget = *fc.MemoryBudget
+		}
+		if gs != nil {
+			mem.Related = func(file string) []string {
+				g, _, err := gs.Graph(ctx, 50*time.Millisecond) // never wait for a first build here
+				if err != nil || g == nil {
+					return nil
+				}
+				var out []string
+				for _, r := range g.RelatedFiles(file) {
+					out = append(out, r.File)
+				}
+				return out
+			}
+		}
+		ag.Mem = mem
+		for _, t := range memory.Tools(mem) {
+			reg.Add(t)
+		}
+		ag.AddInstructions(memory.Guidance)
+		if (fc.MemoryVectors == nil || *fc.MemoryVectors) && !*noLocal && !fc.NoLocal {
+			go func() { // a local embedding model, if Ollama has one (never a cloud model)
+				base := "http://127.0.0.1:11434"
+				if h := keys["OLLAMA_HOST"]; h != "" {
+					base = strings.TrimRight(h, "/")
+					if !strings.HasPrefix(base, "http") {
+						base = "http://" + base
+					}
+				}
+				if e := memory.FindOllama(ctx, base); e != nil {
+					mem.SetEmbedder(e)
+				}
+			}()
+		}
 	}
 	if *resumeID == "?" && *prompt != "" {
 		list, _ := project.List()
@@ -333,7 +390,7 @@ func run() int {
 			}
 		}
 		return ms, w
-	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?"}
+	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem}
 	dark := darkTerminal()
 	lipgloss.SetHasDarkBackground(dark) // pre-seed: no blocking OSC query for adaptive colours
 	m := tui.New(app, dark)

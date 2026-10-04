@@ -113,5 +113,8 @@ func (a *Agent) Rewind(ctx context.Context, p Plan) ([]checkpoint.Change, error)
 	if p.Mode != RewindCode {
 		a.commit(Record{T: "rewind", N: p.N, Mode: p.Mode})
 	}
+	if a.Mem != nil {
+		a.Mem.Rewound(p.N)
+	}
 	return done, nil
 }

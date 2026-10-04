@@ -51,6 +51,11 @@ type turnState struct {
 	challenged bool
 	edited     bool
 	tree       string // checkpoint taken before this turn's first mutation
+	prompt     string // for memory
+	answer     string // the model's last text
+	failCmd    string // first failing check this turn, and its first error line
+	failErr    string
+	fix        *Fix // that check passed later: a verified fix
 }
 
 func newTurnState(cost0 float64) *turnState {

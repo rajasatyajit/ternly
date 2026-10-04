@@ -71,6 +71,7 @@ type Agent struct {
 	Budget float64
 	Limits Limits
 	CP     *checkpoint.Store // nil: checkpoints disabled
+	Mem    Memory            // nil: no long-term memory
 
 	running atomic.Bool
 	pause   atomic.Bool // stop at the next safe point (between tool calls)
@@ -196,13 +197,17 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 	case <-ctx.Done():
 		return
 	}
+	notes := a.recall(ctx, prompt) // before the lock: it may query a local embedding model
 	a.mu.Lock()
 	content := prompt
 	if a.note != "" {
 		content, a.note = a.note+"\n\n"+prompt, ""
 	}
+	if notes != "" {
+		content = notes + "\n\n" + content
+	}
 	st := newTurnState(a.state.Ledger.Cost)
-	st.lim, st.budget, st.verify = a.Limits, a.Budget, a.verify
+	st.lim, st.budget, st.verify, st.prompt = a.Limits, a.Budget, a.verify, prompt
 	a.mu.Unlock()
 	a.commit(Record{T: "turn", Prompt: prompt})
 	a.commit(Record{T: "msg", Msg: &llm.Message{Role: "user", Content: content}})
@@ -259,11 +264,15 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 			return
 		}
 		a.commit(Record{T: "msg", Msg: &msg})
+		if strings.TrimSpace(msg.Content) != "" {
+			st.answer = msg.Content
+		}
 
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
 			if st.edited && st.verify != "" {
 				out, ok := a.runVerify(tctx, st.verify)
+				st.checkResult(st.verify, out, ok)
 				st.edited = false
 				if ok {
 					st.lastPass, st.lastCheck = step, "passed ("+st.verify+")"
@@ -372,8 +381,16 @@ func (a *Agent) count(f func(*Stats)) { a.mu.Lock(); f(&a.state.Stats); a.mu.Unl
 // resume) and pins it, if the turn changed anything.
 func (a *Agent) endTurn(ctx context.Context, st *turnState) {
 	if a.CP == nil || st.tree == "" {
+		a.learn(st, nil)
 		return
 	}
+	var changed []string
+	if cs, err := a.CP.Pending(ctx, st.tree); err == nil {
+		for _, c := range cs {
+			changed = append(changed, c.Path)
+		}
+	}
+	a.learn(st, changed)
 	tree, err := a.CP.Snapshot(ctx)
 	if err != nil {
 		return
@@ -505,12 +522,15 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		if r.Flagged {
 			a.state.Stats.Flagged++
 		}
+		t := a.Reg.Get(tc.Name)
+		if t != nil && t.Kind == tools.Exec && !r.Rejected && reCheckCmd.MatchString(t.Summary([]byte(tc.Args))) {
+			st.checkResult(t.Summary([]byte(tc.Args)), tools.Unframe(r.Out), !r.IsErr)
+		}
 		if r.IsErr {
 			st.fails++
 			continue
 		}
 		st.fails = 0
-		t := a.Reg.Get(tc.Name)
 		switch {
 		case t == nil:
 		case t.Kind == tools.Edit:
@@ -695,6 +715,9 @@ func DetectVerify(root string) string {
 	return ""
 }
 
+// titleTimeout bounds MakeTitle's model call.
+var titleTimeout = 20 * time.Second
+
 // MakeTitle names a session from its first prompt with the cheapest model
 // (falling back to the prompt's first words).
 func (a *Agent) MakeTitle(ctx context.Context, prompt string) string {
@@ -703,6 +726,10 @@ func (a *Agent) MakeTitle(ctx context.Context, prompt string) string {
 	if um == nil {
 		return fallback
 	}
+	// A title is a nicety: never let it hold up exit (a local utility model may
+	// first have to be loaded next to the main one).
+	ctx, cancel := context.WithTimeout(ctx, titleTimeout)
+	defer cancel()
 	req := llm.Request{Model: um.ID, System: "Title this coding-session request in 3 to 6 words. Reply with the title only: no quotes, no trailing period.",
 		Messages: []llm.Message{{Role: "user", Content: tools.Cap(prompt, 2000)}}, MaxTokens: 24}
 	out, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, req))

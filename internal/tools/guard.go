@@ -81,3 +81,7 @@ func Unframe(s string) string {
 	}
 	return s
 }
+
+// Suspicious reports whether s reads like a prompt injection (the same
+// advisory check that flags tool output). Memory uses it to refuse writes.
+func Suspicious(s string) bool { return suspicious(s) }

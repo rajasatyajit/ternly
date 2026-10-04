@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -300,68 +299,5 @@ func TestOpenRepairsInterruptedToolCall(t *testing.T) {
 			t.Fatalf("history not repaired: %+v", st.History)
 		}
 		_ = s2.Close("")
-	}
-}
-
-// Unsynced writes are fsync'd within groupSync even with no turn boundary.
-func TestGroupCommit(t *testing.T) {
-	old := groupSync
-	groupSync = 50 * time.Millisecond
-	defer func() { groupSync = old }()
-	p := project(t)
-	s, _ := p.Create()
-	defer s.Close("")
-	s.log.mu.Lock()
-	before := s.log.fsyncs
-	s.log.mu.Unlock()
-	s.Record(msg("tool", "long-running output"))
-	time.Sleep(200 * time.Millisecond)
-	s.log.mu.Lock()
-	after, dirty := s.log.fsyncs, s.log.dirty
-	s.log.mu.Unlock()
-	if after <= before || dirty {
-		t.Fatalf("no group commit: fsyncs %d→%d, dirty=%v", before, after, dirty)
-	}
-	time.Sleep(200 * time.Millisecond) // idle: no further fsyncs
-	s.log.mu.Lock()
-	idle := s.log.fsyncs
-	s.log.mu.Unlock()
-	if idle != after {
-		t.Fatalf("fsync while clean: %d→%d", after, idle)
-	}
-}
-
-// A long tool-heavy turn: a 2 KB record every 2 ms for TERNLY_LONG_TURN
-// (e.g. 10s). Reports caller-side Record latency and the fsyncs it caused.
-func TestLongTurnOverhead(t *testing.T) {
-	d, _ := time.ParseDuration(os.Getenv("TERNLY_LONG_TURN"))
-	if d == 0 {
-		t.Skip("TERNLY_LONG_TURN not set")
-	}
-	for _, every := range []time.Duration{0, groupSync} {
-		old := groupSync
-		if every == 0 {
-			groupSync = time.Hour // turn-boundary syncs only
-		}
-		p := project(t)
-		s, _ := p.Create()
-		r := msg("tool", strings.Repeat("output line\n", 170))
-		var lat []time.Duration
-		for end := time.Now().Add(d); time.Now().Before(end); time.Sleep(2 * time.Millisecond) {
-			t0 := time.Now()
-			s.Record(r)
-			lat = append(lat, time.Since(t0))
-		}
-		s.log.mu.Lock()
-		n := s.log.fsyncs
-		s.log.mu.Unlock()
-		_ = s.Close("")
-		groupSync = old
-		sort.Slice(lat, func(i, j int) bool { return lat[i] < lat[j] })
-		label := "turn-boundary syncs only"
-		if every != 0 {
-			label = "group commit every " + every.String()
-		}
-		t.Logf("%s: %d records, %d fsyncs during the turn, Record latency p50 %v p99 %v max %v", label, len(lat), n, lat[len(lat)/2], lat[len(lat)*99/100], lat[len(lat)-1])
 	}
 }

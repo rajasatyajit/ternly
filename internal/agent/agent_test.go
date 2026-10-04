@@ -599,3 +599,62 @@ func TestJournalIsRedacted(t *testing.T) {
 		t.Fatalf("journal not redacted: %s", b)
 	}
 }
+
+type fakeMemory struct {
+	mu      sync.Mutex
+	learned []Learned
+}
+
+func (f *fakeMemory) Recall(_ context.Context, prompt string) (string, int) {
+	return "Notes from memory: the build needs ok.txt.", 1
+}
+func (f *fakeMemory) Learn(t Learned) { f.mu.Lock(); f.learned = append(f.learned, t); f.mu.Unlock() }
+func (f *fakeMemory) Rewound(n int)   {}
+
+// Memory: notes go into the user message (not the system prompt), and a check
+// that failed and then passed in the turn is handed back as a verified fix.
+func TestMemoryRecallAndVerifiedFix(t *testing.T) {
+	f := newFake(t,
+		reply{calls: [][2]string{call("edit_file", `{"path":"a.txt","old_string":"1","new_string":"2"}`)}},
+		reply{text: "Done."},
+		reply{calls: [][2]string{call("write_file", `{"path":"ok.txt","content":"ok\n"}`)}},
+		reply{text: "Fixed: the build passes now."},
+	)
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	mem := &fakeMemory{}
+	a.Mem = mem
+	write(t, a, "a.txt", "1\n")
+	a.SetVerify(`test -f ok.txt || { echo "noise"; echo "x.go:3:1: undefined: foo"; exit 1; }`)
+	a.Run(bg, "change 1 to 2")
+	req := f.requests()[0]
+	if c := fmt.Sprint(req[len(req)-1]["content"]); !strings.HasPrefix(c, "Notes from memory") || !strings.HasSuffix(c, "change 1 to 2") {
+		t.Fatalf("user message = %q", c)
+	}
+	if strings.Contains(fmt.Sprint(req[0]["content"]), "Notes from memory") {
+		t.Fatal("notes leaked into the system prompt (it must stay cacheable)")
+	}
+	if len(mem.learned) != 1 {
+		t.Fatalf("learned %d turns", len(mem.learned))
+	}
+	l := mem.learned[0]
+	if l.Fix == nil || l.Fix.Error != "x.go:3:1: undefined: foo" || l.Prompt != "change 1 to 2" || l.Answer != "Fixed: the build passes now." || l.Turn != 1 {
+		t.Fatalf("learned %+v (fix %+v)", l, l.Fix)
+	}
+}
+
+// A slow utility model doesn't hold up MakeTitle (headless exit waits on it).
+func TestMakeTitleTimeout(t *testing.T) {
+	f := newFake(t, reply{text: "A Title"})
+	f.delay = 2 * time.Second
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 1, 0, 0))
+	old := titleTimeout
+	titleTimeout = 100 * time.Millisecond
+	defer func() { titleTimeout = old }()
+	t0 := time.Now()
+	if got := a.MakeTitle(bg, "fix the flaky checkpoint test please"); got != "fix the flaky checkpoint test please" {
+		t.Fatalf("title %q, want the fallback", got)
+	}
+	if d := time.Since(t0); d > time.Second {
+		t.Fatalf("MakeTitle took %v", d)
+	}
+}

@@ -1,24 +1,24 @@
-package session
+// Package logstore is a crash-safe append-only file of records: one
+// "crc32hex payload\n" line each (payload must not contain a newline, as
+// JSON never does). A torn or corrupt tail is cut off on open. A background
+// writer does all I/O, so Append never waits for the disk: records are
+// written promptly (surviving a process crash) and fsync'd at Sync/Flush and,
+// while there are unsynced writes, at least every GroupSync (bounding what a
+// power loss can take). Used by sessions and memory.
+package logstore
 
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/rajasatyajit/ternly/internal/agent"
 )
 
-// Log is a crash-safe append-only record file: one "crc32hex json\n" line per
-// record. A background writer does all I/O, so Record never waits for the
-// disk: each record is write(2)n promptly (surviving a process crash) and
-// fsync'd at Sync/Flush and, while there are unsynced writes, at least every
-// groupSync (bounding what a power loss can take during a long turn).
+// Log is an open record file.
 type Log struct {
 	f       *os.File
 	mu      sync.Mutex
@@ -31,20 +31,21 @@ type Log struct {
 	fsyncs  int
 	err     error
 	done    chan struct{}
+	sh      *shared // nil: single-process log (sessions)
 }
 
-// groupSync is the longest a written record waits for fsync.
-var groupSync = 3 * time.Second
+// GroupSync is the longest a written record waits for fsync.
+var GroupSync = 3 * time.Second
 
-// openLog opens path for appending and returns its valid records. A torn or
+// Open opens path for appending and returns its valid payloads. A torn or
 // corrupt tail (crash mid-write, bad sector) is cut off, and how many bytes
 // were dropped is reported.
-func openLog(path string) (*Log, []agent.Record, int64, error) {
+func Open(path string) (*Log, [][]byte, int64, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	recs, good, err := readRecords(f)
+	recs, good, err := ReadAll(f)
 	if err != nil {
 		f.Close()
 		return nil, nil, 0, err
@@ -68,14 +69,14 @@ func openLog(path string) (*Log, []agent.Record, int64, error) {
 	l := &Log{f: f, done: make(chan struct{})}
 	l.cond = sync.NewCond(&l.mu)
 	go l.writer()
-	go l.groupCommit()
+	go l.groupCommit(GroupSync) // read here: the setting applies per log, without racing later changes
 	return l, recs, dropped, nil
 }
 
-// readRecords returns the records up to the first bad line and the byte offset just after the last good one.
-func readRecords(r io.Reader) ([]agent.Record, int64, error) {
+// ReadAll returns the payloads up to the first bad line and the byte offset just after the last good one.
+func ReadAll(r io.Reader) ([][]byte, int64, error) {
 	br := bufio.NewReaderSize(r, 1<<20)
-	var recs []agent.Record
+	var recs [][]byte
 	var off int64
 	for {
 		line, err := br.ReadBytes('\n')
@@ -94,21 +95,19 @@ func readRecords(r io.Reader) ([]agent.Record, int64, error) {
 	}
 }
 
-func decodeLine(line []byte) (agent.Record, bool) {
-	var r agent.Record
+func decodeLine(line []byte) ([]byte, bool) {
 	if len(line) < 10 || line[8] != ' ' {
-		return r, false
+		return nil, false
 	}
 	body := line[9 : len(line)-1]
 	var want uint32
 	if _, err := fmt.Sscanf(string(line[:8]), "%08x", &want); err != nil || crc32.ChecksumIEEE(body) != want {
-		return r, false
+		return nil, false
 	}
-	return r, json.Unmarshal(body, &r) == nil
+	return append([]byte(nil), body...), true
 }
 
-func encodeLine(r agent.Record) []byte {
-	body, _ := json.Marshal(r)
+func encodeLine(body []byte) []byte {
 	var b bytes.Buffer
 	b.Grow(len(body) + 10)
 	fmt.Fprintf(&b, "%08x ", crc32.ChecksumIEEE(body))
@@ -117,9 +116,9 @@ func encodeLine(r agent.Record) []byte {
 	return b.Bytes()
 }
 
-// Record queues r; it never blocks on I/O.
-func (l *Log) Record(r agent.Record) {
-	line := encodeLine(r)
+// Append queues a payload; it never blocks on I/O.
+func (l *Log) Append(payload []byte) {
+	line := encodeLine(payload)
 	l.mu.Lock()
 	if !l.closed {
 		l.queue = append(l.queue, line)
@@ -163,12 +162,15 @@ func (l *Log) Close() error {
 	if cerr := l.f.Close(); err == nil {
 		err = cerr
 	}
+	if l.sh != nil {
+		l.sh.close()
+	}
 	return err
 }
 
-// groupCommit requests an fsync every groupSync while there are unsynced writes.
-func (l *Log) groupCommit() {
-	t := time.NewTicker(groupSync)
+// groupCommit requests an fsync every interval while there are unsynced writes.
+func (l *Log) groupCommit(interval time.Duration) {
+	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
 		select {
@@ -207,7 +209,7 @@ func (l *Log) writer() {
 		}
 		var err error
 		if len(buf) > 0 {
-			_, err = l.f.Write(buf)
+			err = l.write(buf)
 		}
 		syncNow := want > 0
 		l.mu.Lock()
@@ -233,4 +235,11 @@ func (l *Log) writer() {
 		}
 		l.cond.Broadcast()
 	}
+}
+
+// Stats reports fsyncs done and whether unsynced writes are pending (for tests and measurement).
+func (l *Log) Stats() (fsyncs int, dirty bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.fsyncs, l.dirty
 }
