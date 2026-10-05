@@ -51,6 +51,9 @@ type Model struct {
 	// reports remote_host). Not local for privacy, not free (quota-limited).
 	Cloud bool   `json:"cloud,omitempty"`
 	Base  string `json:"-"` // the underlying model (Ollama's remote_model)
+	// Params is the parameter count in billions, as the server reports it
+	// (Ollama /api/tags details.parameter_size; 0 = unknown).
+	Params float64 `json:"params,omitempty"`
 }
 
 func (m *Model) Key() string      { return m.ProvID + "/" + m.ID }
@@ -295,21 +298,27 @@ func ollamaCloud(ctx context.Context, p *Provider, ms []*Model) {
 			Name        string `json:"name"`
 			RemoteModel string `json:"remote_model"`
 			RemoteHost  string `json:"remote_host"`
+			Details     struct {
+				ParameterSize string `json:"parameter_size"`
+			} `json:"details"`
 		} `json:"models"`
 	}
 	if json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&d) != nil {
 		return
 	}
 	remote := map[string]string{}
+	size := map[string]float64{}
 	for _, m := range d.Models {
 		if m.RemoteHost != "" {
 			remote[m.Name] = m.RemoteModel
 		}
+		size[m.Name] = parseSize(m.Details.ParameterSize)
 	}
 	for _, m := range ms {
 		if base, ok := remote[m.ID]; ok {
 			m.Cloud, m.Base = true, base
 		}
+		m.Params = size[m.ID]
 	}
 }
 
@@ -483,7 +492,7 @@ func (c catalog) enrich(m *Model) {
 
 var (
 	reT1      = regexp.MustCompile(`(?i)nano|lite|tiny|smol|gemma|phi-?\d|[:\-_](0\.5|1|1\.5|2|3|4|7|8|9)b\b|llama-?3\.2`)
-	reT3      = regexp.MustCompile(`(?i)opus|sonnet|gpt-5(\.\d+)?($|-codex|-pro|-\d)|^o3($|-pro)|gemini-[\d.]+-pro|grok-4|grok-code|kimi-k2|qwen3-coder-(480|plus)|qwen3-max|deepseek-(v3|r1|chat|reasoner)|glm-(4\.[5-9]|5)|devstral-medium|mistral-large|codex|minimax-m2`)
+	reT3      = regexp.MustCompile(`(?i)opus|sonnet|gpt-5(\.\d+)?($|-codex|-pro|-\d)|^o3($|-pro)|gemini-[\d.]+-pro|grok-4|grok-code|kimi-k2|qwen3-coder-(480|plus)|qwen3-max|deepseek-(v3|r1|chat|reasoner)|glm-(4\.[5-9]|5)|devstral-medium|mistral-large|codex|minimax-m\d`)
 	reCap2    = regexp.MustCompile(`(?i)(^|[-_.:/])mini($|[-_.:])|small|flash|haiku|lite|turbo|instant`) // "mini" as a segment: not minimax
 	reT2      = regexp.MustCompile(`(?i)haiku|mini|flash|small|medium|devstral|codestral|coder|llama.*70b|gpt-4o|gpt-4\.1|grok-3|mistral|qwen|deepseek|command-r`)
 	reParamsB = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)b\b`)
@@ -503,21 +512,31 @@ func tierName(m *Model) string {
 
 func tierOf(m *Model) int {
 	id := tierName(m)
+	p := m.Params // what the server reports beats a size in the name
+	if p == 0 {
+		p = params(id)
+	}
+	if m.Cloud && !reT3.MatchString(id) { // unknown family behind Ollama Cloud: judge by size
+		switch {
+		case p >= 300 && !reCap2.MatchString(id):
+			return 3
+		case p >= 60:
+			return 2
+		}
+	}
 	switch {
 	case reT1.MatchString(id):
 		return 1
 	case reT3.MatchString(id) && !reCap2.MatchString(id):
 		return 3
 	case reT2.MatchString(id):
-		if m.Local() {
-			if p := params(id); p > 0 && p < 25 {
-				return 1
-			}
+		if m.Local() && p > 0 && p < 25 {
+			return 1
 		}
 		return 2
 	}
 	if m.Local() {
-		if p := params(id); p >= 25 {
+		if p >= 25 {
 			return 2
 		}
 		return 1
@@ -531,6 +550,20 @@ func tierOf(m *Model) int {
 		return 2
 	}
 	return 1
+}
+
+// parseSize reads Ollama's parameter_size ("117B", "1.04T", "32.7B", "350M").
+func parseSize(s string) float64 {
+	s = strings.TrimSpace(strings.ToUpper(s))
+	mult := map[byte]float64{'T': 1000, 'B': 1, 'M': 0.001}
+	if s == "" || mult[s[len(s)-1]] == 0 {
+		return 0
+	}
+	f, err := strconv.ParseFloat(s[:len(s)-1], 64)
+	if err != nil {
+		return 0
+	}
+	return f * mult[s[len(s)-1]]
 }
 
 func params(id string) float64 {

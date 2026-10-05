@@ -79,11 +79,16 @@ func fakeOllama(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/models":
-			fmt.Fprint(w, `{"data":[{"id":"llama3.1:8b"},{"id":"glm-5.1:cloud"},{"id":"qwen3-coder:480b-cloud"}]}`)
+			fmt.Fprint(w, `{"data":[{"id":"llama3.1:8b"},{"id":"glm-5.1:cloud"},{"id":"qwen3-coder:480b-cloud"},{"id":"gpt-oss:120b-cloud"},{"id":"nemotron-3-ultra:cloud"},{"id":"gemma4:cloud"},{"id":"deepseek-v4.1-flash:cloud"},{"id":"minimax-m3:cloud"}]}`)
 		case "/api/tags":
 			fmt.Fprint(w, `{"models":[{"name":"llama3.1:8b"},
 				{"name":"glm-5.1:cloud","remote_model":"glm-5.1","remote_host":"https://ollama.com:443"},
-				{"name":"qwen3-coder:480b-cloud","remote_model":"qwen3-coder:480b","remote_host":"https://ollama.com:443"}]}`)
+				{"name":"qwen3-coder:480b-cloud","remote_model":"qwen3-coder:480b","remote_host":"https://ollama.com:443"},
+				{"name":"gpt-oss:120b-cloud","remote_model":"gpt-oss:120b","remote_host":"https://ollama.com","details":{"parameter_size":"117B"}},
+				{"name":"nemotron-3-ultra:cloud","remote_model":"nemotron-3-ultra","remote_host":"https://ollama.com","details":{"parameter_size":"550B"}},
+				{"name":"gemma4:cloud","remote_model":"gemma4:31b","remote_host":"https://ollama.com","details":{"parameter_size":"32.7B"}},
+				{"name":"deepseek-v4.1-flash:cloud","remote_model":"deepseek-v4.1-flash","remote_host":"https://ollama.com","details":{"parameter_size":"763B"}},
+				{"name":"minimax-m3:cloud","remote_model":"minimax-m3","remote_host":"https://ollama.com","details":{"parameter_size":"0"}}]}`)
 		case "/api/show":
 			var b struct{ Model string }
 			_ = json.NewDecoder(r.Body).Decode(&b)
@@ -110,6 +115,13 @@ func TestOllamaCloudModels(t *testing.T) {
 	for _, m := range ms {
 		if m.ProvID == "ollama" {
 			by[m.ID] = m
+		}
+	}
+	// Shapes seen on 2026-10-05: remote_host without :443, parameter_size in details.
+	for id, want := range map[string]int{"gpt-oss:120b-cloud": 2, "nemotron-3-ultra:cloud": 3, "gemma4:cloud": 1, "deepseek-v4.1-flash:cloud": 2, "minimax-m3:cloud": 3} {
+		m := by[id]
+		if m == nil || !m.Cloud || m.Local() || m.Free() || m.Tier != want {
+			t.Errorf("%s: %+v, want cloud tier %d", id, m, want)
 		}
 	}
 	local, glm, qwen := by["llama3.1:8b"], by["glm-5.1:cloud"], by["qwen3-coder:480b-cloud"]
