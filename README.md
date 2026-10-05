@@ -109,8 +109,9 @@ files, commit, source).
 The user tier, which applies in every project, is written only by you: `/memory add user <text>`
 or `/memory promote <id>`. Neither the model nor automatic capture can write to it, and injected
 notes say who wrote them (*from you*, *from your prompt*, *automatic*, *model-written*). Once per
-note, the cheapest available model writes other wordings of it, which are indexed (never injected)
-so differently phrased questions still find it; `memory_enrich: false` turns this off.
+note, a local model (else the model your session already uses) writes other wordings of it, which
+are indexed (never injected) so differently phrased questions still find it. `memory_enrich: false`
+turns this off; `"remote"` also allows the cheapest remote model.
 
 `/memory` lists what's stored; `/memory search|forget|edit|add [user]|promote` manage it. Stores live in
 `~/.local/share/ternly` (hidden from sandboxed commands) and are shared safely by concurrent sessions.

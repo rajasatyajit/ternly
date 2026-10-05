@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/rajasatyajit/ternly/internal/discover"
 )
 
 func TestMigrateLegacy(t *testing.T) {
@@ -72,4 +75,43 @@ func TestMigrateLegacy(t *testing.T) {
 			t.Fatal("moved a regular file")
 		}
 	})
+}
+
+// Memory notes go to a local model, else the session's own model; any other
+// remote model only with memory_enrich: "remote".
+func TestEnrichModelPrivacy(t *testing.T) {
+	local := &discover.Provider{ID: "ollama", Local: true}
+	cloudP := &discover.Provider{ID: "openrouter"}
+	small := &discover.Model{Provider: local, ProvID: "ollama", ID: "tiny", Tier: 1, Tools: true, Ctx: 32000}
+	big := &discover.Model{Provider: local, ProvID: "ollama", ID: "big", Tier: 2, Tools: true, Ctx: 32000}
+	cloud := &discover.Model{Provider: local, ProvID: "ollama", ID: "x:cloud", Cloud: true, Tier: 3, Tools: true, Ctx: 32000}
+	paid := &discover.Model{Provider: cloudP, ProvID: "openrouter", ID: "cheap", Tier: 1, Tools: true, Ctx: 32000, Priced: true, In: 0.1, Out: 0.1}
+	session := &discover.Model{Provider: cloudP, ProvID: "openrouter", ID: "session-model", Tier: 3, Tools: true, Ctx: 200000, Priced: true, In: 3, Out: 15}
+
+	r := discover.NewRouter()
+	r.SetModels([]*discover.Model{small, big, cloud, paid, session})
+	if got := enrichModel(r, session, false); got != big {
+		t.Fatalf("with local models: %v", got)
+	}
+	r.SetModels([]*discover.Model{cloud, paid, session})
+	if got := enrichModel(r, session, false); got != session {
+		t.Fatalf("no local model: %v, want the session's own", got)
+	}
+	if got := enrichModel(r, nil, false); got != nil {
+		t.Fatalf("no local model, no session model: %v, want none (remote needs opt-in)", got)
+	}
+	if got := enrichModel(r, nil, true); got == nil || got.Local() {
+		t.Fatalf("remote opt-in: %v", got)
+	}
+
+	for in, want := range map[string]enrichSetting{`false`: enrichOff, `true`: enrichLocal, `"local"`: enrichLocal, `"remote"`: enrichRemote, `null`: enrichLocal} {
+		var e enrichSetting
+		if err := json.Unmarshal([]byte(in), &e); err != nil || e != want {
+			t.Errorf("%s → %v %v", in, e, err)
+		}
+	}
+	var e enrichSetting
+	if err := json.Unmarshal([]byte(`"cloud"`), &e); err == nil {
+		t.Error("unknown value accepted")
+	}
 }

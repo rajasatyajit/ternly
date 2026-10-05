@@ -522,6 +522,16 @@ func (m *Model) cmdDoctor(string) tea.Cmd {
 				line(ok, "", s)
 			}
 		}
+		nw := 0
+		for _, u := range m.userCmds {
+			for _, w := range u.Warnings() {
+				line(warn, "command", w)
+				nw++
+			}
+		}
+		if len(m.userCmds) > 0 && nw == 0 {
+			line(ok, "commands", fmt.Sprintf("%d user-defined, no problems found", len(m.userCmds)))
+		}
 		return infoMsg(strings.TrimRight(b.String(), "\n"))
 	}
 }
@@ -1059,6 +1069,14 @@ type webMsg struct {
 func (m *Model) cmdWeb(arg string) tea.Cmd {
 	if !strings.HasPrefix(arg, "http://") && !strings.HasPrefix(arg, "https://") {
 		m.addInfo(sErr.Render("  usage: /web <http(s) URL>"))
+		return nil
+	}
+	if m.App.Reg.Sandbox.NoNet {
+		m.addInfo(sErr.Render("  /web is off: this session runs with --no-net"))
+		return nil
+	}
+	if m.App.Reg.Policy.Mode() == "plan" {
+		m.addInfo(sErr.Render("  /web is off in plan mode (read-only, no outside data) — /code to leave"))
 		return nil
 	}
 	m.addInfo(sDim.Render("  fetching " + arg + "…"))

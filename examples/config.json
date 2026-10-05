@@ -12,7 +12,7 @@
   "memory": true,
   "memory_budget": 600,
   "memory_vectors": true,
-  "memory_enrich": true,
+  "memory_enrich": "local",
   "tiers": {
     "ollama/qwen3-coder:30b": 2,
     "openrouter/some-new-model": 3

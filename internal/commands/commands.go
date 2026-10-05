@@ -397,3 +397,17 @@ func SplitArgs(s string) []string {
 	}
 	return out
 }
+
+var reHigherArg = regexp.MustCompile(`\$[1-9]|\$ARGUMENTS\[[1-9]\]`)
+
+// Warnings are likely mistakes in a command file. Claude Code's positional
+// arguments are 0-based ($0 is the first): a Claude-format command that uses
+// $1 but never $0 was probably written for the older 1-based meaning, and
+// would skip its first argument.
+func (c *Command) Warnings() []string {
+	var w []string
+	if c.Origin == Claude && reHigherArg.MatchString(c.Template) && !strings.Contains(c.Template, "$0") && !strings.Contains(c.Template, "$ARGUMENTS[0]") {
+		w = append(w, fmt.Sprintf("/%s (%s) uses $1 but never $0: Claude Code's arguments are 0-based ($0 is the first), so its first argument is ignored — renumber from $0, or move it to .ternly/commands where $1 is the first", c.Name, c.Path))
+	}
+	return w
+}

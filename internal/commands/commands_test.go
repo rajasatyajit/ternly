@@ -73,3 +73,19 @@ func TestSplitArgs(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 }
+
+func TestWarnings(t *testing.T) {
+	old := &Command{Name: "x", Origin: Claude, Template: "Fix issue $1 in $2"}
+	if w := old.Warnings(); len(w) != 1 || !strings.Contains(w[0], "0-based") {
+		t.Fatalf("1-based Claude command not flagged: %v", w)
+	}
+	for _, c := range []*Command{
+		{Origin: Claude, Template: "Fix $0 then $1"},
+		{Origin: Claude, Template: "Fix $ARGUMENTS"},
+		{Origin: OpenCode, Template: "Fix $1"},
+	} {
+		if w := c.Warnings(); len(w) != 0 {
+			t.Errorf("%+v flagged: %v", c, w)
+		}
+	}
+}

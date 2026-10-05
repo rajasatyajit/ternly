@@ -46,14 +46,14 @@ type fileConfig struct {
 		TurnMinutes *float64 `json:"turn_minutes"`
 		TurnUSD     *float64 `json:"turn_usd"`
 	} `json:"limits"`
-	Checkpoints     *bool `json:"checkpoints"`
-	CheckpointCapMB *int  `json:"checkpoint_cap_mb"`
-	AutoResume      *bool `json:"auto_resume"`
-	CodeGraph       *bool `json:"code_graph"`
-	Memory          *bool `json:"memory"`         // long-term memory (default on)
-	MemoryBudget    *int  `json:"memory_budget"`  // tokens of notes injected per turn (default 600)
-	MemoryVectors   *bool `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
-	MemoryEnrich    *bool `json:"memory_enrich"`  // the cheapest model writes other wordings per note (default on)
+	Checkpoints     *bool         `json:"checkpoints"`
+	CheckpointCapMB *int          `json:"checkpoint_cap_mb"`
+	AutoResume      *bool         `json:"auto_resume"`
+	CodeGraph       *bool         `json:"code_graph"`
+	Memory          *bool         `json:"memory"`         // long-term memory (default on)
+	MemoryBudget    *int          `json:"memory_budget"`  // tokens of notes injected per turn (default 600)
+	MemoryVectors   *bool         `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
+	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
 	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
@@ -305,16 +305,17 @@ func run() int {
 			reg.Add(t)
 		}
 		ag.AddInstructions(memory.Guidance)
-		if fc.MemoryEnrich == nil || *fc.MemoryEnrich {
-			mem.SetEnricher(&memory.LLMEnricher{Model: "cheapest", Complete: func(ctx context.Context, system, user string) (string, error) {
+		if fc.MemoryEnrich != enrichOff {
+			remote := fc.MemoryEnrich == enrichRemote
+			mem.SetEnricher(&memory.LLMEnricher{Model: "local, else the session's model", Complete: func(ctx context.Context, system, user string) (string, error) {
 				select { // discovery runs in the background
 				case <-router.Ready():
 				case <-ctx.Done():
 					return "", ctx.Err()
 				}
-				um := router.Utility(4000)
+				um := enrichModel(router, ag.Current(), remote)
 				if um == nil {
-					return "", errors.New("no model for enrichment")
+					return "", errors.New("no model for enrichment yet") // retried at the next write
 				}
 				out, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, llm.Request{Model: um.ID, System: system,
 					Messages: []llm.Message{{Role: "user", Content: user}}, MaxTokens: 160}))
@@ -604,4 +605,51 @@ func migrateLegacy(oldDir, newDir string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// enrichSetting is memory_enrich: false (off), true or "local" (default: a
+// local model, else the model the session already sends its conversation
+// to), or "remote" (also the cheapest remote model: an explicit opt-in).
+type enrichSetting int
+
+const (
+	enrichLocal enrichSetting = iota
+	enrichOff
+	enrichRemote
+)
+
+func (e *enrichSetting) UnmarshalJSON(b []byte) error {
+	switch strings.Trim(string(b), `"`) {
+	case "false", "off":
+		*e = enrichOff
+	case "true", "local", "null":
+		*e = enrichLocal
+	case "remote":
+		*e = enrichRemote
+	default:
+		return fmt.Errorf("memory_enrich: want true, false, \"local\" or \"remote\", got %s", b)
+	}
+	return nil
+}
+
+// enrichModel picks who may see memory notes for enrichment: a local model
+// (tier 2+ preferred: tiny models write poor wordings), else the session's
+// own model (it already sees the conversation the notes come from), else —
+// only with memory_enrich: "remote" — the cheapest model anywhere.
+func enrichModel(r *discover.Router, session *discover.Model, remote bool) *discover.Model {
+	var local *discover.Model
+	for _, m := range r.Models() {
+		if m.Local() && (local == nil || m.Tier >= 2 && local.Tier < 2) {
+			local = m
+		}
+	}
+	switch {
+	case local != nil:
+		return local
+	case session != nil:
+		return session
+	case remote:
+		return r.Utility(4000)
+	}
+	return nil
 }

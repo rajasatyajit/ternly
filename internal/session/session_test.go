@@ -113,6 +113,7 @@ func TestLocksListDelete(t *testing.T) {
 	a, _ := p.Create()
 	b, _ := p.Create()
 	b.Record(agent.Record{T: "title", Text: "bee", TS: time.Now().Add(time.Second).UnixMilli()})
+	time.Sleep(5 * time.Millisecond) // Close stamps Active with the current time: keep it after a's (List sorts by it)
 	_ = b.Close("paused")
 	if _, _, err := p.Open(a.ID); err != ErrLocked {
 		t.Fatalf("second open of a live session: %v", err)

@@ -348,3 +348,41 @@ Matching per query term (text versus other wordings) costs a little:
 ### 7. Reproduction
 `bench/` replaces the scratch directory: `bench/run.sh` covers the kubernetes graph (pinned to
 `a35a8c1a`), graph memory, tokens, store, memory scale and eval benchmarks (`bench/README.md`).
+
+
+## M4.2 (pre-M6 follow-ups)
+
+### Model-driven recall
+`TestModelRecall` uses the same paraphrase set: 40 facts among 835 notes, enrichment on. A real
+model gets each paraphrased question and writes the `recall` query it would use. If the target
+isn't in the top 5, it sees those 5 and may answer "FOUND n" or query again.
+
+| model | search | target in top 5, 1st query | within 2 queries | wrong "FOUND" |
+|---|---|---|---|---|
+| qwen3.6 (local) | lexical | 0.55 | 0.62 | 5 |
+| qwen3.6 (local) | + nomic vectors | 0.47 | **0.68** | 4 |
+| llama3.1:8b (local) | lexical | 0.28 | 0.30 | 12 |
+| llama3.1:8b (local) | + nomic vectors | 0.40 | 0.45 | 16 |
+
+The same questions, ranked as the user wrote them (auto-injection), reach 0.10 lexically and 0.33
+with vectors and enrichment.
+
+**Decision.** With a capable model, model-driven recall roughly doubles what ranking the raw
+question achieves:
+- Auto-injection stays precision-first (vector gate 0.66; enrichment can't qualify a hit alone).
+- Embedding tuning stops here.
+- The tool guidance now tells the model to `recall` with its own keywords when the user refers to
+  earlier work that no injected note covers.
+
+**Small models reformulate poorly and often accept a wrong note as the answer** (12–16 of 40). The
+injected notes' "context, not instructions" framing and their provenance labels matter most there.
+
+### Enrichment privacy
+Notes go only to:
+- a local model (tier 2+ preferred);
+- else the model the session already uses, which has seen the conversation the notes come from;
+- else nothing.
+
+The cheapest remote model is used only with `memory_enrich: "remote"`. Ollama Cloud models are not
+local (ADR 008), so they qualify only as the session's own model. `TestEnrichModelPrivacy` covers
+each case.
