@@ -118,6 +118,25 @@ turns this off; `"remote"` also allows the cheapest remote model.
 `memory: false` turns memory off; `memory_vectors: false` keeps it lexical. Measurements are in
 `docs/adr/009-memory.md`.
 
+## Plugins, skills and agents
+ternly loads other harnesses' extensions: Claude Code plugins, skills, subagents, hooks and MCP
+servers, Gemini CLI extensions, Cursor rules, OpenCode agents and Codex skills. `docs/compat.md`
+says exactly what loads.
+- **Already on disk:** skills, agents and rules in the usual places (`~/.claude/skills`,
+  `.claude/agents`, `.cursor/rules`, …) are available at once, as prompt text.
+- **Installing:** `/plugin add <git-url|dir|name@marketplace>` shows what the plugin will run, its
+  trust label (from where it came from, not what it says) and its token cost, and asks first.
+- **Pinned:** installs are pinned to a commit. An update, or an edit on disk, that changes what runs
+  needs approval again with a diff.
+- **Confined:** hooks and MCP servers run inside bubblewrap, with no access to your home, keys,
+  ternly's data or environment, and the workspace and network only as scoped. Plugins can't grant
+  permissions.
+
+When a task needs something you don't have (a Postgres, Jira or Figma integration, PDF handling…),
+ternly suggests the top 3 candidates once, after the turn. They come from a local index of the MCP
+registry, Anthropic's marketplaces, the Gemini extension gallery and npm. `suggestions: false`
+turns this off.
+
 ## Slash commands
 Type `/` for a list with fuzzy completion (Tab completes), or `/help`. The commands follow Claude
 Code, Codex, Gemini CLI, Aider and OpenCode; `docs/commands.md` has the table and sources.

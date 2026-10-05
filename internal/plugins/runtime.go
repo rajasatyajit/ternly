@@ -442,7 +442,15 @@ func (r *Runtime) startMCP(c Component, p Installed) (*tools.MCPServer, []llm.To
 	if exists(filepath.Join(p.Dir, ".claude-plugin")) || exists(filepath.Join(p.Dir, "gemini-extension.json")) {
 		dir = p.Dir
 	}
-	expand := r.expander(p.Name, dir)
+	base := r.expander(p.Name, dir)
+	expand := func(s string) string { // the plugin's own variables (/plugin env), then the standard ones
+		return base(os.Expand(s, func(k string) string {
+			if v, ok := p.Env[k]; ok {
+				return v
+			}
+			return "${" + k + "}"
+		}))
+	}
 	argv := append([]string{expand(c.MCP.Command)}, mapStrings(c.MCP.Args, expand)...)
 	env := map[string]string{"CLAUDE_PLUGIN_DATA": pluginData()}
 	for k, v := range c.MCP.Env {

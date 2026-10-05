@@ -31,6 +31,7 @@ type MarketplaceEntry struct {
 	Category    string          `json:"category"`
 	Tags        []string        `json:"tags"`
 	Source      json.RawMessage `json:"source"`
+	Skills      []string        `json:"skills"`
 }
 
 // AddMarketplace fetches a marketplace (owner/repo, a git URL, or a local
@@ -123,7 +124,7 @@ func (s *Store) Resolve(name, market string) (Source, MarketplaceEntry, error) {
 			if e.Name != name {
 				continue
 			}
-			src := Source{Kind: "git", Marketplace: mk.Name, MarketplaceURL: mk.URL}
+			src := Source{Kind: "git", Marketplace: mk.Name, MarketplaceURL: mk.URL, Name: e.Name, Skills: e.Skills}
 			var rel string
 			var obj struct {
 				Source string `json:"source"`

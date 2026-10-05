@@ -7,6 +7,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -915,4 +916,42 @@ func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(
 		}
 	}
 	return "", errors.New("the subagent finished without an answer")
+}
+
+// LastTurn is what the last turn did, for capability detection: its prompt,
+// the model's final text, and the shell commands it ran with their outputs.
+func (a *Agent) LastTurn() (prompt, answer string, commands, outputs []string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.state.Turns) == 0 {
+		return "", "", nil, nil
+	}
+	t := a.state.Turns[len(a.state.Turns)-1]
+	h := a.state.History
+	if t.Hist > len(h) {
+		return t.Prompt, "", nil, nil
+	}
+	results := map[string]string{}
+	for _, m := range h[t.Hist:] {
+		if m.Role == "tool" {
+			results[m.ToolCallID] = tools.Unframe(m.Content)
+		}
+	}
+	for _, m := range h[t.Hist:] {
+		if m.Role != "assistant" {
+			continue
+		}
+		if strings.TrimSpace(m.Content) != "" {
+			answer = m.Content
+		}
+		for _, tc := range m.ToolCalls {
+			if tc.Name == "bash" {
+				var x struct{ Command string }
+				_ = json.Unmarshal([]byte(tc.Args), &x)
+				commands = append(commands, x.Command)
+				outputs = append(outputs, results[tc.ID])
+			}
+		}
+	}
+	return t.Prompt, answer, commands, outputs
 }

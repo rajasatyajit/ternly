@@ -33,12 +33,18 @@ milestone named, or noted as open.
 - **Automatic turn summaries** take their "outcome" from the first sentence of the model's answer,
   which is sometimes a weak summary.
 
-## Commands (after M5)
-- **Skills as commands.** Claude Code merged custom commands into skills
-  (`.claude/skills/<name>/SKILL.md`) and Codex deprecated prompts for skills. Loading them is
-  part of M6 (requirement 8).
-- **`/mcp` management** (enable, disable, reconnect) comes with M6's hot reload; M5 only lists
-  servers.
+## Plugins and capabilities (after M6)
+- **Remote MCP servers** (streamable HTTP, SSE): about 25k of the registry's 39k servers are remote
+  only. They are excluded from suggestions until ternly has an HTTP MCP client.
+- **Containers** (`oci` packages) can't run inside bubblewrap; **macOS** has no plugin sandbox,
+  so plugins are prompt text only there.
+- **Registry quality.** Of three npm servers tried from the MCP registry, one started: one listed a
+  version that doesn't exist on npm, one shipped a broken binary. Install-time validation catches
+  this (nothing changes), but ranking could also learn from failures.
+- **Cursor glob rules** are offered by description, not auto-attached when a matching file is in
+  context; **nested AGENTS.md** files aren't merged.
+- **Plugin secrets** set with `/plugin env` are stored in ternly's data directory (0600, masked
+  from every sandbox), not in the OS keychain.
 
 ## Infrastructure
 - **CI** was blocked by a GitHub account billing lock during M3. It is resolved: both jobs (Linux

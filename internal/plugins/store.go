@@ -207,11 +207,16 @@ func TrustFor(src Source) Trust {
 	case src.Marketplace != "":
 		repo, known := officialMarketplaces[src.Marketplace]
 		fromRepo := known && sameRepo(src.MarketplaceURL, repo)
+		mrepo := githubRepo(src.MarketplaceURL)
+		byAnthropic := strings.HasPrefix(mrepo, "anthropics/") // the repository it was actually fetched from
+		hostedByAnthropic := strings.HasPrefix(githubRepo(src.URL), "anthropics/")
 		switch {
-		case fromRepo && src.Marketplace == "claude-plugins-official" && (sameRepo(src.URL, repo) || strings.HasPrefix(githubRepo(src.URL), "anthropics/")):
+		case fromRepo && src.Marketplace == "claude-plugins-official" && hostedByAnthropic:
 			return Trust{"official", "listed in Anthropic's official marketplace (" + repo + ") and hosted by Anthropic"}
-		case fromRepo:
-			return Trust{"listed", "listed in " + repo + "; the plugin itself is from " + orStr(githubRepo(src.URL), src.URL)}
+		case byAnthropic && hostedByAnthropic && src.Marketplace != "claude-community":
+			return Trust{"official", "from Anthropic's marketplace repository " + mrepo + ", hosted by Anthropic"}
+		case fromRepo || byAnthropic:
+			return Trust{"listed", "listed in " + orStr(mrepo, repo) + "; the plugin itself is from " + orStr(githubRepo(src.URL), src.URL)}
 		case known:
 			return Trust{"unverified", "claims the marketplace name " + src.Marketplace + " but was fetched from " + src.MarketplaceURL}
 		}
@@ -238,12 +243,16 @@ func sameRepo(u, ownerRepo string) bool { return githubRepo(u) == strings.ToLowe
 
 // Source is where a plugin comes from.
 type Source struct {
-	Kind           string `json:"kind"` // git, local
+	Kind           string `json:"kind"` // git, local, generated (from the capability catalog)
 	URL            string `json:"url"`
 	Ref            string `json:"ref,omitempty"`
 	Path           string `json:"path,omitempty"` // subdirectory (git-subdir, marketplace relative path)
 	Marketplace    string `json:"marketplace,omitempty"`
 	MarketplaceURL string `json:"marketplace_url,omitempty"`
+	// From a marketplace entry: its name (the plugin's name when it has no
+	// plugin.json) and, for entries that list them, which skills it has.
+	Name   string   `json:"name,omitempty"`
+	Skills []string `json:"skills,omitempty"`
 }
 
 // Scope is what a plugin's code may touch.
@@ -254,17 +263,32 @@ type Scope struct {
 
 // Installed is one plugin in the lock file.
 type Installed struct {
-	Name     string    `json:"name"`
-	Source   Source    `json:"source"`
-	Commit   string    `json:"commit"` // pinned
-	Dir      string    `json:"dir"`
-	Enabled  bool      `json:"enabled"`
-	Approved Surface   `json:"approved"` // what the user approved to run
-	Hooks    Scope     `json:"hooks"`
-	MCP      Scope     `json:"mcp"`
-	Trust    Trust     `json:"trust"`
-	Format   string    `json:"format"`
-	Time     time.Time `json:"time"`
+	Name     string            `json:"name"`
+	Source   Source            `json:"source"`
+	Commit   string            `json:"commit"` // pinned
+	Dir      string            `json:"dir"`
+	Enabled  bool              `json:"enabled"`
+	Approved Surface           `json:"approved"` // what the user approved to run
+	Hooks    Scope             `json:"hooks"`
+	MCP      Scope             `json:"mcp"`
+	Trust    Trust             `json:"trust"`
+	Format   string            `json:"format"`
+	Time     time.Time         `json:"time"`
+	Env      map[string]string `json:"env,omitempty"` // values for ${VAR} in its MCP config (/plugin env); this file is 0600 in a masked directory
+}
+
+// SetEnv sets (or with value "" removes) a variable a plugin's MCP servers get.
+func (s *Store) SetEnv(name, key, value string) error {
+	return s.update(name, func(p *Installed) {
+		if p.Env == nil {
+			p.Env = map[string]string{}
+		}
+		if value == "" {
+			delete(p.Env, key)
+		} else {
+			p.Env[key] = value
+		}
+	})
 }
 
 // DefaultScopes: hooks read the workspace, offline; MCP servers read the
@@ -277,9 +301,10 @@ var (
 // Store is the set of installed plugins: a lock file plus their files under
 // dir (ternly's data directory, masked from every sandbox).
 type Store struct {
-	Dir string
-	mu  sync.Mutex
-	all map[string]*Installed
+	Dir  string
+	mu   sync.Mutex
+	all  map[string]*Installed
+	prev map[string]*Installed // previous versions awaiting Finish
 }
 
 // OpenStore reads dir/plugins.json.
@@ -423,7 +448,7 @@ func (s *Store) Fetch(ctx context.Context, src Source) (*Pending, error) {
 			return fail(errors.New("plugin path leaves the repository"))
 		}
 	}
-	m, err := Load(dir, nameFromURL(src.URL))
+	m, err := loadPlugin(dir, orStr(src.Name, nameFromURL(src.URL)), src)
 	if err != nil {
 		return fail(err)
 	}
@@ -447,7 +472,11 @@ func (s *Store) Discard(p *Pending) { os.RemoveAll(p.staging) }
 // The previous version's files are removed.
 func (s *Store) Accept(p *Pending) (*Installed, error) {
 	m := p.Manifest
-	dst := filepath.Join(s.Dir, m.Name, shortCommit(p.Commit))
+	version := shortCommit(p.Commit)
+	if p.Commit == "local" { // a local source has no commit: its content hash names the version
+		version = "local-" + shortCommit(p.Surface.Tree)
+	}
+	dst := filepath.Join(s.Dir, m.Name, version)
 	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return nil, err
 	}
@@ -466,20 +495,69 @@ func (s *Store) Accept(p *Pending) (*Installed, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if prev := s.all[m.Name]; prev != nil {
-		in.Hooks, in.MCP, in.Enabled = prev.Hooks, prev.MCP, prev.Enabled
+		in.Hooks, in.MCP, in.Enabled, in.Env = prev.Hooks, prev.MCP, prev.Enabled, prev.Env
 		if prev.Dir != dst {
-			os.RemoveAll(prev.Dir)
+			if s.prev == nil {
+				s.prev = map[string]*Installed{}
+			}
+			s.prev[m.Name] = prev // kept until Finish: a failed validation rolls back to it
 		}
 	}
 	s.all[m.Name] = in
 	return in, s.save()
 }
 
+// Finish completes an install after validation: ok keeps it (and deletes
+// the previous version's files); otherwise the previous version (or
+// nothing) is restored, so a failed install changes nothing.
+func (s *Store) Finish(name string, ok bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur, prev := s.all[name], s.prev[name]
+	delete(s.prev, name)
+	switch {
+	case ok:
+		if prev != nil && cur != nil && prev.Dir != cur.Dir {
+			os.RemoveAll(prev.Dir)
+		}
+		return nil
+	case prev != nil:
+		s.all[name] = prev
+	default:
+		delete(s.all, name)
+	}
+	if cur != nil && (prev == nil || cur.Dir != prev.Dir) {
+		os.RemoveAll(cur.Dir)
+	}
+	return s.save()
+}
+
+// loadPlugin reads a plugin directory, applying what its marketplace entry
+// says when the entry is the manifest (no plugin.json): which skills it has.
+func loadPlugin(dir, name string, src Source) (*Manifest, error) {
+	m, err := Load(dir, name)
+	if err != nil || len(src.Skills) == 0 || exists(filepath.Join(dir, ".claude-plugin", "plugin.json")) {
+		return m, err
+	}
+	keep := map[string]bool{}
+	for _, p := range src.Skills {
+		keep[filepath.Clean(filepath.Join(dir, p))] = true
+	}
+	kept := m.Components[:0]
+	for _, c := range m.Components {
+		if c.Kind != KSkill || keep[filepath.Dir(c.Path)] {
+			kept = append(kept, c)
+		}
+	}
+	m.Components = kept
+	return m, nil
+}
+
 // Verify re-reads an installed plugin from disk. ok is false when its files
 // no longer match what was approved (edited or tampered with since): its
 // executable parts must not run until approved again.
 func (s *Store) Verify(p Installed) (*Manifest, Diff, bool, error) {
-	m, err := Load(p.Dir, p.Name)
+	m, err := loadPlugin(p.Dir, p.Name, p.Source)
 	if err != nil {
 		return nil, Diff{}, false, err
 	}
@@ -497,7 +575,7 @@ func (s *Store) Reapprove(name string) error {
 	if !ok {
 		return fmt.Errorf("no plugin %q", name)
 	}
-	m, err := Load(p.Dir, p.Name)
+	m, err := loadPlugin(p.Dir, p.Name, p.Source)
 	if err != nil {
 		return err
 	}

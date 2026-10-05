@@ -22,7 +22,9 @@ const pluginHelp = `  /plugin                          installed, local and impo
   /plugin remove|enable|disable <name>
   /plugin scope <name> hooks|mcp workspace=none|ro|rw network=on|off
   /plugin info <name>              components, what it runs, what isn't loaded, tokens
-  /plugin marketplace add <owner/repo|git-url|dir> · /plugin marketplace list`
+  /plugin marketplace add <owner/repo|git-url|dir> · /plugin marketplace list
+  /plugin search <words>           search the capability catalog · /plugin catalog [refresh]
+  /plugin env <name> KEY=VALUE     a value its MCP servers need (e.g. a token); -KEY removes`
 
 type pluginDoneMsg struct {
 	text   string
@@ -168,6 +170,44 @@ func (m *Model) cmdPlugin(arg string) tea.Cmd {
 		return m.reloadPlugins(sOK.Render("  " + sub + "d " + rest))
 	case "scope":
 		return m.pluginScope(rest)
+	case "search":
+		return m.pluginSearch(rest)
+	case "catalog":
+		caps := m.App.Capabilities
+		if caps == nil || caps.Catalog == nil {
+			m.addInfo(sDim.Render("  the capability catalog is off"))
+			return nil
+		}
+		if rest != "refresh" {
+			m.addInfo(fmt.Sprintf("  catalog: %d entries (MCP registry, Claude Code marketplaces, Gemini gallery, npm) · /plugin catalog refresh · /plugin search <words>", caps.Catalog.Len()))
+			return nil
+		}
+		m.addInfo(sDim.Render("  refreshing the catalog in the background…"))
+		return func() tea.Msg {
+			t0 := time.Now()
+			err := caps.Catalog.Refresh(ctx, nil)
+			msg := sOK.Render(fmt.Sprintf("  catalog refreshed: %d entries in %s", caps.Catalog.Len(), time.Since(t0).Round(time.Second)))
+			if err != nil {
+				msg += "\n" + sWarn.Render("  ! "+err.Error())
+			}
+			return pluginDoneMsg{text: msg}
+		}
+	case "env":
+		ef := strings.Fields(rest)
+		if len(ef) < 2 {
+			m.addInfo(sErr.Render("  usage: /plugin env <name> KEY=VALUE | -KEY"))
+			return nil
+		}
+		key, val, _ := strings.Cut(ef[1], "=")
+		if strings.HasPrefix(key, "-") {
+			key, val = key[1:], ""
+		}
+		if err := st.SetEnv(ef[0], key, val); err != nil {
+			m.addInfo(sErr.Render("  " + err.Error()))
+			return nil
+		}
+		m.App.Reg.Redact.Add(val) // never shown to a model
+		return m.reloadPlugins(sOK.Render("  " + ef[0] + ": " + key + map[bool]string{true: " set (passed only to its MCP servers)", false: " removed"}[val != ""]))
 	case "info":
 		m.addInfo(m.pluginInfo(rest))
 	case "marketplace":
@@ -250,7 +290,19 @@ func (m *Model) onPluginReview(r pluginReviewMsg) tea.Cmd {
 			st.Discard(p)
 			return pluginDoneMsg{text: sErr.Render("  install failed, nothing changed: " + err.Error())}
 		}
-		ws := m.App.Plugins.Apply(ctx)
+		ws := m.App.Plugins.Apply(ctx) // validates: its MCP servers must start and list their tools
+		var failed []string
+		for _, w := range ws {
+			if strings.HasPrefix(w, "plugin "+in.Name+":") || strings.HasPrefix(w, "plugin "+in.Name+" ") {
+				failed = append(failed, w)
+			}
+		}
+		if len(failed) > 0 {
+			_ = st.Finish(in.Name, false)
+			m.App.Plugins.Apply(ctx)
+			return pluginDoneMsg{text: sErr.Render("  "+in.Name+" failed validation — nothing changed:") + "\n" + sErr.Render("  "+strings.Join(failed, "\n  ")), reload: true}
+		}
+		_ = st.Finish(in.Name, true)
 		text := sOK.Render(fmt.Sprintf("  %s %s @ %s — usable from your next prompt (%s after approval)", map[bool]string{true: "updated", false: "installed"}[p.Prev != nil], in.Name, in.Commit[:min(12, len(in.Commit))], time.Since(t1).Round(time.Millisecond)))
 		for _, w := range ws {
 			text += "\n" + sWarn.Render("  ! "+w)

@@ -18,6 +18,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/capability"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
@@ -158,25 +159,28 @@ type Model struct {
 	pending       []string         // context for the next prompt (/run, /web output)
 	prevMode      string           // permission mode before plan mode
 	afterTurn     []func() tea.Cmd // run when the current turn ends (/ask, /architect)
-	lastFailed    bool             // the last turn ended with an error
+	suggest       *suggestion      // a capability suggestion on screen
+	laterSuggest  *capability.Suggestion
+	lastFailed    bool // the last turn ended with an error
 }
 
 // App bundles the long-lived services the UI drives.
 type App struct {
-	Agent      *agent.Agent
-	Router     *discover.Router
-	Reg        *tools.Registry
-	Discover   func() ([]*discover.Model, []string)
-	Notes      []string
-	Version    string
-	Sessions   *session.Manager // nil: no persistence (tests)
-	Banner     string           // shown at start (resumed session, fork offer)
-	Pick       bool             // open the session picker at start (bare --resume)
-	Memory     *memory.Memory   // nil: memory off
-	Theme      string           // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
-	ConfigPath string           // the config file (for /config)
-	Status     func() []string  // extra /status and /doctor lines (code graph, …)
-	Plugins    *plugins.Runtime // nil: plugins off
+	Agent        *agent.Agent
+	Router       *discover.Router
+	Reg          *tools.Registry
+	Discover     func() ([]*discover.Model, []string)
+	Notes        []string
+	Version      string
+	Sessions     *session.Manager    // nil: no persistence (tests)
+	Banner       string              // shown at start (resumed session, fork offer)
+	Pick         bool                // open the session picker at start (bare --resume)
+	Memory       *memory.Memory      // nil: memory off
+	Theme        string              // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
+	ConfigPath   string              // the config file (for /config)
+	Status       func() []string     // extra /status and /doctor lines (code graph, …)
+	Plugins      *plugins.Runtime    // nil: plugins off
+	Capabilities *capability.Service // nil: no suggestions
 }
 
 func New(app *App, dark bool) *Model {
@@ -336,6 +340,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case webMsg:
 		m.onWeb(msg)
 
+	case suggestMsg:
+		m.onSuggest(msg.s)
+
 	case pluginReviewMsg:
 		cmds = append(cmds, m.onPluginReview(msg))
 
@@ -404,6 +411,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
+	}
+	if m.suggest != nil && m.perm == nil && m.picker == nil {
+		return m.suggestKey(k), true
 	}
 	if m.comp != nil && m.perm == nil {
 		if c, handled := m.compKey(k); handled {
@@ -607,6 +617,14 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 				return m.switchTo(id)
 			}
 		}
+		var detect tea.Cmd
+		if m.laterSuggest != nil { // a suggestion waited for this boundary
+			s := m.laterSuggest
+			m.laterSuggest = nil
+			defer m.onSuggest(s)
+		} else if !m.lastFailed {
+			detect = m.detectAfterTurn()
+		}
 		if len(m.afterTurn) > 0 { // /ask restores the mode, /architect starts the editor turn
 			after := m.afterTurn
 			m.afterTurn = nil
@@ -616,7 +634,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			}
 			if m.busy { // an after-turn hook started a turn: it runs before the queue
 				m.refresh(true)
-				return tea.Batch(out...)
+				return tea.Batch(append(out, detect)...)
 			}
 		}
 		if len(m.queue) > 0 {
@@ -626,6 +644,8 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			cmd := m.start(next)
 			go func() { cmd() }()
 		}
+		m.refresh(true)
+		return detect
 	}
 	m.refresh(true)
 	return nil
@@ -889,6 +909,9 @@ func (m *Model) layout() {
 	if m.comp != nil {
 		permH += len(m.comp.items)
 	}
+	if m.suggest != nil {
+		permH += 2*len(m.suggest.s.Candidates) + 4
+	}
 	m.vp.SetWidth(m.w)
 	m.vp.SetHeight(max(3, m.h-1-inputH-1-permH))
 }
@@ -980,6 +1003,9 @@ func (m *Model) render() string {
 	}
 	if m.comp != nil {
 		sb.WriteString(m.compView() + "\n")
+	}
+	if m.suggest != nil {
+		sb.WriteString(m.suggestView() + "\n")
 	}
 	box := sBox
 	if m.ta.Focused() {

@@ -58,7 +58,9 @@ type Item struct {
 	// differently still matches. Indexed and embedded; never injected.
 	Alt  string `json:"alt,omitempty"`
 	AltV int    `json:"altv,omitempty"` // the version Alt was written for
-
+	// Meta is free-form data for stores that aren't memory (the capability
+	// catalog keeps publisher, source, version, … here).
+	Meta map[string]string `json:"meta,omitempty"`
 }
 
 // Stored items are immutable: a change stores a new *Item. So search can
@@ -325,4 +327,47 @@ func newID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// Upsert stores it as is (no dedupe, secret check or versioning: for
+// stores that aren't memory, such as the capability catalog). A put with
+// the same ID replaces the previous item.
+func (s *Store) Upsert(it *Item) {
+	s.mu.Lock()
+	if cur := s.items[it.ID]; cur != nil {
+		it.V = cur.V + 1
+	} else if it.V == 0 {
+		it.V = 1
+	}
+	s.apply(rec{Op: "put", Item: it}, nil)
+	s.mu.Unlock()
+	s.write(rec{Op: "put", Item: it})
+}
+
+// Scored is a search result: BM25, and the share of the query's words found.
+type Scored struct {
+	Item        Item
+	BM25, Cover float32
+}
+
+// SearchText ranks items by words alone (BM25 with coverage), best first.
+func (s *Store) SearchText(q string, limit int) []Scored {
+	qt := uniq(tokens(q))
+	s.mu.RLock()
+	var out []Scored
+	s.ix.lexical(qt, nil, 0, func(slot uint32, bm, cover float32, nterm, nalt int) {
+		out = append(out, Scored{Item: *s.ix.docs[slot], BM25: bm, Cover: cover})
+	})
+	s.mu.RUnlock()
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i].BM25*(0.5+out[i].Cover), out[j].BM25*(0.5+out[j].Cover)
+		if a != b {
+			return a > b
+		}
+		return out[i].Item.ID < out[j].Item.ID
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out
 }

@@ -338,7 +338,10 @@ func (l *limitWriter) Write(p []byte) (int, error) {
 // ─────────────────────────── redaction ───────────────────────────
 
 // Redactor strips known secret values from anything sent back to a model.
-type Redactor struct{ secrets []string }
+type Redactor struct {
+	mu      sync.RWMutex
+	secrets []string
+}
 
 func NewRedactor(keys map[string]string) *Redactor {
 	r := &Redactor{}
@@ -351,7 +354,20 @@ func NewRedactor(keys map[string]string) *Redactor {
 	return r
 }
 
+// Add registers another secret value (e.g. a plugin's configured token).
+func (r *Redactor) Add(v string) {
+	if len(v) < 8 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.secrets = append(r.secrets, v)
+	sort.Slice(r.secrets, func(i, j int) bool { return len(r.secrets[i]) > len(r.secrets[j]) })
+}
+
 func (r *Redactor) Apply(s string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for _, v := range r.secrets {
 		if strings.Contains(s, v) {
 			s = strings.ReplaceAll(s, v, "[REDACTED]")

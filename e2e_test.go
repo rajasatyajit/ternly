@@ -124,7 +124,7 @@ func testHome(t *testing.T, provider string) string {
 	for _, d := range []string{cfg, cache, data} {
 		_ = os.MkdirAll(d, 0o700)
 	}
-	conf := fmt.Sprintf(`{"no_local":true,"providers":[{"id":"fake","kind":"openai","base_url":%q,"key_env":"FAKE_KEY"}]}`, provider)
+	conf := fmt.Sprintf(`{"no_local":true,"suggestions":false,"providers":[{"id":"fake","kind":"openai","base_url":%q,"key_env":"FAKE_KEY"}]}`, provider)
 	_ = os.WriteFile(filepath.Join(cfg, "config.json"), []byte(conf), 0o600)
 	_ = os.WriteFile(filepath.Join(cache, "catalog.json"), []byte(`{"m1":{"Tools":true,"Ctx":100000}}`), 0o600) // no network fetch
 	for d, mark := range map[string]string{cfg: "CFG-MARKER", cache: "CACHE-MARKER", data: "SESSION-MARKER"} {

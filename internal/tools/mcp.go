@@ -129,7 +129,8 @@ func startMCP(ctx context.Context, name, command string, args []string, env map[
 // StartMCPCmd starts an MCP server from a prepared (e.g. confined) command
 // and lists its tools; it fails unless initialize and tools/list succeed.
 func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, []llm.ToolSpec, error) {
-	cmd.Stderr = io.Discard
+	stderr := &tailBuffer{n: 2048} // the server's last words explain a failed start
+	cmd.Stderr = stderr
 	in, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, nil, err
@@ -152,7 +153,7 @@ func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, [
 		"clientInfo":      map[string]any{"name": "ternly", "version": "0.1"},
 	}); err != nil {
 		s.Close()
-		return nil, nil, fmt.Errorf("initialize: %w", err)
+		return nil, nil, fmt.Errorf("initialize: %w%s", err, stderr.suffix())
 	}
 	_ = s.notify("notifications/initialized")
 	var specs []llm.ToolSpec
@@ -329,4 +330,30 @@ func (s *MCPServer) Close() {
 		}()
 		_ = s.cmd.Wait()
 	}
+}
+
+// tailBuffer keeps the last n bytes written.
+type tailBuffer struct {
+	mu sync.Mutex
+	b  []byte
+	n  int
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.b = append(t.b, p...)
+	if len(t.b) > t.n {
+		t.b = t.b[len(t.b)-t.n:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) suffix() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if s := strings.TrimSpace(string(t.b)); s != "" {
+		return " — stderr: " + s
+	}
+	return ""
 }

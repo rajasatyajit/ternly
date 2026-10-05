@@ -22,6 +22,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/capability"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
@@ -56,7 +57,14 @@ type fileConfig struct {
 	MemoryVectors   *bool         `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
 	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
 	Plugins         *bool         `json:"plugins"`        // plugins, skills, agents, rules (default on)
-	Providers       []struct {
+	Suggestions     *bool         `json:"suggestions"`    // suggest capabilities a task needs (default on)
+	CatalogSources  *struct {
+		Marketplaces []string `json:"marketplaces"` // extra raw marketplace.json URLs
+		MCPRegistry  string   `json:"mcp_registry"` // another MCP registry base URL
+		NPM          *bool    `json:"npm"`          // search npm's mcp-server keyword (default on)
+		Offline      bool     `json:"offline"`      // never refresh (use what's already indexed)
+	} `json:"catalog_sources"`
+	Providers []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
 		Kind    string `json:"kind"`
@@ -368,6 +376,60 @@ func run() int {
 			}()
 		}
 	}
+	var caps *capability.Service
+	if prt != nil && (fc.Suggestions == nil || *fc.Suggestions) {
+		src := capability.DefaultSources
+		if cs := fc.CatalogSources; cs != nil {
+			src.Marketplaces = append(src.Marketplaces, cs.Marketplaces...)
+			if cs.MCPRegistry != "" {
+				src.MCPRegistry = cs.MCPRegistry
+			}
+			if cs.NPM != nil {
+				src.NPMSearch = *cs.NPM
+			}
+		}
+		cat := &capability.Catalog{Dir: filepath.Join(dataDir, "catalog"), Sources: src}
+		caps = &capability.Service{Catalog: cat, Suggester: &capability.Suggester{File: filepath.Join(project.Dir, "capability.json")},
+			Detector: &capability.Detector{
+				Covered: capability.CoveredBy(func() []string {
+					var out []string
+					for _, sp := range reg.Specs() {
+						out = append(out, sp.Name+" "+sp.Description)
+					}
+					return out
+				}),
+				Classify: func(ctx context.Context, prompt string) (string, error) { // only for ambiguous mentions; a few tokens
+					um := enrichModel(router, ag.Current(), false) // the prompt goes to a local model, else the session's own
+					if um == nil {
+						return "", errors.New("no model")
+					}
+					out, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, llm.Request{Model: um.ID, System: capability.ClassifyPrompt,
+						Messages: []llm.Message{{Role: "user", Content: prompt}}, MaxTokens: 4}))
+					ag.Commit(agent.Record{T: "usage", Usage: &u, Cost: um.Cost(u)})
+					return out, err
+				}}}
+		defer cat.Close()
+		go func() { // the catalog refreshes daily, in the background (the first time takes a few minutes)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(10 * time.Second):
+			}
+			if (fc.CatalogSources == nil || !fc.CatalogSources.Offline) && cat.Due(24*time.Hour) {
+				_ = cat.Refresh(ctx, nil)
+			}
+		}()
+	}
+	for _, p := range func() []plugins.Installed {
+		if prt == nil {
+			return nil
+		}
+		return prt.Store.List()
+	}() {
+		for _, v := range p.Env { // plugin secrets are never shown to a model
+			reg.Redact.Add(v)
+		}
+	}
 	reg.Hold() // start-up tools are in; from here every change waits for a turn boundary and is announced
 	if *resumeID == "?" && *prompt != "" {
 		list, _ := project.List()
@@ -442,7 +504,7 @@ func run() int {
 		}
 		return ms, w
 	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
-		Plugins: prt, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
+		Plugins: prt, Capabilities: caps, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
 			if gs == nil {
 				return []string{"code graph off (no go.mod, or code_graph: false)"}
 			}

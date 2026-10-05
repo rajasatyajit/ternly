@@ -132,6 +132,9 @@ func TestTrustFromSourceOnly(t *testing.T) {
 		{Source{Kind: "git", URL: "https://github.com/anthropics/claude-plugins-official", Marketplace: "claude-plugins-official", MarketplaceURL: "anthropics/claude-plugins-official"}, "official"},
 		{Source{Kind: "git", URL: "https://github.com/someone/tool", Marketplace: "claude-plugins-official", MarketplaceURL: "https://github.com/anthropics/claude-plugins-official.git"}, "listed"},
 		{Source{Kind: "local", URL: "/tmp/x"}, "local"},
+		{Source{Kind: "git", URL: "https://github.com/anthropics/skills", Marketplace: "anthropic-agent-skills", MarketplaceURL: "https://github.com/anthropics/skills"}, "official"},
+		{Source{Kind: "git", URL: "https://github.com/someone/x", Marketplace: "claude-community", MarketplaceURL: "https://github.com/anthropics/claude-plugins-community"}, "listed"},
+		{Source{Kind: "git", URL: "https://github.com/anthropics/x", Marketplace: "anthropic-agent-skills", MarketplaceURL: "https://github.com/evil/skills"}, "unverified"},
 	} {
 		if got := TrustFor(c.src); got.Level != c.want {
 			t.Errorf("%+v → %s (%s), want %s", c.src, got.Level, got.Why, c.want)

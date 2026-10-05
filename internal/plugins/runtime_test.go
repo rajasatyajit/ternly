@@ -138,3 +138,47 @@ func TestTamperedPluginDisabled(t *testing.T) {
 func toolCall(name, args string) llm.ToolCall { return llm.ToolCall{ID: "t", Name: name, Args: args} }
 
 var _ = json.Marshal
+
+// A plugin whose MCP server fails validation changes nothing: a fresh
+// install is removed; an update is rolled back to the previous version.
+func TestFailedValidationRollsBack(t *testing.T) {
+	testutil.Require(t, "bubblewrap", bwrapOK())
+	rt, _, _ := runtimeFor(t, "yolo")
+	st := rt.Store
+	src := t.TempDir()
+	good := map[string]string{".claude-plugin/plugin.json": `{"name":"svc"}`, "skills/a/SKILL.md": "---\ndescription: a\n---\nA."}
+	write(t, src, good)
+	p, _ := st.Fetch(context.Background(), Source{Kind: "local", URL: src})
+	v1, _ := st.Accept(p)
+	_ = st.Finish("svc", true)
+
+	write(t, src, map[string]string{".mcp.json": `{"mcpServers":{"broken":{"command":"sh","args":["-c","echo boom >&2; exit 1"]}}}`})
+	p2, _ := st.Fetch(context.Background(), Source{Kind: "local", URL: src})
+	v2, _ := st.Accept(p2)
+	ws := rt.Apply(context.Background())
+	if len(ws) != 1 || !strings.Contains(ws[0], "boom") {
+		t.Fatalf("validation warnings %v", ws)
+	}
+	if err := st.Finish("svc", false); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := st.Get("svc")
+	if cur.Dir != v1.Dir || len(cur.Approved.Lines) != 0 {
+		t.Fatalf("not rolled back: %+v", cur)
+	}
+	if _, err := os.Stat(v2.Dir); err == nil && v2.Dir != v1.Dir {
+		t.Fatal("failed version's files kept")
+	}
+	if _, err := os.Stat(v1.Dir); err != nil {
+		t.Fatal("previous version's files deleted")
+	}
+
+	src2 := t.TempDir()
+	write(t, src2, map[string]string{".claude-plugin/plugin.json": `{"name":"fresh"}`, ".mcp.json": `{"mcpServers":{"x":{"command":"false"}}}`})
+	p3, _ := st.Fetch(context.Background(), Source{Kind: "local", URL: src2})
+	_, _ = st.Accept(p3)
+	_ = st.Finish("fresh", false)
+	if _, ok := st.Get("fresh"); ok {
+		t.Fatal("failed fresh install kept")
+	}
+}
