@@ -27,6 +27,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/graph"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/memory"
+	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
@@ -54,6 +55,7 @@ type fileConfig struct {
 	MemoryBudget    *int          `json:"memory_budget"`  // tokens of notes injected per turn (default 600)
 	MemoryVectors   *bool         `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
 	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
+	Plugins         *bool         `json:"plugins"`        // plugins, skills, agents, rules (default on)
 	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
@@ -338,6 +340,35 @@ func run() int {
 			}()
 		}
 	}
+	var prt *plugins.Runtime
+	if fc.Plugins == nil || *fc.Plugins {
+		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
+			notes = append(notes, "plugins off: "+err.Error())
+		} else {
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.Subagent,
+				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
+				SessionID: func() string {
+					if s := mgr.Current(); s != nil {
+						return s.ID
+					}
+					return ""
+				}}
+			reg.Hooks, ag.PromptHook = prt, prt.PromptHook
+			notes = append(notes, prt.ApplyAsync(ctx)...) // MCP servers start in the background
+			if ins := prt.Instructions(); ins != "" {
+				ag.AddInstructions(ins)
+			}
+			defer prt.Close()
+			go prt.Watch(ctx, 3*time.Second)
+			go func() { // SessionStart hooks: their output reaches the model once, framed as untrusted
+				if c := prt.SessionStart(ctx, "startup"); c != "" {
+					framed, _ := reg.Frame.Wrap("hook", c)
+					ag.SetNote("Context from plugin SessionStart hooks:\n" + framed)
+				}
+			}()
+		}
+	}
+	reg.Hold() // start-up tools are in; from here every change waits for a turn boundary and is announced
 	if *resumeID == "?" && *prompt != "" {
 		list, _ := project.List()
 		fmt.Fprintln(os.Stderr, "choose a session: ternly --resume <id> -p …")
@@ -411,7 +442,7 @@ func run() int {
 		}
 		return ms, w
 	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
-		ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
+		Plugins: prt, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
 			if gs == nil {
 				return []string{"code graph off (no go.mod, or code_graph: false)"}
 			}
@@ -421,6 +452,9 @@ func run() int {
 	p := tea.NewProgram(m, tea.WithContext(ctx))
 	emit = func(e agent.Event) { p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
+	if prt != nil {
+		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
+	}
 	background()
 	if _, err := p.Run(); err != nil && ctx.Err() == nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

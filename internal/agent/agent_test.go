@@ -682,3 +682,20 @@ func TestAskAndRunWith(t *testing.T) {
 		t.Fatal("side question not counted")
 	}
 }
+
+// A tool added mid-session appears at the next turn boundary, announced in one line.
+func TestCapabilityNoteAtTurnBoundary(t *testing.T) {
+	f := newFake(t, reply{text: "one"}, reply{text: "two"})
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	a.Run(bg, "first")
+	a.Reg.Add(&tools.Tool{Kind: tools.ReadOnly, Spec: llm.ToolSpec{Name: "mcp__demo__ping", Schema: json.RawMessage(`{"type":"object"}`)},
+		Summary: func(json.RawMessage) string { return "" }, Run: func(context.Context, json.RawMessage) (string, error) { return "pong", nil }})
+	if a.Reg.Get("mcp__demo__ping") != nil {
+		t.Fatal("tool visible before the turn boundary")
+	}
+	a.Run(bg, "second")
+	req := f.requests()[1]
+	if c := fmt.Sprint(req[len(req)-1]["content"]); !strings.HasPrefix(c, "[ternly: capabilities changed since your last turn — new tools available: mcp__demo__ping]") {
+		t.Fatalf("second message %q", c)
+	}
+}

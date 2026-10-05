@@ -72,6 +72,9 @@ type Agent struct {
 	Limits Limits
 	CP     *checkpoint.Store // nil: checkpoints disabled
 	Mem    Memory            // nil: no long-term memory
+	// PromptHook runs plugin UserPromptSubmit hooks: it may block the prompt
+	// or add (untrusted) context. nil: none.
+	PromptHook func(ctx context.Context, prompt string) (block bool, reason, context string)
 
 	running atomic.Bool
 	pause   atomic.Bool // stop at the next safe point (between tool calls)
@@ -132,7 +135,15 @@ func (a *Agent) AddInstructions(s string) { a.mu.Lock(); a.system += "\n" + s + 
 func (a *Agent) Title() string { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Title }
 
 // SetNote queues a harness note for the next prompt (e.g. files changed outside the session).
-func (a *Agent) SetNote(s string) { a.mu.Lock(); a.note = s; a.mu.Unlock() }
+// Notes queued before the prompt are kept in order (drift, plugin context, …).
+func (a *Agent) SetNote(s string) {
+	a.mu.Lock()
+	if a.note != "" && s != "" {
+		s = a.note + "\n\n" + s
+	}
+	a.note = s
+	a.mu.Unlock()
+}
 
 // Pause asks a running turn to stop at its next safe point (between tool calls).
 func (a *Agent) Pause() { a.pause.Store(true) }
@@ -202,6 +213,19 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	case <-ctx.Done():
 		return
 	}
+	if a.PromptHook != nil {
+		block, why, add := a.PromptHook(ctx, prompt)
+		if block {
+			a.Emit(Event{Kind: EvError, Text: "prompt blocked by a plugin hook: " + why})
+			return
+		}
+		if add != "" {
+			framed, _ := a.Reg.Frame.Wrap("hook", add)
+			extra = strings.TrimSpace(extra + "\n\nContext from a plugin hook:\n" + framed)
+		}
+	}
+	a.Reg.Hold() // from now on tool changes wait for a turn boundary
+	changed := capabilityNote(a.Reg.Commit())
 	notes := a.recall(ctx, prompt) // before the lock: it may query a local embedding model
 	a.mu.Lock()
 	content := prompt
@@ -210,6 +234,9 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	}
 	if notes != "" {
 		content = notes + "\n\n" + content
+	}
+	if changed != "" {
+		content = changed + "\n\n" + content
 	}
 	if extra != "" {
 		content += "\n\n" + extra
@@ -843,4 +870,49 @@ func (a *Agent) Context() ContextUse {
 		c.Window, c.Model = a.current.Ctx, a.current.Key()
 	}
 	return c
+}
+
+// capabilityNote tells the model, in one line, which tools appeared or went
+// away since its last turn (plugins installed, enabled or removed).
+func capabilityNote(added, removed []string) string {
+	if len(added) == 0 && len(removed) == 0 {
+		return ""
+	}
+	var parts []string
+	if len(added) > 0 {
+		parts = append(parts, "new tools available: "+listFew(added, 12))
+	}
+	if len(removed) > 0 {
+		parts = append(parts, "no longer available: "+listFew(removed, 12))
+	}
+	return "[ternly: capabilities changed since your last turn — " + strings.Join(parts, "; ") + "]"
+}
+
+// Subagent runs a task with its own system prompt and a subset of the tools
+// (never this one: no recursion), under the same permission policy and
+// sandbox, and returns its final answer. Its cost is added to the session.
+func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(name string) bool) (string, error) {
+	reg := a.Reg.Subset(func(n string) bool { return n != "task" && allow(n) })
+	lim, _ := a.Caps()
+	child := &Agent{Reg: reg, Router: a.Router, Limits: Limits{Steps: 30, Time: 10 * time.Minute, TurnUSD: lim.TurnUSD}, CP: a.CP}
+	child.Emit = func(e Event) {
+		switch e.Kind {
+		case EvToolStart:
+			a.Emit(Event{Kind: EvStatus, Text: "subagent → " + e.Tool + " " + e.Text})
+		case EvError:
+			a.Emit(Event{Kind: EvStatus, Text: "subagent: " + e.Text})
+		}
+	}
+	child.system = systemPrompt(a.Reg.Root) + "\n\n# Your role (a subagent)\n" + system + "\n\nWhen done, reply with your findings or result: it is returned to the agent that delegated this task.\n"
+	child.Run(ctx, prompt)
+	l := child.Ledger()
+	a.commit(Record{T: "usage", Usage: &l.Usage, Cost: l.Cost})
+	a.Emit(Event{Kind: EvUsage, Ledger: a.Ledger()})
+	h := child.Export().History
+	for i := len(h) - 1; i >= 0; i-- {
+		if h[i].Role == "assistant" && strings.TrimSpace(h[i].Content) != "" {
+			return h[i].Content, nil
+		}
+	}
+	return "", errors.New("the subagent finished without an answer")
 }

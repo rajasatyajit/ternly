@@ -123,6 +123,12 @@ func startMCP(ctx context.Context, name, command string, args []string, env map[
 		cmd.Env = append(cmd.Env, k+"="+os.ExpandEnv(v))
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return StartMCPCmd(ctx, name, cmd)
+}
+
+// StartMCPCmd starts an MCP server from a prepared (e.g. confined) command
+// and lists its tools; it fails unless initialize and tools/list succeed.
+func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, []llm.ToolSpec, error) {
 	cmd.Stderr = io.Discard
 	in, err := cmd.StdinPipe()
 	if err != nil {
@@ -185,6 +191,28 @@ func startMCP(ctx context.Context, name, command string, args []string, env map[
 		}
 	}
 	return s, specs, nil
+}
+
+// MCPTool wraps one of a server's tools as a registry tool named name.
+func MCPTool(s *MCPServer, name string, sp llm.ToolSpec) *Tool {
+	orig := sp.Name
+	sp.Name = name
+	return &Tool{Spec: sp, Kind: External,
+		Summary: func(a json.RawMessage) string { return orig + " " + Cap(string(a), 200) },
+		Run:     func(ctx context.Context, a json.RawMessage) (string, error) { return s.call(ctx, orig, a) }}
+}
+
+// ToolName makes a valid tool name from parts (characters outside
+// [A-Za-z0-9_-] become _, at most 64 long).
+func ToolName(parts ...string) string {
+	for i, p := range parts {
+		parts[i] = reToolName.ReplaceAllString(p, "_")
+	}
+	n := strings.Join(parts, "__")
+	if len(n) > 64 {
+		n = n[:64]
+	}
+	return n
 }
 
 func (s *MCPServer) read(r io.Reader) {

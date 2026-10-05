@@ -22,6 +22,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/memory"
+	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -175,6 +176,7 @@ type App struct {
 	Theme      string           // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
 	ConfigPath string           // the config file (for /config)
 	Status     func() []string  // extra /status and /doctor lines (code graph, …)
+	Plugins    *plugins.Runtime // nil: plugins off
 }
 
 func New(app *App, dark bool) *Model {
@@ -333,6 +335,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case webMsg:
 		m.onWeb(msg)
+
+	case pluginReviewMsg:
+		cmds = append(cmds, m.onPluginReview(msg))
+
+	case pluginDoneMsg:
+		if msg.reload {
+			m.loadUserCommands()
+		}
+		if msg.text != "" {
+			m.addInfo(msg.text)
+		}
 
 	case editedMsg:
 		if msg.err != nil {

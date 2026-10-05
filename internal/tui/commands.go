@@ -99,6 +99,9 @@ func init() {
 		{name: "web", args: "<url>", section: "Files & shell", desc: "fetch a page as text for the next prompt", run: (*Model).cmdWeb},
 		{name: "editor", aliases: []string{"edit"}, section: "Files & shell", desc: "compose the prompt in $EDITOR", run: (*Model).cmdEditor},
 
+		{name: "plugin", aliases: []string{"plugins", "extensions"}, args: "[add|update|remove|enable|disable|info|scope|import|marketplace]", section: "Extensions", desc: "install, review and manage plugins (pinned, sandboxed)", run: (*Model).cmdPlugin},
+		{name: "skills", section: "Extensions", desc: "skills, agents and rules available to the model", run: (*Model).cmdSkills},
+		{name: "agents", section: "Extensions", desc: "subagents the model can delegate to", run: (*Model).cmdSkills},
 		{name: "mcp", section: "Extensions", desc: "MCP servers and their tools", run: (*Model).cmdMCP},
 		{name: "tools", section: "Extensions", desc: "the tools the model can call", run: (*Model).cmdTools},
 		{name: "commands", args: "[reload]", section: "Extensions", desc: "user-defined commands; reload them", run: (*Model).cmdCommands},
@@ -130,6 +133,18 @@ func reserved(name string) bool { return lookup(name) != nil }
 func (m *Model) loadUserCommands() []error {
 	home, _ := os.UserHomeDir()
 	cs, errs := commands.Load(commands.Dirs(m.App.Reg.Root, home), reserved)
+	if m.App.Plugins != nil { // plugin commands and skills are namespaced (plugin:name), so they can't shadow these
+		seen := map[string]bool{}
+		for _, c := range cs {
+			seen[c.Name] = true
+		}
+		for _, c := range m.App.Plugins.Commands() {
+			if !seen[c.Name] && !reserved(c.Name) {
+				seen[c.Name] = true
+				cs = append(cs, c)
+			}
+		}
+	}
 	m.userCmds = cs
 	return errs
 }
@@ -1351,4 +1366,32 @@ func (m *Model) compView() string {
 		b.WriteString(line + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (m *Model) cmdSkills(string) tea.Cmd {
+	rt := m.App.Plugins
+	if rt == nil {
+		m.addInfo(sDim.Render("  plugins are off"))
+		return nil
+	}
+	tokens := rt.Tokens()
+	var b strings.Builder
+	total := 0
+	for _, mf := range rt.Active() {
+		for _, c := range mf.Components {
+			switch c.Kind {
+			case "skill", "agent", "rule", "context":
+				t := tokens[c.Name]
+				total += t
+				b.WriteString(fmt.Sprintf("  %-7s %-32s %s\n", c.Kind, c.Name, sDim.Render(truncate(c.Description, max(20, m.w-52))+map[bool]string{true: fmt.Sprintf(" (~%d tok)", t), false: ""}[t > 0])))
+			}
+		}
+	}
+	if b.Len() == 0 {
+		m.addInfo(sDim.Render("  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agents, rules from .cursor/rules, or /plugin add"))
+		return nil
+	}
+	b.WriteString(sDim.Render(fmt.Sprintf("  listings cost ~%d tokens per request; bodies load only when used (use_skill, task)", total)))
+	m.addInfo(b.String())
+	return nil
 }

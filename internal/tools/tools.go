@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/rajasatyajit/ternly/internal/llm"
@@ -52,9 +53,53 @@ type Registry struct {
 	Redact  *Redactor
 	Frame   *Framer
 	fs      *os.Root // all file access goes through it: no escape even if paths change under us
-	mu      sync.RWMutex
-	tools   map[string]*Tool
-	order   []string
+
+	// The tool set is an immutable snapshot behind an atomic pointer. Once
+	// Hold is called (the first turn), Add and Remove only stage changes;
+	// Commit publishes them at a turn boundary, so a request in flight never
+	// sees a half-loaded set.
+	cur  atomic.Pointer[toolSet]
+	mu   sync.Mutex
+	next *toolSet // staged (nil: none)
+	held bool
+
+	Hooks HookRunner // plugin hooks around tool calls (nil: none)
+}
+
+// HookRunner runs plugin hooks around tool calls. PreTool can only deny:
+// nothing a hook returns grants a permission.
+type HookRunner interface {
+	PreTool(ctx context.Context, tool string, args json.RawMessage) (deny bool, reason string)
+	PostTool(ctx context.Context, tool string, args json.RawMessage, out string, failed bool)
+}
+
+// Subset is a view of the published tools that allow accepts, sharing the
+// workspace, policy and sandbox (subagents). It never changes.
+func (r *Registry) Subset(allow func(name string) bool) *Registry {
+	cur := r.cur.Load()
+	set := &toolSet{tools: map[string]*Tool{}}
+	for _, n := range cur.order {
+		if allow(n) {
+			set.order = append(set.order, n)
+			set.tools[n] = cur.tools[n]
+		}
+	}
+	v := &Registry{Root: r.Root, Policy: r.Policy, Sandbox: r.Sandbox, Redact: r.Redact, Frame: r.Frame, fs: r.fs, held: true, Hooks: r.Hooks}
+	v.cur.Store(set)
+	return v
+}
+
+type toolSet struct {
+	tools map[string]*Tool
+	order []string
+}
+
+func (s *toolSet) clone() *toolSet {
+	n := &toolSet{tools: make(map[string]*Tool, len(s.tools)), order: append([]string(nil), s.order...)}
+	for k, v := range s.tools {
+		n.tools[k] = v
+	}
+	return n
 }
 
 func NewRegistry(root string, pol *Policy, sb *Sandbox, rd *Redactor) (*Registry, error) {
@@ -69,30 +114,95 @@ func NewRegistry(root string, pol *Policy, sb *Sandbox, rd *Redactor) (*Registry
 	if err != nil {
 		return nil, err
 	}
-	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), fs: fsys, tools: map[string]*Tool{}}
+	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), fs: fsys}
+	r.cur.Store(&toolSet{tools: map[string]*Tool{}})
 	r.builtin()
 	return r, nil
 }
 
+// stage returns the staged set, cloning the published one first. r.mu held.
+func (r *Registry) stage() *toolSet {
+	if r.next == nil {
+		r.next = r.cur.Load().clone()
+	}
+	return r.next
+}
+
+// Add adds or replaces a tool (staged once Hold was called).
 func (r *Registry) Add(t *Tool) {
 	t.schema = compileSchema(t.Spec.Schema)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.tools[t.Spec.Name]; !ok {
-		r.order = append(r.order, t.Spec.Name)
+	s := r.stage()
+	if _, ok := s.tools[t.Spec.Name]; !ok {
+		s.order = append(s.order, t.Spec.Name)
 	}
-	r.tools[t.Spec.Name] = t
+	s.tools[t.Spec.Name] = t
+	if !r.held {
+		r.publish()
+	}
 }
 
-func (r *Registry) Get(name string) *Tool { r.mu.RLock(); defer r.mu.RUnlock(); return r.tools[name] }
+// Remove removes the tools whose names have the prefix (staged once held).
+func (r *Registry) Remove(prefix string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s := r.stage()
+	kept := s.order[:0]
+	for _, n := range s.order {
+		if strings.HasPrefix(n, prefix) {
+			delete(s.tools, n)
+		} else {
+			kept = append(kept, n)
+		}
+	}
+	s.order = kept
+	if !r.held {
+		r.publish()
+	}
+}
+
+func (r *Registry) publish() {
+	if r.next != nil {
+		r.cur.Store(r.next)
+		r.next = nil
+	}
+}
+
+// Hold makes later Add/Remove calls wait for Commit (call when turns start).
+func (r *Registry) Hold() { r.mu.Lock(); r.held = true; r.mu.Unlock() }
+
+// Commit publishes staged changes (at a turn boundary) and reports which
+// tool names were added and removed.
+func (r *Registry) Commit() (added, removed []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.next == nil {
+		return nil, nil
+	}
+	old, nw := r.cur.Load(), r.next
+	for _, n := range nw.order {
+		if old.tools[n] == nil {
+			added = append(added, n)
+		}
+	}
+	for _, n := range old.order {
+		if nw.tools[n] == nil {
+			removed = append(removed, n)
+		}
+	}
+	r.publish()
+	return added, removed
+}
+
+func (r *Registry) Get(name string) *Tool { return r.cur.Load().tools[name] }
 
 // Specs are returned in a stable order so the prompt prefix stays cacheable.
 func (r *Registry) Specs() []llm.ToolSpec {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := make([]llm.ToolSpec, 0, len(r.order))
-	for _, n := range r.order {
-		out = append(out, r.tools[n].Spec)
+	s := r.cur.Load()
+	out := make([]llm.ToolSpec, 0, len(s.order))
+	for _, n := range s.order {
+		out = append(out, s.tools[n].Spec)
 	}
 	return out
 }
@@ -128,6 +238,11 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 			args = fixed
 		}
 	}
+	if r.Hooks != nil {
+		if deny, why := r.Hooks.PreTool(ctx, tc.Name, args); deny {
+			return Result{Out: "blocked by a plugin hook: " + Cap(why, 2000) + ". Do not retry the same action.", IsErr: true, Rejected: true}
+		}
+	}
 	if ok, why := r.Policy.Check(ctx, t, tc.Name, t.Summary(args)); !ok {
 		return Result{Out: "permission denied by user" + why + ". Do not retry the same action; ask the user or choose another approach.", IsErr: true, Rejected: true}
 	}
@@ -135,15 +250,14 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 	if err != nil {
 		res = "error: " + err.Error() + "\n" + res
 	}
+	if r.Hooks != nil {
+		r.Hooks.PostTool(ctx, tc.Name, args, res, err != nil)
+	}
 	out, flagged := r.Frame.Wrap(tc.Name, Cap(r.Redact.Apply(res), maxToolBytes))
 	return Result{Out: out, IsErr: err != nil, Flagged: flagged}
 }
 
-func (r *Registry) names() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]string(nil), r.order...)
-}
+func (r *Registry) names() []string { return append([]string(nil), r.cur.Load().order...) }
 
 // jsonErr explains invalid JSON with a byte offset ("" when valid).
 func jsonErr(b []byte) string {

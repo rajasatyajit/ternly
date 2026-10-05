@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -202,5 +203,49 @@ func TestPlanMode(t *testing.T) {
 	}
 	if ok, _ := r.Policy.Check(ctx, r.Get("bash"), "bash", "git status && rm -rf x"); ok {
 		t.Error("chained command allowed in plan mode")
+	}
+}
+
+// Hot reload: once held, changes are invisible until Commit, which swaps the
+// whole set at once and reports the difference. Readers never block.
+func TestRegistrySnapshot(t *testing.T) {
+	r := newReg(t, "yolo")
+	mk := func(name string) *Tool {
+		return &Tool{Kind: ReadOnly, Spec: llm.ToolSpec{Name: name, Schema: json.RawMessage(`{"type":"object"}`)},
+			Summary: func(json.RawMessage) string { return name }, Run: func(context.Context, json.RawMessage) (string, error) { return name, nil }}
+	}
+	r.Add(mk("early")) // before Hold: live at once (start-up)
+	if r.Get("early") == nil {
+		t.Fatal("start-up add not visible")
+	}
+	r.Hold()
+	stop := make(chan struct{})
+	go func() { // a turn reading the set meanwhile
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = r.Specs()
+				_ = r.Get("mcp__p__a")
+			}
+		}
+	}()
+	r.Add(mk("mcp__p__a"))
+	r.Add(mk("mcp__p__b"))
+	r.Remove("early")
+	if r.Get("mcp__p__a") != nil || r.Get("early") == nil {
+		t.Fatal("staged change visible before Commit")
+	}
+	added, removed := r.Commit()
+	close(stop)
+	if !slices.Equal(added, []string{"mcp__p__a", "mcp__p__b"}) || !slices.Equal(removed, []string{"early"}) {
+		t.Fatalf("commit diff: +%v -%v", added, removed)
+	}
+	if r.Get("mcp__p__b") == nil || r.Get("early") != nil {
+		t.Fatal("commit not applied")
+	}
+	if a, rm := r.Commit(); a != nil || rm != nil {
+		t.Fatal("empty commit reported changes")
 	}
 }
