@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,6 +38,7 @@ type Runtime struct {
 	Changed func()
 
 	mu       sync.Mutex
+	sums     map[string]fileSum // fingerprint's cache (Watch's goroutine only)
 	ctx      context.Context
 	active   []*Manifest // enabled, verified plugins + local
 	byName   map[string]Component
@@ -784,17 +786,54 @@ func (r *Runtime) fingerprint() string {
 	for _, d := range []string{".claude/skills", ".agents/skills", ".opencode/skills", ".claude/agents", ".gemini/agents", ".opencode/agents", ".opencode/agent", ".cursor/rules", ".cursorrules"} {
 		dirs = append(dirs, filepath.Join(r.Root, d))
 	}
+	// Contents, not times: a tool that rewrites its files unchanged (Claude
+	// Code's skill sync touches its manifests every ten minutes) is not a
+	// change (dogfooding, ADR 014). A file is re-read only when its size or
+	// time moved; hidden files (sync state) are skipped.
 	h := sha256.New()
+	seen := map[string]fileSum{}
 	for _, d := range dirs {
 		_ = filepath.WalkDir(d, func(p string, e os.DirEntry, err error) error {
+			if err != nil || e.IsDir() {
+				return nil
+			}
+			if strings.HasPrefix(e.Name(), ".") && e.Name() != ".cursorrules" {
+				return nil
+			}
+			fi, err := e.Info()
 			if err != nil {
 				return nil
 			}
-			if fi, err := e.Info(); err == nil {
-				fmt.Fprintf(h, "%s %d %d\n", p, fi.Size(), fi.ModTime().UnixNano())
+			fs, ok := r.sums[p]
+			if !ok || fs.size != fi.Size() || !fs.mod.Equal(fi.ModTime()) {
+				fs = fileSum{size: fi.Size(), mod: fi.ModTime(), sum: contentSum(p)}
 			}
+			seen[p] = fs
+			fmt.Fprintf(h, "%s %d %x\n", p, fs.size, fs.sum)
 			return nil
 		})
 	}
+	r.sums = seen
 	return string(h.Sum(nil))
+}
+
+type fileSum struct {
+	size int64
+	mod  time.Time
+	sum  [32]byte
+}
+
+// contentSum hashes a watched file (skills and rules are small; a large
+// file is hashed by its first 1 MB).
+func contentSum(p string) [32]byte {
+	f, err := os.Open(p)
+	if err != nil {
+		return [32]byte{}
+	}
+	defer f.Close()
+	h := sha256.New()
+	_, _ = io.Copy(h, io.LimitReader(f, 1<<20))
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
 }

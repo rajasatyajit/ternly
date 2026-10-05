@@ -32,6 +32,7 @@ type Policy struct {
 	mode    string // ask | edits | yolo; via Mode/SetMode (changed by the UI mid-turn)
 	Ask     Asker
 	Trusted map[string]bool // MCP servers trusted in config
+	Root    string          // the workspace (set by NewRegistry): absolute paths in it are as safe as relative ones
 	mu      sync.Mutex
 	always  map[string]bool
 }
@@ -48,9 +49,8 @@ var (
 	reForbidden = regexp.MustCompile(`(?i)rm\s+-[a-z]*r[a-z]*f?[a-z]*\s+(/|~|\$HOME|/\*)(\s|$)|mkfs|dd\s+.*of=/dev/(sd|nvme|vd|mmcblk)|:\(\)\s*\{|>\s*/dev/(sd|nvme)|chmod\s+-R\s+[0-7]*7\s+/(\s|$)`)
 	// Always ask, even in edits mode; highlighted red.
 	reDanger = regexp.MustCompile(`(?i)\b(sudo|doas|su)\b|rm\s+-[a-z]*[rf]|git\s+(push|reset\s+--hard|clean\s+-[a-z]*f|checkout\s+--)|curl[^|]*\|\s*(ba|z)?sh|wget[^|]*\|\s*(ba|z)?sh|chmod\s+(-R\s+)?777|>\s*/etc/|systemctl|pacman\s+-S|npm\s+publish|cargo\s+publish|docker\s+(rm|system\s+prune)|kill(all)?\s`)
-	// Read-only commands auto-approved when they contain no shell metacharacters.
-	reSafe = regexp.MustCompile(`^(ls|pwd|cat|head|tail|wc|file|stat|tree|which|echo|date|env\s+--?help|rg|grep|find(\s+[^-]|\s*$)|git\s+(status|diff|log|show|branch|blame|ls-files|rev-parse)|go\s+(build|vet|test|list|version|env|doc)|gofmt\s+-l|cargo\s+(check|build|test|clippy|fmt\s+--check|tree)|npm\s+(test|run\s+(test|lint|build|typecheck))|pnpm\s+(test|lint|build)|yarn\s+(test|lint|build)|pytest|python3?\s+-m\s+(pytest|compileall)|ruff\s+check|mypy|make\s+(test|check|lint|build)?$|tsc\s+--noEmit)\b`)
-	reMeta = regexp.MustCompile("[;&|`$<>(){}\\n]")
+	// Read-only, build and test commands: auto-approved (see safeCommand).
+	reSafe = regexp.MustCompile(`^(ls|pwd|cat|head|tail|wc|file|stat|tree|which|echo|date|env\s+--?help|rg|grep|git\s+(status|diff|log|show|branch|blame|ls-files|rev-parse)|go\s+(build|vet|test|list|version|env|doc)|gofmt\s+-l|cargo\s+(check|build|test|clippy|fmt\s+--check|tree)|npm\s+(test|run\s+(test|lint|build|typecheck))|pnpm\s+(test|lint|build)|yarn\s+(test|lint|build)|pytest|python3?\s+-m\s+(pytest|compileall)|ruff\s+check|mypy|make\s+(test|check|lint|build)?$|tsc\s+--noEmit)\b|^find(\s+[^-\s]|\s*$)`) // find: a path first (its trailing "." has no \b after it)
 	// Flags/paths that make an otherwise read-only command write or escape the workspace.
 	reUnsafeArg = regexp.MustCompile(`(^|\s)(-delete|-exec|-execdir|-ok|-fprint\S*|--output\S*|-D|-d|-m|-M)(\s|$)|(^|\s)(/|~)|(^|[\s/])\.\.(/|\s|$)`)
 )
@@ -78,7 +78,7 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			if reForbidden.MatchString(cmd) {
 				return false, " (command is on the forbidden list)"
 			}
-			if reSafe.MatchString(cmd) && !reDanger.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
+			if p.safeCommand(cmd, false) {
 				return true, ""
 			}
 		}
@@ -97,7 +97,7 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			return true, ""
 		case Exec:
 			cmd := strings.TrimSpace(summary)
-			if reSafe.MatchString(cmd) && !reDanger.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
+			if p.safeCommand(cmd, false) {
 				return true, ""
 			}
 		}
@@ -112,7 +112,7 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			return false, " (command is on the forbidden list)"
 		}
 		danger := reDanger.MatchString(cmd)
-		if !danger && reSafe.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
+		if !danger && p.safeCommand(cmd, mode == "edits" || mode == "yolo") {
 			return true, ""
 		}
 		if mode == "yolo" && !danger {
@@ -161,7 +161,7 @@ func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key
 		case danger:
 			return false, " (non-interactive: potentially destructive commands always need a person to confirm)"
 		case strings.HasPrefix(key, "bash:"):
-			return false, " (non-interactive, mode " + p.Mode() + ": only single read-only/build/test commands run without confirmation — no &&, ;, |, redirects or paths outside the workspace; run checks one at a time, e.g. `go test ./...`)"
+			return false, " (non-interactive, mode " + p.Mode() + ": only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs)"
 		}
 		return false, " (non-interactive, mode " + p.Mode() + ": this needs confirmation; the user can rerun with --mode edits or yolo)"
 	}

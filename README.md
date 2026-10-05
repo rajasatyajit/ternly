@@ -43,8 +43,8 @@ Strict engineering system prompt (+ the first of `TERNLY.md`, `AGENTS.md`, `CLAU
 
 ## Security model
 Workspace path confinement (symlink-safe, `.git` internals blocked) · permission prompts for edits,
-shell and MCP (`/mode ask|edits|yolo`) · read-only commands auto-approved only without shell
-metacharacters/escaping args · forbidden list (e.g. `rm -rf /`) even in yolo · shell runs in
+shell and MCP (`/mode ask|edits|yolo`) · read-only, build and test commands auto-approved, alone or
+chained with `&&`/`||`/`;`/`|` (no redirects, expansions, or paths outside the workspace) · forbidden list (e.g. `rm -rf /`) even in yolo · shell runs in
 **bubblewrap**: read-only root, writable workspace + toolchain caches, `~/.ssh ~/.aws ~/.gnupg …`
 masked, optional `--no-net` · provider keys stripped from the shell env and redacted from all tool
 output · keys file must be 0600 · repo-supplied `.mcp.json` is not started without `--project-mcp`.
@@ -163,6 +163,20 @@ says exactly what loads.
 - **Confined:** hooks and MCP servers run inside bubblewrap, with no access to your home, keys,
   ternly's data or environment, and the workspace and network only as scoped. Plugins can't grant
   permissions.
+
+## Remote MCP servers
+Add `{"mcpServers": {"linear": {"url": "https://mcp.linear.app/mcp"}}}` to `~/.config/ternly/mcp.json`
+(`headers` for API-key servers). ternly speaks Streamable HTTP in both the 2026-07-28 and the 2025
+revisions and falls back automatically; the old HTTP+SSE transport isn't supported.
+- **OAuth:** `/mcp login <server>` (or `ternly --mcp-login <server>`) runs the browser login: PKCE
+  S256, the `resource` parameter, the `iss` check, dynamic registration as a native app. Start-up and
+  tool calls only use stored or refreshed tokens; they never open a browser.
+- **Tokens** live in the OS keyring (`secret-tool`, macOS `security`) when it works, else in a 0600
+  file in ternly's data directory; they are redacted from everything a model sees. `/mcp logout`.
+- **Network grants:** each server's client reaches only its own host and the hosts you approved for
+  its login (an authorization server elsewhere is asked about first), never a private address
+  (checked on the address actually dialed), and follows redirects only within the grant.
+- `/mcp` shows each server's protocol era, auth state and granted hosts. `docs/adr/014-remote-mcp.md`.
 
 When a task needs something you don't have (a Postgres, Jira or Figma integration, PDF handling…),
 ternly suggests the top 3 candidates once, after the turn. They come from a local index of the MCP

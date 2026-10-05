@@ -166,6 +166,9 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 					if t := tools[ev.Index]; t != nil {
 						t.args.WriteString(ev.Delta.PartialJSON)
 					}
+					ch <- Event{Kind: EvProgress}
+				default: // thinking, signatures
+					ch <- Event{Kind: EvProgress}
 				}
 			case "content_block_stop":
 				if t := tools[ev.Index]; t != nil {

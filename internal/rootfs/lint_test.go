@@ -21,7 +21,12 @@ var direct = map[string]bool{"os.ReadFile": true, "os.Open": true, "os.OpenFile"
 // through rootfs or added here with a reason a reviewer can check.
 var allowed = map[string]string{
 	// ternly's own state (config, data and cache directories)
-	"main.go run": "~/.config/ternly/config.json",
+	"main.go run":                                        "~/.config/ternly/config.json",
+	"internal/plugins/runtime.go contentSum":             "hashes watched files to detect changes; the contents are never used",
+	"internal/mcpauth/store.go FileStore.load":           "remote MCP credentials (0600, links refused)",
+	"internal/mcpauth/store.go Indexed.index":            "remote MCP credential index",
+	"internal/mcpauth/store.go writeAtomic":              "writes ternly's credential files",
+	"internal/mcpremote/remote.go Manager.grants":        "remote MCP network grants",
 	"internal/capability/catalog.go Catalog.open":        "catalog cache",
 	"internal/capability/rank.go Suggester.load":         "suggestion state",
 	"internal/capability/validate.go Outcomes.load":      "outcome log",
@@ -68,7 +73,7 @@ var allowed = map[string]string{
 	"internal/graph/foreign.go HasSources":            "names only",
 	"internal/graph/store.go Service.walk":            "names; contents via readSource",
 	"internal/graph/watch_linux.go watcher.add":       "directories to watch",
-	"internal/plugins/runtime.go Runtime.fingerprint": "names and mtimes, for change detection",
+	"internal/plugins/runtime.go Runtime.fingerprint": "names and sizes, for change detection",
 	"internal/plugins/runtime.go skillFiles":          "names of a skill's files",
 
 	// copies ternly made itself, or the user's own installs elsewhere

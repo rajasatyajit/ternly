@@ -24,12 +24,26 @@ import (
 // MCPConfig uses the same shape as Claude Code / Claude Desktop:
 // {"mcpServers": {"name": {"command": "...", "args": [...], "env": {...}, "trusted": false}}}
 type MCPConfig struct {
-	Servers map[string]struct {
-		Command string            `json:"command"`
-		Args    []string          `json:"args"`
-		Env     map[string]string `json:"env"`
-		Trusted bool              `json:"trusted"`
-	} `json:"mcpServers"`
+	Servers map[string]MCPServerConfig `json:"mcpServers"`
+}
+
+// MCPServerConfig is one configured server: a command (stdio) or a URL
+// (remote, Streamable HTTP; ADR 014).
+type MCPServerConfig struct {
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+	Trusted bool              `json:"trusted"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"` // remote: static headers (API keys)
+	Type    string            `json:"type"`    // "http" or "streamable-http" for remote; "sse" (legacy) is refused
+}
+
+// RemoteConfig is a remote server LoadMCP leaves to the caller (which owns
+// credentials and network grants).
+type RemoteConfig struct {
+	Name string
+	MCPServerConfig
 }
 
 type MCPServer struct {
@@ -55,14 +69,9 @@ var reToolName = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 // LoadMCP starts every configured server concurrently and registers its tools.
 // Servers that fail are reported, never fatal.
-func LoadMCP(ctx context.Context, reg *Registry, paths []string) ([]*MCPServer, []string) {
+func LoadMCP(ctx context.Context, reg *Registry, paths []string) ([]*MCPServer, []RemoteConfig, []string) {
 	var cfg MCPConfig
-	cfg.Servers = map[string]struct {
-		Command string            `json:"command"`
-		Args    []string          `json:"args"`
-		Env     map[string]string `json:"env"`
-		Trusted bool              `json:"trusted"`
-	}{}
+	cfg.Servers = map[string]MCPServerConfig{}
 	for _, p := range paths {
 		b, err := rootfs.ReadFile(filepath.Dir(p), p) // a .mcp.json linked out of its directory isn't config
 		if err != nil {
@@ -70,19 +79,28 @@ func LoadMCP(ctx context.Context, reg *Registry, paths []string) ([]*MCPServer, 
 		}
 		var c MCPConfig
 		if err := json.Unmarshal(b, &c); err != nil {
-			return nil, []string{fmt.Sprintf("%s: %v", p, err)}
+			return nil, nil, []string{fmt.Sprintf("%s: %v", p, err)}
 		}
 		for k, v := range c.Servers {
 			cfg.Servers[k] = v
 		}
 	}
 	var (
-		mu   sync.Mutex
-		srvs []*MCPServer
-		warn []string
-		wg   sync.WaitGroup
+		mu     sync.Mutex
+		srvs   []*MCPServer
+		remote []RemoteConfig
+		warn   []string
+		wg     sync.WaitGroup
 	)
 	for name, sc := range cfg.Servers {
+		if sc.URL != "" {
+			if sc.Type == "sse" {
+				warn = append(warn, fmt.Sprintf("mcp %s: the HTTP+SSE transport (2024-11-05) is deprecated and not supported; use the server's Streamable HTTP endpoint", name))
+				continue
+			}
+			remote = append(remote, RemoteConfig{Name: name, MCPServerConfig: sc})
+			continue
+		}
 		wg.Add(1)
 		go func(name string, command string, args []string, env map[string]string, trusted bool) {
 			defer wg.Done()
@@ -116,7 +134,7 @@ func LoadMCP(ctx context.Context, reg *Registry, paths []string) ([]*MCPServer, 
 		}(name, sc.Command, sc.Args, sc.Env, sc.Trusted)
 	}
 	wg.Wait()
-	return srvs, warn
+	return srvs, remote, warn
 }
 
 func startMCP(ctx context.Context, name, command string, args []string, env map[string]string) (*MCPServer, []llm.ToolSpec, error) {
@@ -220,13 +238,23 @@ func parseToolList(server string, res json.RawMessage) ([]llm.ToolSpec, string, 
 	return specs, tl.NextCursor, nil
 }
 
+// MCPCaller calls a server's tool: a stdio MCPServer or a RemoteServer.
+type MCPCaller interface {
+	CallTool(ctx context.Context, tool string, args json.RawMessage) (string, error)
+}
+
+// CallTool implements MCPCaller.
+func (s *MCPServer) CallTool(ctx context.Context, tool string, args json.RawMessage) (string, error) {
+	return s.call(ctx, tool, args)
+}
+
 // MCPTool wraps one of a server's tools as a registry tool named name.
-func MCPTool(s *MCPServer, name string, sp llm.ToolSpec) *Tool {
+func MCPTool(s MCPCaller, name string, sp llm.ToolSpec) *Tool {
 	orig := sp.Name
 	sp.Name = name
 	return &Tool{Spec: sp, Kind: External,
 		Summary: func(a json.RawMessage) string { return orig + " " + Cap(string(a), 200) },
-		Run:     func(ctx context.Context, a json.RawMessage) (string, error) { return s.call(ctx, orig, a) }}
+		Run:     func(ctx context.Context, a json.RawMessage) (string, error) { return s.CallTool(ctx, orig, a) }}
 }
 
 // ToolName makes a valid tool name from parts (characters outside

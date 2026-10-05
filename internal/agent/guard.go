@@ -44,9 +44,10 @@ type turnState struct {
 	lim         Limits
 	budget      float64
 	verify      string
-	epoch       int            // advances on every successful edit
-	seen        map[string]int // epoch|tool|canonical args → count
-	fails       int            // consecutive failed tool calls
+	epoch       int               // advances on every successful edit
+	seen        map[string]int    // epoch|tool|canonical args → count
+	denied      map[string]string // tool|canonical args → the mode it was refused in
+	fails       int               // consecutive failed tool calls
 	loops       int
 	lastEdit    int // step of the last successful edit (-1: none)
 	lastPass    int // step of the last passing verify/build/test (-1: none)
@@ -62,7 +63,7 @@ type turnState struct {
 }
 
 func newTurnState(cost0 float64) *turnState {
-	return &turnState{start: time.Now(), cost0: cost0, seen: map[string]int{}, lastEdit: -1, lastPass: -1}
+	return &turnState{start: time.Now(), cost0: cost0, seen: map[string]int{}, denied: map[string]string{}, lastEdit: -1, lastPass: -1}
 }
 
 func (st *turnState) callKey(name, args string) string {
@@ -100,6 +101,10 @@ const (
 	msgLoop  = "[ternly guard] No progress: you are repeating identical tool calls or failing repeatedly. Stop and reconsider — re-read the last error, try a different approach, or ask the user. Repeating the same call will be refused."
 	msgClaim = "[ternly guard] Your reply says the work is done or passing, but no verification or build/test command has passed since your last edit in this turn. Run the relevant check now, or state plainly that the result is unverified."
 )
+
+func deniedMsg(name string) string {
+	return fmt.Sprintf("error: refused — this exact %s call was already refused by the permission policy this turn, and the answer is the same. Don't repeat it: use a different tool (e.g. delete_file for rm), split the command, or say what you need the user to do.", name)
+}
 
 func repeatMsg(name string, n int) string {
 	return fmt.Sprintf("error: refused — this exact %s call has now been made %d times with no successful edit in between, so its result cannot have changed. Use the earlier result or change approach.", name, n)

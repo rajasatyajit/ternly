@@ -22,6 +22,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
@@ -180,6 +181,7 @@ type App struct {
 	ConfigPath   string              // the config file (for /config)
 	Status       func() []string     // extra /status and /doctor lines (code graph, …)
 	Plugins      *plugins.Runtime    // nil: plugins off
+	Remote       *mcpremote.Manager  // remote MCP servers (ADR 014); nil: none
 	Capabilities *capability.Service // nil: no suggestions
 }
 
@@ -345,6 +347,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case pluginReviewMsg:
 		cmds = append(cmds, m.onPluginReview(msg))
+
+	case mcpMsg:
+		m.addInfo(msg.text)
 
 	case pluginDoneMsg:
 		if msg.reload {

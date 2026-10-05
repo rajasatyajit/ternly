@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"text/tabwriter"
 	"time"
@@ -28,6 +30,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
 	"github.com/rajasatyajit/ternly/internal/llm"
+	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
@@ -92,6 +95,7 @@ func run() int {
 		listModels = flag.Bool("models", false, "list discovered models and exit")
 		dir        = flag.String("C", ".", "workspace directory")
 		showVer    = flag.Bool("version", false, "print version")
+		mcpLogin   = flag.String("mcp-login", "", "log in to a remote MCP server (OAuth in the browser) and exit")
 		cont       = flag.Bool("c", false, "continue the most recent session in this directory")
 		resumeID   = flag.String("resume", "", "resume session `id` (bare --resume: choose one)")
 		newSession = flag.Bool("new", false, "start a new session instead of auto-resuming the last one")
@@ -242,13 +246,24 @@ func run() int {
 	} else if _, err := os.Stat(filepath.Join(reg.Root, ".mcp.json")); err == nil {
 		notes = append(notes, "./.mcp.json found but not started (repo-supplied servers are untrusted); use --project-mcp")
 	}
-	servers, mw := tools.LoadMCP(ctx, reg, mcpPaths)
+	servers, remotes, mw := tools.LoadMCP(ctx, reg, mcpPaths)
 	notes = append(notes, mw...)
 	defer func() {
 		for _, s := range servers {
 			s.Close()
 		}
 	}()
+	remote := &mcpremote.Manager{Reg: reg, Dir: filepath.Join(dataDir, "mcp"), Version: version, Redact: reg.Redact.Add}
+	defer remote.Close()
+	if *mcpLogin != "" {
+		return mcpLoginCLI(ctx, remote, remotes, *mcpLogin)
+	}
+	switch {
+	case len(remotes) > 0 && *noNet:
+		notes = append(notes, fmt.Sprintf("--no-net: %d remote MCP server(s) not started", len(remotes)))
+	case len(remotes) > 0:
+		notes = append(notes, remote.Start(ctx, remotes)...)
+	}
 
 	router := discover.NewRouter()
 	var emit func(agent.Event)
@@ -555,7 +570,7 @@ func run() int {
 			}
 		}
 		return ms, w
-	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
+	}, Notes: notes, Remote: remote, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
 		Plugins: prt, Capabilities: caps, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
 			if gs == nil {
 				return []string{"code graph off (no go.mod, or code_graph: false)"}
@@ -673,7 +688,44 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 		}
 	}
 	failed := false
+	// Progress (dogfooding, ADR 014: a slow local model was silent for 25
+	// minutes): after 30 s without output, a line says whether the model is
+	// producing (tool arguments, reasoning) or still reading the prompt.
+	var pmu sync.Mutex
+	last, step, chunks := time.Now(), time.Now(), 0
+	pctx, pstop := context.WithCancel(ctx)
+	defer pstop()
+	go func() {
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-pctx.Done():
+				return
+			case <-t.C:
+			}
+			pmu.Lock()
+			if quiet := time.Since(last); quiet >= 30*time.Second {
+				if chunks > 0 {
+					fmt.Fprintf(os.Stderr, "  … generating (%d chunks, %s)\n", chunks, time.Since(step).Round(time.Second))
+				} else {
+					fmt.Fprintf(os.Stderr, "  … waiting for the model (%s)\n", time.Since(step).Round(time.Second))
+				}
+				last = time.Now()
+			}
+			pmu.Unlock()
+		}
+	}()
 	*emit = func(e agent.Event) {
+		pmu.Lock()
+		switch e.Kind {
+		case agent.EvProgress:
+			chunks = e.N
+		case agent.EvUsage:
+		default:
+			last, step, chunks = time.Now(), time.Now(), 0
+		}
+		pmu.Unlock()
 		switch e.Kind {
 		case agent.EvText:
 			fmt.Print(e.Text)
@@ -800,4 +852,26 @@ func enrichModel(r *discover.Router, session *discover.Model, remote bool) *disc
 		return r.Utility(4000)
 	}
 	return nil
+}
+
+// mcpLoginCLI is ternly --mcp-login: the /mcp login flow, with each host the
+// server's authorization needs approved on the terminal.
+func mcpLoginCLI(ctx context.Context, m *mcpremote.Manager, remotes []tools.RemoteConfig, name string) int {
+	m.Prepare(remotes)
+	in := bufio.NewReader(os.Stdin)
+	err := m.Login(ctx, name, func(host string) bool {
+		fmt.Fprintf(os.Stderr, "%s's login uses %s — allow ternly to contact it for this server? [y/N] ", name, host)
+		ans, _ := in.ReadString('\n')
+		return strings.EqualFold(strings.TrimSpace(ans), "y")
+	}, func(msg string) { fmt.Fprintln(os.Stderr, msg) })
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "mcp login:", err)
+		return 1
+	}
+	for _, st := range m.Statuses() {
+		if st.Name == name {
+			fmt.Fprintf(os.Stderr, "%s: logged in · %d tools · %s\n", name, st.Tools, st.Era)
+		}
+	}
+	return 0
 }

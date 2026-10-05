@@ -869,3 +869,56 @@ func TestBaitableModelNeedsConfirmation(t *testing.T) {
 		}
 	}
 }
+
+// A refused command asked again in the same turn and mode is not re-run
+// through the policy: the model is told the answer won't change (ADR 014).
+func TestDeniedCallNotRepeated(t *testing.T) {
+	f := newFake(t,
+		reply{calls: [][2]string{call("bash", `{"command":"rm -f build/x"}`)}},
+		reply{calls: [][2]string{call("bash", `{"command":"rm -f build/x"}`)}},
+		reply{text: "I couldn't delete it."},
+	)
+	a, _ := newAgent(t, "edits", model(f.URL, "m", 3, 1, 5))
+	a.Run(bg, "clean up")
+	res := f.toolResults(2)
+	if !strings.HasPrefix(res[0], "permission denied by policy") || !strings.Contains(res[1], "already refused by the permission policy") {
+		t.Fatalf("%v", res)
+	}
+	if s := a.Stats(); s.Denied != 1 {
+		t.Fatalf("stats %+v", s)
+	}
+}
+
+// A stray nested go.mod hides a package from `go build ./...`: the passing
+// verify is not believed, and the model is told why (dogfooding, ADR 014).
+func TestVerifyNotFooledByNestedModule(t *testing.T) {
+	f := newFake(t,
+		reply{calls: [][2]string{call("write_file", `{"path":"internal/ng/go.mod","content":""}`), call("write_file", `{"path":"internal/ng/ng.go","content":"package ng\nfunc broken( {\n"}`)}},
+		reply{text: "done"},
+		reply{calls: [][2]string{call("delete_file", `{"path":"internal/ng/go.mod"}`)}},
+		reply{text: "removed the go.mod"},
+	)
+	a, rec := newAgent(t, "edits", model(f.URL, "m", 3, 1, 5))
+	repo, err := checkpoint.OpenRepo(a.Reg.Root, t.TempDir(), "proj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.CP, _ = repo.Session("t")
+	write(t, a, "go.mod", "module example.com/x\n")
+	a.SetVerify("go build ./...") // passes: ./... stops at internal/ng/go.mod
+	a.Run(bg, "add package ng")
+	if !strings.Contains(rec.text(EvStatus), "didn't cover") {
+		t.Fatalf("status: %s", rec.text(EvStatus))
+	}
+	var found bool
+	for _, req := range f.requests() {
+		for _, m := range req {
+			if s := fmt.Sprint(m["content"]); strings.Contains(s, "internal/ng/go.mod makes internal/ng a separate module") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("the model wasn't told about the nested module")
+	}
+}

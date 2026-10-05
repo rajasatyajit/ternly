@@ -5,7 +5,8 @@
 package llm
 
 import (
-	"bufio"
+	ssepkg "github.com/rajasatyajit/ternly/internal/sse"
+
 	"bytes"
 	"context"
 	"encoding/json"
@@ -70,6 +71,7 @@ const (
 	EvUsage
 	EvDone
 	EvError
+	EvProgress // the stream is producing something other than text (tool arguments, reasoning)
 )
 
 type Event struct {
@@ -186,40 +188,7 @@ func sleep(ctx context.Context, d time.Duration) bool {
 }
 
 // sse parses a Server-Sent-Events stream, calling fn(event, data) per message.
-func sse(r io.Reader, fn func(event, data string) bool) error {
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 64<<10), 8<<20)
-	var event string
-	var data strings.Builder
-	flush := func() bool {
-		if data.Len() == 0 {
-			event = ""
-			return true
-		}
-		ok := fn(event, data.String())
-		event = ""
-		data.Reset()
-		return ok
-	}
-	for sc.Scan() {
-		line := sc.Text()
-		switch {
-		case line == "":
-			if !flush() {
-				return nil
-			}
-		case strings.HasPrefix(line, "event:"):
-			event = strings.TrimSpace(line[6:])
-		case strings.HasPrefix(line, "data:"):
-			if data.Len() > 0 {
-				data.WriteByte('\n')
-			}
-			data.WriteString(strings.TrimPrefix(line[5:], " "))
-		}
-	}
-	flush()
-	return sc.Err()
-}
+func sse(r io.Reader, fn func(event, data string) bool) error { return ssepkg.Read(r, fn) }
 
 // Collect drains a stream into text + usage (used for cheap utility calls).
 func Collect(ch <-chan Event) (string, Usage, error) {

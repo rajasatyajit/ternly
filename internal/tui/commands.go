@@ -23,6 +23,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/llm"
+	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -102,7 +103,7 @@ func init() {
 		{name: "plugin", aliases: []string{"plugins", "extensions"}, args: "[add|update|remove|enable|disable|info|scope|import|marketplace]", section: "Extensions", desc: "install, review and manage plugins (pinned, sandboxed)", run: (*Model).cmdPlugin},
 		{name: "skills", section: "Extensions", desc: "skills, agents and rules available to the model", run: (*Model).cmdSkills},
 		{name: "agents", section: "Extensions", desc: "subagents the model can delegate to", run: (*Model).cmdSkills},
-		{name: "mcp", section: "Extensions", desc: "MCP servers and their tools", run: (*Model).cmdMCP},
+		{name: "mcp", section: "Extensions", desc: "MCP servers and their tools · login|logout <server>", run: (*Model).cmdMCP},
 		{name: "tools", section: "Extensions", desc: "the tools the model can call", run: (*Model).cmdTools},
 		{name: "commands", args: "[reload]", section: "Extensions", desc: "user-defined commands; reload them", run: (*Model).cmdCommands},
 	}
@@ -1172,12 +1173,26 @@ func (m *Model) cmdTools(string) tea.Cmd {
 	return nil
 }
 
-func (m *Model) cmdMCP(string) tea.Cmd {
+type mcpMsg struct{ text string }
+
+func (m *Model) cmdMCP(arg string) tea.Cmd {
+	if f := strings.Fields(arg); len(f) > 0 {
+		return m.mcpAccount(f)
+	}
 	servers := map[string][]string{}
 	for _, sp := range m.App.Reg.Specs() {
 		if rest, ok := strings.CutPrefix(sp.Name, "mcp__"); ok {
 			srv, tool, _ := strings.Cut(rest, "__")
 			servers[srv] = append(servers[srv], tool)
+		}
+	}
+	remote := map[string]mcpremote.Status{}
+	if m.App.Remote != nil {
+		for _, st := range m.App.Remote.Statuses() {
+			remote[st.Name] = st
+			if _, ok := servers[st.Name]; !ok {
+				servers[st.Name] = nil
+			}
 		}
 	}
 	if len(servers) == 0 {
@@ -1196,10 +1211,59 @@ func (m *Model) cmdMCP(string) tea.Cmd {
 			trusted = sOK.Render(" trusted")
 		}
 		b.WriteString(fmt.Sprintf("  %s%s %s\n", sAccent.Render(s), trusted, sDim.Render(fmt.Sprintf("(%d tools)", len(servers[s])))))
-		b.WriteString("    " + strings.Join(servers[s], ", ") + "\n")
+		if st, ok := remote[s]; ok {
+			auth := st.Auth
+			if auth == "needs login" {
+				auth = sWarn.Render(auth + " — /mcp login " + s)
+			}
+			b.WriteString(sDim.Render(fmt.Sprintf("    %s · %s · hosts %s · ", st.URL, orStr(st.Era, "not connected"), strings.Join(st.Hosts, ", "))) + auth + "\n")
+			if st.Err != "" && st.Auth != "needs login" {
+				b.WriteString("    " + sErr.Render(st.Err) + "\n")
+			}
+		}
+		if len(servers[s]) > 0 {
+			b.WriteString("    " + strings.Join(servers[s], ", ") + "\n")
+		}
 	}
 	m.addInfo(strings.TrimRight(b.String(), "\n"))
 	return nil
+}
+
+// mcpAccount is /mcp login|logout <server>. A login asks before ternly
+// contacts any host the server's authorization uses beyond the server
+// itself, then opens the browser; the tools arrive at the next prompt.
+func (m *Model) mcpAccount(f []string) tea.Cmd {
+	if m.App.Remote == nil || len(f) != 2 || (f[0] != "login" && f[0] != "logout") {
+		m.addInfo(sDim.Render("  /mcp · /mcp login <server> · /mcp logout <server>  (remote servers: \"url\" in ~/.config/ternly/mcp.json)"))
+		return nil
+	}
+	rm, name := m.App.Remote, f[1]
+	if f[0] == "logout" {
+		if err := rm.Logout(name); err != nil {
+			m.addInfo(sErr.Render("  " + err.Error()))
+		} else {
+			m.addInfo(sOK.Render("  " + name + ": credentials deleted (its tools stay until ternly restarts or the server refuses them)"))
+		}
+		return nil
+	}
+	ask := m.App.Reg.Policy.Ask
+	m.addInfo(sDim.Render("  " + name + ": logging in…"))
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		var lines []string
+		err := rm.Login(ctx, name, func(host string) bool {
+			return ask != nil && ask(ctx, "allow network host", fmt.Sprintf("%s's login uses %s — let ternly contact it for this server (saved to its grant)", name, host), false) != tools.Deny
+		}, func(msg string) { lines = append(lines, msg) })
+		text := ""
+		for _, l := range lines {
+			text += sDim.Render("  "+l) + "\n"
+		}
+		if err != nil {
+			return mcpMsg{text + sErr.Render("  "+name+": "+err.Error())}
+		}
+		return mcpMsg{text + sOK.Render("  "+name+": logged in — its tools are usable from your next prompt")}
+	}
 }
 
 func (m *Model) cmdCommands(arg string) tea.Cmd {

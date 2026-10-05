@@ -155,10 +155,15 @@ func overlap(a, b []string) bool {
 // ─────────────── explicit preferences in user prompts ───────────────
 
 var (
-	rePref      = regexp.MustCompile(`(?i)^(?:(?:in all (?:my )?projects|in every project|everywhere|globally|for all repos|in this (?:project|repo))[, ]+)?(?:please\s+)?(?:always|never|from now on|going forward|in (?:the )?future|prefer|don'?t ever|do not ever|remember (?:that|to)|make sure (?:to )?always|we (?:always|never)|i (?:always |usually )?prefer|i like|i don'?t like)\b`)
-	reUserScope = regexp.MustCompile(`(?i)\b(in all (?:my )?projects|in every project|across (?:all )?projects|everywhere|globally|for all repos)\b`)
-	reSentence  = regexp.MustCompile(`(?m)[^\n]+?(?:[.!?;]+(?:\s|$)|$)`) // "." inside file names doesn't end a sentence
+	rePref       = regexp.MustCompile(`(?i)^(?:(?:in all (?:my )?projects|in every project|everywhere|globally|for all repos|in this (?:project|repo))[, ]+)?(?:please\s+)?(?:always|never|from now on|going forward|in (?:the )?future|prefer|don'?t ever|do not ever|remember (?:that|to)|make sure (?:to )?always|we (?:always|never)|i (?:always |usually )?prefer|i like|i don'?t like)\b`)
+	reStrongPref = regexp.MustCompile(`(?i)\b(from now on|going forward|in (the )?future|remember (that|to)|prefer|i like|i don'?t like|in all (my )?projects|in every project|everywhere|globally|for all repos|in this (project|repo)|each time|every time)\b`)
+	reUserScope  = regexp.MustCompile(`(?i)\b(in all (?:my )?projects|in every project|across (?:all )?projects|everywhere|globally|for all repos)\b`)
+	reSentence   = regexp.MustCompile(`(?m)[^\n]+?(?:[.!?;]+(?:\s|$)|$)`) // "." inside file names doesn't end a sentence
 )
+
+// maxBarePrefPrompt: above this many bytes a prompt is a task spec, and only
+// sentences with an explicit standing marker are preferences.
+const maxBarePrefPrompt = 400
 
 // preferences returns explicit standing instructions in a user prompt
 // ("always …", "never …", "prefer …", "from now on …") and their scope.
@@ -174,6 +179,12 @@ func preferences(prompt string) (out []string, scopes []Scope) {
 		}
 		low := strings.ToLower(s)
 		if !rePref.MatchString(s) && !strings.Contains(low, "from now on") && !strings.Contains(low, "going forward") {
+			continue
+		}
+		// A bare "always …"/"never …" in a long prompt is the task's own
+		// requirement ("Never log secrets" in a package spec), not a
+		// standing instruction to the assistant (dogfooding, ADR 014).
+		if len(prompt) > maxBarePrefPrompt && !reStrongPref.MatchString(s) {
 			continue
 		}
 		sc := Project

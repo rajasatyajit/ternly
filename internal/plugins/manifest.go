@@ -9,6 +9,7 @@
 package plugins
 
 import (
+	"cmp"
 	"github.com/rajasatyajit/ternly/internal/rootfs"
 
 	"bufio"
@@ -533,7 +534,11 @@ func loadMCP(m *Manifest, raw []byte, wrapped bool, origin, rootVar string) {
 		c := Component{Kind: KMCP, Name: m.Name + ":" + n, Origin: origin, Description: "MCP server " + n}
 		switch {
 		case s.URL != "" || s.HTTPURL != "" || s.Type == "http" || s.Type == "sse" || s.Type == "ws":
-			m.skip("MCP server "+n, "remote (http/sse/ws) MCP servers aren't supported yet")
+			if s.Type == "sse" || s.Type == "ws" {
+				m.skip("MCP server "+n, s.Type+" transport isn't supported (Streamable HTTP is)")
+			} else {
+				m.skip("MCP server "+n, "remote servers from plugins aren't started yet (ADR 014); to use it, add {\"url\": \""+cmp.Or(s.URL, s.HTTPURL)+"\"} to ~/.config/ternly/mcp.json")
+			}
 			continue
 		case s.Command == "":
 			m.skip("MCP server "+n, "no command")

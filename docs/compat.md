@@ -34,7 +34,7 @@ contains that isn't loaded is listed, with the reason, when you review it (`/plu
 | Other hook events (`Stop`, `PreCompact`, `Notification`, … 30 more) | no | reported |
 | `http`, `prompt`, `mcp_tool`, `agent` hook types; `async` | no / sync | reported |
 | `.mcp.json` and manifest `mcpServers` (stdio: `command`, `args`, `env`) | yes | confined; tools named `mcp__plugin_<plugin>_<server>__<tool>`, registered only after `initialize` + `tools/list` |
-| Remote MCP (`http`, `sse`, `ws`), `.mcpb` bundles | no | reported |
+| Remote MCP in plugins (`http`), `sse`, `ws`, `.mcpb` bundles | no | reported; a plugin's `http` server can be added to `~/.config/ternly/mcp.json` (remote servers there are supported, ADR 014) |
 | `userConfig` | no | values a server needs: `/plugin env <name> KEY=VALUE` |
 | `lspServers`, `outputStyles`, `workflows`, `themes`, `monitors`, `channels`, `bin/`, `dependencies`, `settings` | no | reported |
 | Marketplaces (`.claude-plugin/marketplace.json`) | yes | `/plugin marketplace add owner/repo`; sources: relative path, `github`, `url`, `git-subdir` (with `ref`/`sha`); `npm`, `archive`, `command` sources aren't supported; `strict: false` entries without `plugin.json` act as the manifest (name and listed skills) |

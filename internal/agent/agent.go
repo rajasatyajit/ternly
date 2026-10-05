@@ -37,6 +37,7 @@ const (
 	EvVerify
 	EvDone
 	EvError
+	EvProgress // the model is producing tool arguments or reasoning (N chunks so far this step); at most every 5 s
 )
 
 type Event struct {
@@ -49,6 +50,7 @@ type Event struct {
 	OK      bool
 	Elapsed time.Duration
 	Ledger  Ledger
+	N       int
 }
 
 type Ledger struct {
@@ -330,6 +332,10 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			// Model thinks it's done. If it changed code, prove it.
 			if st.edited && st.verify != "" {
 				out, ok := a.runVerify(tctx, st.verify)
+				if gap := a.uncovered(tctx, st, st.verify); ok && gap != "" {
+					ok, out = false, out+"\n"+gap
+					a.Emit(Event{Kind: EvStatus, Text: "verify passed but didn't cover this turn's changes: " + strings.SplitN(gap, "\n", 2)[0]})
+				}
 				st.checkResult(st.verify, out, ok)
 				st.edited = false
 				if ok {
@@ -492,8 +498,14 @@ func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm
 	var text strings.Builder
 	var calls []llm.ToolCall
 	var stop string
+	chunks, lastProgress := 0, time.Now()
 	for ev := range cl.Stream(ctx, req) {
 		switch ev.Kind {
+		case llm.EvProgress:
+			if chunks++; time.Since(lastProgress) >= 5*time.Second {
+				lastProgress = time.Now()
+				a.Emit(Event{Kind: EvProgress, N: chunks})
+			}
 		case llm.EvText:
 			text.WriteString(ev.Text)
 			a.Emit(Event{Kind: EvText, Text: ev.Text})
@@ -531,6 +543,9 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		if n := st.seen[k]; n >= repeatBlock {
 			blocked[i], loop = true, true
 			res[i] = tools.Result{Out: repeatMsg(tc.Name, n), IsErr: true, Rejected: true}
+		} else if m, ok := st.denied[tc.Name+"|"+canonArgs(tc.Args)]; ok && m == a.Reg.Policy.Mode() {
+			blocked[i] = true // refused already; a second ask gets the same answer (dogfooding, ADR 014)
+			res[i] = tools.Result{Out: deniedMsg(tc.Name), IsErr: true, Rejected: true}
 		}
 		if t := a.Reg.Get(tc.Name); t != nil && t.Kind != tools.ReadOnly && !blocked[i] {
 			mutates = true
@@ -602,6 +617,7 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		switch {
 		case r.Rejected && strings.HasPrefix(r.Out, "permission denied"):
 			a.state.Stats.Denied++
+			st.denied[tc.Name+"|"+canonArgs(tc.Args)] = a.Reg.Policy.Mode()
 		case r.Rejected && !blocked[i]:
 			a.state.Stats.Invalid++
 		}

@@ -115,6 +115,9 @@ func NewRegistry(root string, pol *Policy, sb *Sandbox, rd *Redactor) (*Registry
 		return nil, err
 	}
 	r := &Registry{Root: abs, Policy: pol, Sandbox: sb, Redact: rd, Frame: NewFramer(), fs: fsys}
+	if pol != nil && pol.Root == "" {
+		pol.Root = abs
+	}
 	r.cur.Store(&toolSet{tools: map[string]*Tool{}})
 	r.builtin()
 	return r, nil
@@ -244,7 +247,11 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 		}
 	}
 	if ok, why := r.Policy.Check(ctx, t, tc.Name, t.Summary(args)); !ok {
-		return Result{Out: "permission denied by user" + why + ". Do not retry the same action; ask the user or choose another approach.", IsErr: true, Rejected: true}
+		who := "permission denied by user" // the user said no
+		if why != "" {
+			who = "permission denied by policy" // a rule said no; no one was asked
+		}
+		return Result{Out: who + why + ". Do not retry the same action; ask the user or choose another approach.", IsErr: true, Rejected: true}
 	}
 	res, err := t.Run(ctx, args)
 	if err != nil {
@@ -521,7 +528,7 @@ func (r *Registry) builtin() {
 		}})
 
 	r.Add(&Tool{Kind: Edit,
-		Spec: llm.ToolSpec{Name: "write_file", Description: "Create or fully overwrite a file. For changes to existing files use edit_file.",
+		Spec: llm.ToolSpec{Name: "write_file", Description: "Create or fully overwrite a file; missing parent directories are created (no mkdir needed). For changes to existing files use edit_file.",
 			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false}`)},
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct{ Path, Content string }](a)
@@ -537,6 +544,40 @@ func (r *Registry) builtin() {
 				return "", err
 			}
 			return r.write(p, v.Content)
+		}})
+
+	r.Add(&Tool{Kind: Edit,
+		Spec: llm.ToolSpec{Name: "delete_file", Description: "Delete a file, or an empty directory, in the workspace (checkpointed like any edit, so /rewind restores it). Use this instead of rm.",
+			Schema: schema(`{"type":"object","properties":{"path":{"type":"string"}},"required":["path"],"additionalProperties":false}`)},
+		Summary: func(a json.RawMessage) string { v, _ := arg[struct{ Path string }](a); return v.Path },
+		Run: func(ctx context.Context, a json.RawMessage) (string, error) {
+			v, err := arg[struct{ Path string }](a)
+			if err != nil {
+				return "", err
+			}
+			// The parent is resolved (through symlinks, confined); the name
+			// itself is not followed, so a link is deleted, never its target.
+			clean := filepath.Clean(v.Path)
+			base := filepath.Base(clean)
+			parent, err := r.resolve(filepath.Dir(clean))
+			if err != nil {
+				return "", err
+			}
+			if base == "." || base == ".." || base == "/" || base == ".git" {
+				return "", fmt.Errorf("refusing to delete %s", v.Path)
+			}
+			rel := r.inRoot(filepath.Join(parent, base))
+			fi, err := r.fs.Lstat(rel)
+			if err != nil {
+				return "", r.rootErr(rel, err)
+			}
+			if !fi.Mode().IsRegular() && !fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
+				return "", fmt.Errorf("%s is not a file or directory", rel)
+			}
+			if err := r.fs.Remove(rel); err != nil { // a directory only when empty
+				return "", r.rootErr(rel, err)
+			}
+			return "deleted " + rel, nil
 		}})
 
 	r.Add(&Tool{Kind: ReadOnly,

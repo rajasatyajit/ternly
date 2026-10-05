@@ -120,6 +120,8 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 			for _, chc := range ck.Choices {
 				if chc.Delta.Content != "" {
 					ch <- Event{Kind: EvText, Text: chc.Delta.Content}
+				} else {
+					ch <- Event{Kind: EvProgress}
 				}
 				for _, tc := range chc.Delta.ToolCalls {
 					a := calls[tc.Index]

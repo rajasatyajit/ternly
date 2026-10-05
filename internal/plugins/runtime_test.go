@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/testutil"
@@ -246,5 +247,28 @@ func TestComponentFilesConfined(t *testing.T) {
 	out := reg.Call(context.Background(), toolCall("use_skill", `{"name":"keys"}`))
 	if strings.Contains(out.Out, "SSH-KEY-MARKER") {
 		t.Fatalf("the key was read through a symlinked skill: %s", out.Out)
+	}
+}
+
+// Rewriting a watched file with the same content (Claude Code's skill sync
+// does, every ten minutes) is not a change; editing it is.
+func TestFingerprintIgnoresTouches(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".claude", "skills", "s")
+	_ = os.MkdirAll(dir, 0o755)
+	p := filepath.Join(dir, "SKILL.md")
+	_ = os.WriteFile(p, []byte("---\nname: s\n---\nbody\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, ".last-complete-round"), []byte("1"), 0o644)
+	r := &Runtime{Home: home, Root: t.TempDir()}
+	fp := r.fingerprint()
+	later := time.Now().Add(time.Minute)
+	_ = os.Chtimes(p, later, later)
+	_ = os.WriteFile(filepath.Join(dir, ".last-complete-round"), []byte("2"), 0o644)
+	if r.fingerprint() != fp {
+		t.Fatal("a touch or a hidden sync file counted as a change")
+	}
+	_ = os.WriteFile(p, []byte("---\nname: s\n---\nBODY\n"), 0o644) // same size, new time
+	if r.fingerprint() == fp {
+		t.Fatal("an edit wasn't seen")
 	}
 }
