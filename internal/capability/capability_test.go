@@ -170,6 +170,7 @@ func TestClassifierEval(t *testing.T) {
 	}
 	t.Logf("cheap signals + %s for ambiguous ones: %d/%d needs found, %d/%d false; %d classifications (~%d input tokens each), %v total",
 		model, hit, len(needing), fp, len(notNeeding), calls, inChars*10/36/max(calls, 1), time.Since(t0).Round(time.Millisecond))
+	fmt.Printf("E2E-METRIC found=%d needing=%d false=%d not_needing=%d calls=%d\n", hit, len(needing), fp, len(notNeeding), calls) // read by bench/run.sh e2e
 }
 
 // Catalog injection: entries whose text tries to win the ranking (stuffing,

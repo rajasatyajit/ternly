@@ -16,6 +16,7 @@ permission policy, secret redaction, auto-verification, and the static `CGO_ENAB
 - Every milestone ends green: `gofmt`, `go vet ./...`, `go test -race ./...`, a static build, and a
   benchmark or end-to-end check that proves the milestone's claim with numbers. Report the actual
   numbers. Never write "faster", "secure" or "complete" without evidence.
+- Every milestone report includes the output of `TERNLY_E2E_MODEL=<local model> bench/run.sh e2e`.
 - Keep diffs focused and match the existing style. Prefer the standard library; add a dependency only
   when it clearly beats writing it, it is pure Go (no cgo), and it is maintained. Record why in the ADR.
 - When a requirement is impossible as literally stated, say so plainly, explain why, and deliver the

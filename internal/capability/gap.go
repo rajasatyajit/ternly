@@ -192,7 +192,7 @@ func (d *Detector) cheap(n Need) Need {
 }
 
 // ClassifyPrompt is the instruction for ambiguous mentions (answer capped at a few tokens).
-const ClassifyPrompt = "Does carrying out this coding-agent request require live access to the named external system (to read from or act on it), rather than just discussing it or editing code about it? Answer only yes or no."
+const ClassifyPrompt = "Does carrying out this coding-agent request require live access to the named external system (to read from or act on it), rather than just discussing it or editing code or documentation about it? Writing or changing files in the repository, such as docs, configs or source that mention the system, does not need access to the system. Answer only yes or no."
 
 func (d *Detector) classify(ctx context.Context, prompt, key string) bool {
 	h := sha256.Sum256([]byte(key + "\x00" + prompt))

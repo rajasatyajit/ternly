@@ -909,7 +909,8 @@ var (
 )
 
 func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(name string) bool) (string, error) {
-	if n := a.subs.Add(1); int(n) > MaxSubagentsPerTurn {
+	n := a.subs.Add(1)
+	if int(n) > MaxSubagentsPerTurn {
 		return "", fmt.Errorf("fan-out limit: at most %d subagents per turn — do the rest yourself or in a later turn", MaxSubagentsPerTurn)
 	}
 	a.mu.Lock()
@@ -939,6 +940,7 @@ func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(
 	case <-ctx.Done():
 		return "", ctx.Err()
 	}
+	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("subagent %d/%d started", n, MaxSubagentsPerTurn)})
 	reg := a.Reg.Subset(func(n string) bool { return n != "task" && allow(n) })
 	child := &Agent{Reg: reg, Router: a.Router, Limits: childLim, Budget: childBudget, CP: a.CP, parent: a}
 	child.Emit = func(e Event) {

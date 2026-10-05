@@ -249,3 +249,22 @@ func TestRegistrySnapshot(t *testing.T) {
 		t.Fatal("empty commit reported changes")
 	}
 }
+
+// A TMPDIR outside what the sandbox can write (here: a read-only directory
+// under the user's home) would break every tool that makes a temp file;
+// sandboxed commands get the sandbox's own /tmp instead.
+func TestSandboxUnwritableTMPDIR(t *testing.T) {
+	sb := NewSandbox(true, false, nil)
+	testutil.Require(t, "bubblewrap", sb.Bwrap != "" && exec.Command(sb.Bwrap, "--ro-bind", "/", "/", "true").Run() == nil)
+	wd, _ := os.Getwd()
+	ro, err := os.MkdirTemp(wd, ".tmpdir-probe-") // not under /tmp, the workspace or a cache: read-only inside
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(ro)
+	t.Setenv("TMPDIR", ro)
+	out, code, err := sb.Run(context.Background(), t.TempDir(), `f=$(mktemp) && echo "made $f"`, 10)
+	if err != nil || code != 0 || !strings.Contains(out, "made /tmp/") {
+		t.Fatalf("mktemp in the sandbox: code %d, %v: %s", code, err, out)
+	}
+}

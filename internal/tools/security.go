@@ -196,7 +196,7 @@ func (s *Sandbox) Run(ctx context.Context, root, cmd string, timeoutSec int) (st
 	}
 	c := exec.CommandContext(cctx, argv[0], argv[1:]...)
 	c.Dir = root
-	c.Env = s.env()
+	c.Env = s.env(root)
 	c.Stdin = nil
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) } // whole process group
@@ -227,7 +227,7 @@ func (s *Sandbox) Output(ctx context.Context, root string, env []string, argv ..
 	}
 	c := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	c.Dir = root
-	c.Env = append(s.env(), env...)
+	c.Env = append(s.env(root), env...)
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
 	c.WaitDelay = 3 * time.Second
@@ -305,7 +305,7 @@ func (s *Sandbox) Writable(root, path string) bool {
 	return false
 }
 
-func (s *Sandbox) env() []string {
+func (s *Sandbox) env(root string) []string {
 	hide := map[string]bool{}
 	for _, k := range s.scrub {
 		hide[k] = true
@@ -317,6 +317,12 @@ func (s *Sandbox) env() []string {
 			continue
 		}
 		out = append(out, kv)
+	}
+	// A TMPDIR the sandbox can't write (hidden by its private /tmp, or read-only
+	// like the rest of the filesystem) breaks every tool that makes a temp
+	// file, go build included; use the sandbox's own /tmp instead.
+	if t := os.Getenv("TMPDIR"); s.Bwrap != "" && t != "" && !s.Writable(root, t) {
+		out = append(out, "TMPDIR=/tmp")
 	}
 	return append(out, "TERNLY=1", "GIT_TERMINAL_PROMPT=0", "NO_COLOR=1", "CI=1")
 }

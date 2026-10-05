@@ -65,12 +65,16 @@ func TestModelRecall(t *testing.T) {
 	none := func(string) ([]byte, float32) { return nil, 0 }
 	t.Logf("store: %d notes, enrichment %v", m.Project.Len(), len(alts) > 0)
 
+	only := os.Getenv("TERNLY_MEM_RECALL_MODES") // "lexical", "vectors" or both (default)
 	for _, model := range strings.Split(models, ",") {
 		chat := OllamaChat(base, model)
 		for _, mode := range []struct {
-			name string
-			qv   func(string) ([]byte, float32)
-		}{{"lexical", none}, {"+ vectors", vec}} {
+			name, key string
+			qv        func(string) ([]byte, float32)
+		}{{"lexical", "lexical", none}, {"+ vectors", "vectors", vec}} {
+			if only != "" && !strings.Contains(only, mode.key) {
+				continue
+			}
 			var first, second, found, wrongFound int
 			var calls int
 			t0 := time.Now()
@@ -112,6 +116,7 @@ func TestModelRecall(t *testing.T) {
 			}
 			n := float64(len(evalFacts))
 			t.Logf("| %-28s | %-9s | %.2f | %.2f | %d | %d calls, %v |", model, mode.name, float64(first)/n, float64(second)/n, wrongFound, calls, time.Since(t0).Round(time.Second))
+			fmt.Printf("E2E-METRIC mode=%s first=%.3f within2=%.3f wrong_found=%d calls=%d\n", mode.key, float64(first)/n, float64(second)/n, wrongFound, calls) // read by bench/run.sh e2e
 		}
 	}
 }

@@ -174,6 +174,7 @@ daily in the background:
 | Index search over 44,867 entries | **0.73 ms p50, 12.8 ms p99** |
 | Gap detection, cheap signals only (15 needing / 15 not-needing prompts) | 13/15 needs found, **0/15 false suggestions** |
 | … ambiguous cases to qwen3.6 (local) | **15/15 found, 0/15 false**; 10 classifications, ~77 input tokens each |
+| … repeated by `bench/run.sh e2e` | that instruction made 1 false suggestion in 2 of 3 runs ("Document the Slack integration settings in docs/slack.md"). The instruction now says editing repository files about a system needs no access to it: **15/15, 0/15 in 5 of 5 runs**, ~120 input tokens each |
 | Top candidate relevant to the need (live catalog, the 15 needs) | **15/15** (top 3: 15/15) |
 | Confirmation → usable: Anthropic `document-skills` (4 skills, git) | **29 ms** after approval (fetch and review before it: 2.3 s) |
 | Confirmation → usable: an npm MCP server from the registry (`@infoinlet/mcp-time`, confined) | **4.5 s** cold (npx download), **1.6 s** warm |
@@ -244,7 +245,8 @@ up. Fan-out is limited too, not only nested `task`:
 - **Session budget:** after one subagent, the other two don't start.
 - **Turn limit:** the same.
 
-**Real-model e2e** (`TestLiveSubagent`, `TERNLY_E2E_MODEL=qwen3.6`):
+**Real-model e2e** (now the `subagent-delegation` check of `bench/run.sh e2e`, with
+`subagent-fanout` for the fan-out limit and charging):
 - Setup: the real binary runs headless against local qwen3.6, with a project agent in
   `.claude/agents/linecounter.md` (`tools: Read`) and a 23-line file.
 - Each run: the model called `task linecounter`, the subagent called `read_file data.txt`, and the
