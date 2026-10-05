@@ -608,8 +608,9 @@ type fakeMemory struct {
 func (f *fakeMemory) Recall(_ context.Context, prompt string) (string, int) {
 	return "Notes from memory: the build needs ok.txt.", 1
 }
-func (f *fakeMemory) Learn(t Learned) { f.mu.Lock(); f.learned = append(f.learned, t); f.mu.Unlock() }
-func (f *fakeMemory) Rewound(n int)   {}
+func (f *fakeMemory) Learn(t Learned)  { f.mu.Lock(); f.learned = append(f.learned, t); f.mu.Unlock() }
+func (f *fakeMemory) Rewound(n int)    {}
+func (f *fakeMemory) Compacted(string) {}
 
 // Memory: notes go into the user message (not the system prompt), and a check
 // that failed and then passed in the turn is handed back as a verified fix.

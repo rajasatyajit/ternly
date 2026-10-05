@@ -20,7 +20,7 @@ func Tools(m *Memory) []*tools.Tool {
 	return []*tools.Tool{
 		{Kind: tools.ReadOnly,
 			Spec: llm.ToolSpec{Name: "remember", Description: "Store a durable fact for future sessions (a decision and its reason, a convention, a non-obvious failure cause and fix, where something lives). One fact per call, 1–3 sentences, self-contained. Never secrets.",
-				Schema: json.RawMessage(`{"type":"object","properties":{"text":{"type":"string","maxLength":600},"kind":{"type":"string","enum":["decision","convention","fix","note"]},"scope":{"type":"string","enum":["project","user"],"description":"user: a personal preference that applies in every project"},"files":{"type":"array","items":{"type":"string"},"maxItems":10,"description":"workspace files or symbols the fact is about"}},"required":["text"],"additionalProperties":false}`)},
+				Schema: json.RawMessage(`{"type":"object","properties":{"text":{"type":"string","maxLength":600},"kind":{"type":"string","enum":["decision","convention","fix","note"]},"scope":{"type":"string","enum":["project","session"],"description":"project (default): kept for this workspace; session: only this session. Only the user can save to every project."},"files":{"type":"array","items":{"type":"string"},"maxItems":10,"description":"workspace files or symbols the fact is about"}},"required":["text"],"additionalProperties":false}`)},
 			Summary: func(raw json.RawMessage) string {
 				var a struct{ Text string }
 				_ = json.Unmarshal(raw, &a)
@@ -35,8 +35,8 @@ func Tools(m *Memory) []*tools.Tool {
 					return "", err
 				}
 				sc := Project
-				if a.Scope == "user" {
-					sc = User
+				if a.Scope == "session" {
+					sc = Session
 				}
 				it, err := m.Add(Item{Scope: sc, Kind: orDefault(a.Kind, "note"), Text: a.Text, Keys: a.Files, Source: "model"})
 				if err != nil {

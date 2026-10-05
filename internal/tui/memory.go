@@ -15,7 +15,8 @@ const memoryHelp = `  /memory                     recent items per tier, with id
   /memory search <query>      ranked, with score components
   /memory forget <id>         delete an item (an id prefix is enough)
   /memory edit <id> <text>    replace an item's text (a new version)
-  /memory add [user] <text>   remember something (user: in every project)`
+  /memory add [user] <text>   remember something (user: in every project)
+  /memory promote <id>        apply a project note in every project (only you can)`
 
 // memoryCommand handles /memory; ok=false means "not mine".
 func (m *Model) memoryCommand(name, arg string) (tea.Cmd, bool) {
@@ -25,6 +26,14 @@ func (m *Model) memoryCommand(name, arg string) (tea.Cmd, bool) {
 	mem := m.App.Memory
 	if mem == nil {
 		m.addInfo(sDim.Render("  memory is off (config \"memory\": false, or it failed to open at start)"))
+		return nil, true
+	}
+	if ok, err := mem.Ready(); !ok || err != nil {
+		if err != nil {
+			m.addInfo(sErr.Render("  memory failed to load: " + err.Error()))
+		} else {
+			m.addInfo(sDim.Render("  memory is still loading — try again in a moment"))
+		}
 		return nil, true
 	}
 	sub, rest, _ := strings.Cut(arg, " ")
@@ -63,6 +72,13 @@ func (m *Model) memoryCommand(name, arg string) (tea.Cmd, bool) {
 		} else {
 			m.addInfo(sOK.Render(fmt.Sprintf("  %s is now version %d", it.ID, it.V)))
 		}
+	case "promote":
+		it, err := mem.Promote(rest)
+		if err != nil {
+			m.addInfo(sErr.Render("  " + err.Error()))
+		} else {
+			m.addInfo(sOK.Render("  " + it.ID + " now applies in every project (user tier)"))
+		}
 	case "add":
 		scope := memory.Project
 		if f, r, _ := strings.Cut(rest, " "); f == "user" {
@@ -83,7 +99,7 @@ func (m *Model) memoryCommand(name, arg string) (tea.Cmd, bool) {
 func memoryList(mem *memory.Memory) string {
 	var b strings.Builder
 	now := time.Now()
-	proj, user := mem.Project.List(), mem.User.List()
+	proj, user := mem.Project.List(), mem.User.List() // loaded: memoryCommand checked Ready
 	tiers := []struct {
 		name  string
 		items []memory.Item
@@ -110,7 +126,7 @@ func memoryList(mem *memory.Memory) string {
 	if e := mem.Embedder(); e != nil {
 		vec = e.Name()
 	}
-	fmt.Fprintf(&b, "%s", sDim.Render(fmt.Sprintf("  this process: %d recalls, %d notes injected (~%d tokens), %d written, %d deduplicated, %d refused · vectors: %s · budget %d tokens/turn\n  /memory search|forget|edit|add — /memory help",
+	fmt.Fprintf(&b, "%s", sDim.Render(fmt.Sprintf("  this process: %d recalls, %d notes injected (~%d tokens), %d written, %d deduplicated, %d refused · vectors: %s · budget %d tokens/turn\n  /memory search|forget|edit|add|promote — /memory help",
 		st.Recalls, st.Injected, st.InjectedTokens, st.Written, st.Deduped, st.Refused, vec, mem.Budget)))
 	return b.String()
 }

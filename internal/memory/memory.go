@@ -20,6 +20,9 @@ import (
 
 // Memory is the project store plus the user store, with ranking, budgeted
 // injection and turn-boundary learning. It implements agent.Memory.
+//
+// The stores load in the background (Open returns at once); every operation
+// that needs them waits for the load. Project and User are valid once Ready.
 type Memory struct {
 	Project *Store
 	User    *Store
@@ -30,17 +33,23 @@ type Memory struct {
 	Suspicious func(string) bool          // prompt-injection detector for model/auto writes
 	Related    func(file string) []string // code-graph neighbours of a workspace file (nil: none)
 	SessionID  func() string              // current session, for provenance and the session tier
+	Notify     func(string)               // a visible status line (captured preferences); nil: silent
 
-	mu      sync.Mutex
-	embed   Embedder
-	queue   chan struct{} // wakes the embedding worker
-	stop    context.CancelFunc
-	touched map[string][]string        // session → files changed in it (this process), newest last
-	shown   map[string]map[string]bool // session → items already injected (still in its context)
-	bg      sync.WaitGroup             // all background work (Close waits)
-	learns  sync.WaitGroup             // turn-boundary learning only (Rewound waits)
-	closed  bool
-	stats   Stats
+	mu         sync.Mutex
+	embed      Embedder
+	queue      chan struct{} // wakes the embedding worker
+	stop       context.CancelFunc
+	enrich     Enricher
+	enrichQ    chan struct{}
+	enrichStop context.CancelFunc
+	touched    map[string][]string        // session → files changed in it (this process), newest last
+	shown      map[string]map[string]bool // session → items already injected (still in its context)
+	bg         sync.WaitGroup             // all background work (Close waits)
+	learns     sync.WaitGroup             // turn-boundary learning only (Rewound waits)
+	closed     bool
+	stats      Stats
+	ready      chan struct{} // closed when the stores are loaded (or failed to)
+	loadErr    error
 }
 
 // Stats counts what memory did in this process (for /memory and measurement).
@@ -53,23 +62,48 @@ type Stats struct {
 // DefaultBudget is the default token budget for injected notes per turn.
 const DefaultBudget = 600
 
-// Open opens the project store in projectDir and the user store in userDir.
+// Open prepares memory for projectDir and userDir and loads both stores in
+// the background: a large store takes ~0.9 s per 100k items to load, and
+// start-up must not wait for it.
 func Open(projectDir, userDir string) (*Memory, error) {
 	for _, d := range []string{projectDir, userDir} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, err
 		}
 	}
+	m := &Memory{Budget: DefaultBudget, touched: map[string][]string{}, shown: map[string]map[string]bool{}, ready: make(chan struct{})}
+	go m.load(projectDir, userDir)
+	return m, nil
+}
+
+func (m *Memory) load(projectDir, userDir string) {
+	defer close(m.ready)
 	p, err := OpenStore(filepath.Join(projectDir, "memory.log"))
 	if err != nil {
-		return nil, err
+		m.loadErr = err
+		return
 	}
 	u, err := OpenStore(filepath.Join(userDir, "memory.log"))
 	if err != nil {
 		p.Close()
-		return nil, err
+		m.loadErr = err
+		return
 	}
-	return &Memory{Project: p, User: u, Budget: DefaultBudget, touched: map[string][]string{}, shown: map[string]map[string]bool{}}, nil
+	m.Project, m.User = p, u
+}
+
+// wait blocks until the stores are loaded; false if they failed to open.
+func (m *Memory) wait() bool { <-m.ready; return m.loadErr == nil }
+
+// Ready reports, without blocking, whether the stores are loaded, and any
+// error loading them.
+func (m *Memory) Ready() (bool, error) {
+	select {
+	case <-m.ready:
+		return true, m.loadErr
+	default:
+		return false, nil
+	}
 }
 
 // Close waits for background writes and closes both stores.
@@ -80,9 +114,30 @@ func (m *Memory) Close() error {
 		close(m.queue)
 		m.stop()
 	}
+	if m.enrichQ != nil {
+		close(m.enrichQ)
+		m.enrichStop()
+	}
 	m.mu.Unlock()
 	m.bg.Wait()
+	if !m.wait() {
+		return m.loadErr
+	}
 	return errors.Join(m.Project.Close(), m.User.Close())
+}
+
+// List returns the live items of a tier (session items live in the project store).
+func (m *Memory) List(s Scope) []Item {
+	if !m.wait() {
+		return nil
+	}
+	var out []Item
+	for _, it := range m.store(s).List() {
+		if it.Scope == s {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // Stats returns counters for this process.
@@ -106,6 +161,7 @@ func (m *Memory) session() string {
 
 var (
 	ErrEmpty     = errors.New("nothing to remember")
+	ErrUserTier  = errors.New("refused: only you can write to the user tier (applies in every project); use /memory add user <text> or /memory promote <id>")
 	ErrInjection = errors.New("refused: the text reads like instructions to an AI (possible prompt injection); memory stores facts, not commands")
 )
 
@@ -121,6 +177,9 @@ func (e SecretError) Error() string {
 // existing item is refreshed) and near-duplicate versioning (same ID, V+1,
 // the previous text kept in Prev). It fills in provenance.
 func (m *Memory) Add(it Item) (*Item, error) {
+	if !m.wait() {
+		return nil, m.loadErr
+	}
 	it.Text = clean(it.Text, 500)
 	if it.Text == "" {
 		return nil, ErrEmpty
@@ -140,7 +199,11 @@ func (m *Memory) Add(it Item) (*Item, error) {
 		m.count(func(s *Stats) { s.Refused++ })
 		return nil, SecretError{why}
 	}
-	if it.Source != "user" && m.Suspicious != nil && m.Suspicious(it.Text) {
+	if it.Scope == User && it.Source != "user" { // poisoning: nothing but the user writes what every project sees
+		m.count(func(s *Stats) { s.Refused++ })
+		return nil, ErrUserTier
+	}
+	if !fromUser(it.Source) && m.Suspicious != nil && m.Suspicious(it.Text) {
 		m.count(func(s *Stats) { s.Refused++ })
 		return nil, ErrInjection
 	}
@@ -171,19 +234,24 @@ func (m *Memory) Add(it Item) (*Item, error) {
 			n.Prev = append([]string{prev.Text}, prev.Prev...)[:min(3, len(prev.Prev)+1)]
 			n.Text, n.Keys, n.Source = it.Text, mergeKeys(it.Keys, nil), it.Source
 			n.Session, n.Turn, n.Commit, n.Updated, n.Expires = it.Session, it.Turn, it.Commit, now, it.Expires
-			n.Vec, n.Scale, n.VecV = nil, 0, 0
+			n.Vec, n.Scale, n.VecV, n.VecAlt, n.Alt, n.AltV = nil, 0, 0, false, "", 0
 		}
 		m.count(func(s *Stats) { s.Written++ })
 		out := st.put(&n)
 		m.wakeEmbed()
+		m.wakeEnrich()
 		return out, nil
 	}
 	it.ID, it.V = newID(), 1
 	m.count(func(s *Stats) { s.Written++ })
 	out := st.put(&it)
 	m.wakeEmbed()
+	m.wakeEnrich()
 	return out, nil
 }
+
+// fromUser: written by the user (/memory) or captured from their own prompt.
+func fromUser(src string) bool { return src == "user" || src == "prompt" }
 
 // dedupable kinds are versioned when a near-duplicate arrives; turn
 // summaries are only deduplicated exactly.
@@ -199,7 +267,7 @@ func (s *Store) similar(it *Item) *Item {
 	bestJ := 0.0
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.ix.lexical(s.ix.rarest(q, 8), nil, 0.5, func(slot uint32, _, cover float32, _ int) {
+	s.ix.lexical(s.ix.rarest(q, 8), nil, 0.5, func(slot uint32, _, cover float32, _, _ int) {
 		if cover < 0.5 {
 			return
 		}
@@ -252,6 +320,9 @@ func (m *Memory) count(f func(*Stats)) { m.mu.Lock(); f(&m.stats); m.mu.Unlock()
 
 // Edit replaces an item's text (a new version; the user is the source).
 func (m *Memory) Edit(id, text string) (*Item, error) {
+	if !m.wait() {
+		return nil, m.loadErr
+	}
 	for _, st := range []*Store{m.Project, m.User} {
 		st.refresh()
 		cur, ok := st.Get(id)
@@ -272,16 +343,41 @@ func (m *Memory) Edit(id, text string) (*Item, error) {
 		n.V++
 		n.Prev = append([]string{cur.Text}, cur.Prev...)[:min(3, len(cur.Prev)+1)]
 		n.Text, n.Source, n.Updated = text, "user", time.Now().UnixMilli()
-		n.Vec, n.Scale, n.VecV = nil, 0, 0
+		n.Vec, n.Scale, n.VecV, n.VecAlt, n.Alt, n.AltV = nil, 0, 0, false, "", 0
 		out := st.put(&n)
 		m.wakeEmbed()
+		m.wakeEnrich()
 		return out, nil
 	}
 	return nil, ErrNotFound
 }
 
+// Promote moves a project item to the user tier (a user action: every
+// project will see it).
+func (m *Memory) Promote(id string) (*Item, error) {
+	if !m.wait() {
+		return nil, m.loadErr
+	}
+	m.Project.refresh()
+	cur, ok := m.Project.Get(id)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	it, err := m.Add(Item{Scope: User, Kind: cur.Kind, Text: cur.Text, Keys: cur.Keys, Source: "user"})
+	if err != nil {
+		return nil, err
+	}
+	_ = m.Project.Forget(cur.ID)
+	m.Project.Sync()
+	m.User.Sync()
+	return it, nil
+}
+
 // Forget deletes an item from whichever store holds it.
 func (m *Memory) Forget(id string) error {
+	if !m.wait() {
+		return m.loadErr
+	}
 	for _, st := range []*Store{m.Project, m.User} {
 		st.refresh()
 		if err := st.Forget(id); err == nil {
@@ -315,6 +411,9 @@ func (m *Memory) Learn(t agent.Learned) {
 	go func() {
 		defer m.bg.Done()
 		defer m.learns.Done()
+		if !m.wait() {
+			return
+		}
 		m.learn(t, sess)
 		m.Project.Sync()
 		m.User.Sync()
@@ -346,8 +445,16 @@ func (m *Memory) learn(t agent.Learned, sess string) {
 		_, _ = m.Add(Item{Scope: Project, Kind: "fix", Text: text, Keys: files, Source: "auto", Session: sess, Turn: t.Turn})
 	}
 	prefs, scopes := preferences(t.Prompt)
-	for i, p := range prefs {
-		_, _ = m.Add(Item{Scope: scopes[i], Kind: "pref", Text: p, Source: "user", Session: sess, Turn: t.Turn})
+	for i, p := range prefs { // project scope always: only an explicit /memory action reaches the user tier
+		it, err := m.Add(Item{Scope: Project, Kind: "pref", Text: p, Source: "prompt", Session: sess, Turn: t.Turn})
+		if err != nil || m.Notify == nil {
+			continue
+		}
+		msg := fmt.Sprintf("Saved: %q (%s) · /memory forget %s to undo", clean(p, 80), it.ID, it.ID)
+		if scopes[i] == User {
+			msg += " · /memory promote " + it.ID + " to apply it in every project"
+		}
+		m.Notify(msg)
 	}
 }
 
@@ -355,6 +462,9 @@ func (m *Memory) learn(t agent.Learned, sess string) {
 // learned from turns n and later of the current session are forgotten, and
 // notes injected in the session may be offered again.
 func (m *Memory) Rewound(n int) {
+	if !m.wait() {
+		return
+	}
 	sess := m.session()
 	if sess == "" {
 		return
@@ -378,6 +488,55 @@ func (m *Memory) Rewound(n int) {
 		_ = st.Forget(id)
 	}
 	st.Sync()
+}
+
+// Compacted implements agent.Memory. A note injected earlier stays "shown"
+// only if the compacted context still holds it: its ID, or most (60%) of its
+// words. The rest may be injected again.
+func (m *Memory) Compacted(context string) {
+	if !m.wait() {
+		return
+	}
+	sess := m.session()
+	have := map[string]bool{}
+	for _, t := range tokens(context) {
+		have[t] = true
+	}
+	m.mu.Lock()
+	keys := make([]string, 0, len(m.shown[sess]))
+	for k := range m.shown[sess] {
+		keys = append(keys, k)
+	}
+	m.mu.Unlock()
+	var drop []string
+	for _, k := range keys {
+		id, _, _ := strings.Cut(k, "/")
+		if strings.Contains(context, id) {
+			continue
+		}
+		it, ok := m.Project.Get(id)
+		if !ok {
+			it, ok = m.User.Get(id)
+		}
+		if ok {
+			ts := uniq(tokens(it.Text))
+			n := 0
+			for _, t := range ts {
+				if have[t] {
+					n++
+				}
+			}
+			if len(ts) > 0 && float64(n)/float64(len(ts)) >= 0.6 {
+				continue
+			}
+		}
+		drop = append(drop, k)
+	}
+	m.mu.Lock()
+	for _, k := range drop {
+		delete(m.shown[sess], k)
+	}
+	m.mu.Unlock()
 }
 
 func listFiles(fs []string, n int) string {
@@ -432,10 +591,14 @@ type Hit struct {
 // labelled set (ADR 009).
 var (
 	wLex, wStruct, wRec, wVec, wSession, wPref float32 = 1, 0.6, 0.2, 0.8, 0.15, 0.25
-	minCover, minStruct, minVec                float32 = 0.3, 0.5, 0.62
+	minCover, minStruct, minVec                float32 = 0.3, 0.5, 0.66
 	// VecFloor is the cosine a vector-only neighbour needs to be a candidate
 	// (nomic-embed-text puts unrelated technical text at 0.45–0.6).
 	VecFloor float32 = 0.5
+	// A hit that relies on other wordings (Alt) is injected unasked only with
+	// this much coverage and this many matched query terms.
+	AltStrongCover float32 = 0.5
+	AltStrongTerms         = 3
 	// Fusion combines lexical and vector evidence: "rrf" (reciprocal rank,
 	// default; robust to how each model scales its cosines), "norm" (cosine
 	// rescaled per query) or "add" (raw cosine). Chosen in ADR 009 by measurement.
@@ -457,7 +620,8 @@ type cand struct {
 	strct, vec  float32
 	hasVec      bool
 	score       float32
-	nterm       int // distinct query terms matched
+	nterm       int // distinct query terms matched in the text and keys
+	nalt        int // more matched only in other wordings (Alt)
 	vecRank     int
 }
 
@@ -511,6 +675,9 @@ func fuse(all []cand, vs []*cand) {
 
 // Search ranks items for q: BM25 + structure + recency (+ vectors).
 func (m *Memory) Search(ctx context.Context, q Query) []Hit {
+	if !m.wait() {
+		return nil
+	}
 	var qv []byte
 	var qs float32
 	m.mu.Lock()
@@ -567,12 +734,12 @@ func (m *Memory) search(q Query, qv []byte, qs float32) []Hit {
 			seeds = append(seeds, slot)
 		}
 		seeds = append(seeds, x.keys["kind:pref"]...)
-		x.lexical(qt, seeds, minCover, func(slot uint32, bm, cover float32, nterm int) {
+		x.lexical(qt, seeds, minCover, func(slot uint32, bm, cover float32, nterm, nalt int) {
 			it := x.docs[slot]
 			if cover < minCover && strct[slot] < minStruct && it.Kind != "pref" {
 				return
 			}
-			cands = append(cands, cand{it: it, used: st.used[it.ID], bm25: bm, cover: cover, strct: strct[slot], nterm: nterm})
+			cands = append(cands, cand{it: it, used: st.used[it.ID], bm25: bm, cover: cover, strct: strct[slot], nterm: nterm, nalt: nalt})
 		})
 		if qv != nil && x.nvec <= VecScanMax {
 			for _, slot := range x.nearest(signBits(qv), VecShortlist) {
@@ -656,7 +823,9 @@ func (m *Memory) search(q Query, qv []byte, qs float32) []Hit {
 	hits := make([]Hit, len(keep))
 	for i, c := range keep {
 		// One shared word ("explain", "summarise") is not evidence unless it is the whole query.
-		lexStrong := c.cover >= minCover && (c.nterm >= 2 || len(qt) == 1)
+		// Other wordings are broad by design: matches there need more support.
+		lexStrong := c.cover >= minCover && (c.nterm >= 2 || len(qt) == 1 && c.nterm == 1) ||
+			c.nalt > 0 && c.cover >= AltStrongCover && c.nterm+c.nalt >= AltStrongTerms
 		strong := lexStrong || c.strct >= minStruct || c.it.Kind == "pref" || c.hasVec && c.vec >= minVec && c.vecRank < 3
 		hits[i] = Hit{Item: *c.it, Score: c.score, Lex: c.lex, Struct: c.strct, Rec: c.rec, Vec: c.vec, Strong: strong}
 		hits[i].Item.Vec = nil // callers don't need 768 bytes per hit
@@ -692,6 +861,9 @@ const notesHeader = "Notes from ternly's memory of earlier work in this project 
 // Recall implements agent.Memory: the best items for the prompt, as notes
 // under the token budget (session items rank higher in their own session).
 func (m *Memory) Recall(ctx context.Context, prompt string) (string, int) {
+	if !m.wait() {
+		return "", 0
+	}
 	t0 := time.Now()
 	sess := m.session()
 	hits := m.Search(ctx, Query{Text: prompt, Near: m.Near(prompt), Session: sess, Limit: 30, Vector: true})
@@ -782,11 +954,25 @@ func (m *Memory) format(hits []Hit, budget int) (string, []string, int) {
 
 // Label is an item's provenance tag: [id · scope kind · source · age · files].
 func Label(it Item, now time.Time) string {
-	parts := []string{it.ID, string(it.Scope) + " " + it.Kind, it.Source, Age(now.Sub(time.UnixMilli(it.Updated))) + " ago"}
+	parts := []string{it.ID, string(it.Scope) + " " + it.Kind, sourceLabel(it.Source), Age(now.Sub(time.UnixMilli(it.Updated))) + " ago"}
 	if len(it.Keys) > 0 {
 		parts = append(parts, listFiles(it.Keys, 3))
 	}
 	return "[" + strings.Join(parts, " · ") + "]"
+}
+
+// sourceLabel says who wrote an item, so a model-written note is never
+// mistaken for something the user said.
+func sourceLabel(src string) string {
+	switch src {
+	case "user":
+		return "from you"
+	case "prompt":
+		return "from your prompt"
+	case "model":
+		return "model-written"
+	}
+	return "automatic"
 }
 
 // Age renders a duration compactly (3m, 5h, 2d, 7w).

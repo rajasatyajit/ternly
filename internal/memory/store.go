@@ -51,7 +51,13 @@ type Item struct {
 	Prev    []string `json:"prev,omitempty"` // earlier versions' text, newest first
 	Vec     []byte   `json:"vec,omitempty"`  // int8 embedding (see quantize)
 	Scale   float32  `json:"scale,omitempty"`
-	VecV    int      `json:"vecv,omitempty"` // the version Vec was computed for
+	VecV    int      `json:"vecv,omitempty"`   // the version Vec was computed for
+	VecAlt  bool     `json:"vecalt,omitempty"` // Vec includes Alt
+	// Alt holds other wordings of the item (synonyms, paraphrases) written
+	// once per version by the cheapest model, so a question phrased
+	// differently still matches. Indexed and embedded; never injected.
+	Alt  string `json:"alt,omitempty"`
+	AltV int    `json:"altv,omitempty"` // the version Alt was written for
 
 }
 
@@ -178,7 +184,7 @@ func (s *Store) apply(r rec, toks []string) {
 			return
 		}
 		cur := s.items[it.ID]
-		if cur != nil && (cur.V > it.V || cur.V == it.V && cur.Updated == it.Updated && cur.VecV == it.VecV) {
+		if cur != nil && (cur.V > it.V || cur.V == it.V && cur.Updated == it.Updated && cur.VecV == it.VecV && cur.VecAlt == it.VecAlt && cur.AltV == it.AltV) {
 			return // newer, or this very write (replayed by refresh)
 		}
 		if cur != nil {

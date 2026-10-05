@@ -92,7 +92,7 @@ records, in the background:
 - what the turn was about and which files it changed (session tier, kept 30 days);
 - *verified fixes*: a check that failed and then passed, with its first error line (project);
 - explicit standing instructions in your prompts, such as "always …", "never …", "prefer …" or
-  "from now on …". "In all projects" makes one apply everywhere (user tier).
+  "from now on …", at project scope. A `Saved: … · /memory forget <id> to undo` line shows each one.
 
 The model can also `remember` decisions and conventions, and `recall` them.
 
@@ -106,7 +106,13 @@ Secrets are refused, not stored redacted. Text that reads like instructions to a
 from the model and from automatic sources. Every item records where it came from (session, turn,
 files, commit, source).
 
-`/memory` lists what's stored; `/memory search|forget|edit|add [user]` manage it. Stores live in
+The user tier, which applies in every project, is written only by you: `/memory add user <text>`
+or `/memory promote <id>`. Neither the model nor automatic capture can write to it, and injected
+notes say who wrote them (*from you*, *from your prompt*, *automatic*, *model-written*). Once per
+note, the cheapest available model writes other wordings of it, which are indexed (never injected)
+so differently phrased questions still find it; `memory_enrich: false` turns this off.
+
+`/memory` lists what's stored; `/memory search|forget|edit|add [user]|promote` manage it. Stores live in
 `~/.local/share/ternly` (hidden from sandboxed commands) and are shared safely by concurrent sessions.
 `memory: false` turns memory off; `memory_vectors: false` keeps it lexical. Measurements are in
 `docs/adr/009-memory.md`.

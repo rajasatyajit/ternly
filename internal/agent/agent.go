@@ -639,6 +639,14 @@ func (a *Agent) Compact(ctx context.Context) error {
 		return err
 	}
 	a.commit(Record{T: "compact", Cut: cut, Text: sum})
+	if a.Mem != nil { // notes that didn't survive the summary may be offered again
+		var kept strings.Builder
+		kept.WriteString(sum)
+		for _, m := range h[cut:] {
+			kept.WriteString("\n" + m.Content)
+		}
+		a.Mem.Compacted(kept.String())
+	}
 	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("context compacted: ~%dk → ~%dk tokens", estTokens("", h)/1000, estTokens("", a.Export().History)/1000)})
 	return nil
 }

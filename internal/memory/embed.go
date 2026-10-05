@@ -30,15 +30,13 @@ type Ollama struct {
 func (o *Ollama) Name() string { return "ollama/" + o.Model }
 
 func (o *Ollama) Embed(ctx context.Context, texts []string, query bool) ([][]float32, error) {
+	qp, dp := prefixes(o.Model)
 	in := make([]string, len(texts))
 	for i, t := range texts {
-		in[i] = t
-		if strings.Contains(o.Model, "nomic") { // nomic-embed-text is trained with task prefixes
-			if query {
-				in[i] = "search_query: " + t
-			} else {
-				in[i] = "search_document: " + t
-			}
+		if query {
+			in[i] = qp + t
+		} else {
+			in[i] = dp + t
 		}
 	}
 	body, _ := json.Marshal(map[string]any{"model": o.Model, "input": in})
@@ -71,6 +69,24 @@ func (o *Ollama) client() *http.Client {
 		return o.HTTP
 	}
 	return &http.Client{Timeout: 60 * time.Second}
+}
+
+// prefixes are the query and document prefixes each model family was
+// trained with (from their model cards); without them retrieval is worse.
+func prefixes(model string) (query, doc string) {
+	switch {
+	case strings.Contains(model, "nomic"):
+		return "search_query: ", "search_document: "
+	case strings.Contains(model, "mxbai"):
+		return "Represent this sentence for searching relevant passages: ", ""
+	case strings.Contains(model, "qwen3-embedding"):
+		return "Instruct: Given a question about a software project, retrieve notes that answer it\nQuery: ", ""
+	case strings.Contains(model, "embeddinggemma"):
+		return "task: search result | query: ", "title: none | text: "
+	case strings.Contains(model, "snowflake-arctic"):
+		return "Represent this sentence for searching relevant passages: ", ""
+	}
+	return "", "" // bge-m3, all-minilm: no prefixes
 }
 
 // embedPreference orders known local embedding models, best first.
@@ -207,20 +223,32 @@ func (m *Memory) wakeEmbed() {
 }
 
 func embedText(it *Item) string {
-	if len(it.Keys) == 0 {
-		return it.Text
+	t := it.Text
+	if len(it.Keys) > 0 {
+		t += " (" + strings.Join(it.Keys, ", ") + ")"
 	}
-	return it.Text + " (" + strings.Join(it.Keys, ", ") + ")"
+	if it.Alt != "" && it.AltV == it.V {
+		t += "\nAlso: " + it.Alt
+	}
+	return t
+}
+
+// needsVec: no vector for this version, or one made before Alt was written.
+func needsVec(it *Item) bool {
+	return it.Vec == nil || it.VecV != it.V || it.Alt != "" && it.AltV == it.V && !it.VecAlt
 }
 
 func (m *Memory) embedLoop(ctx context.Context, e Embedder, wake <-chan struct{}) {
 	defer m.bg.Done()
+	if !m.wait() {
+		return
+	}
 	for range wake {
 		for _, st := range []*Store{m.Project, m.User} {
 			st.mu.RLock()
 			var todo []Item
 			for _, it := range st.items {
-				if it.VecV != it.V || it.Vec == nil {
+				if needsVec(it) {
 					todo = append(todo, *it)
 				}
 			}
@@ -239,6 +267,7 @@ func (m *Memory) embedLoop(ctx context.Context, e Embedder, wake <-chan struct{}
 					n := batch[j]
 					n.Vec, n.Scale = quantize(vs[j])
 					n.VecV = n.V
+					n.VecAlt = n.Alt != "" && n.AltV == n.V
 					st.put(&n)
 				}
 			}

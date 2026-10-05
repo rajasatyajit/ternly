@@ -18,6 +18,9 @@ type Memory interface {
 	// of the current session: their summaries and fixes describe changes
 	// that were undone.
 	Rewound(n int)
+	// Compacted tells memory what the context holds after compaction (the
+	// summary plus the turns kept verbatim): notes not in it may be recalled again.
+	Compacted(context string)
 }
 
 // Learned is what a finished turn leaves for memory.

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"math"
+	"math/bits"
 	"sort"
 	"strings"
 	"sync"
@@ -70,6 +71,11 @@ func docTokens(it *Item) []string {
 	ts := tokens(it.Text)
 	for _, k := range it.Keys {
 		ts = append(ts, tokens(k)...)
+	}
+	if it.Alt != "" && it.AltV == it.V {
+		for _, t := range tokens(it.Alt) {
+			ts = append(ts, altPrefix+t)
+		}
 	}
 	return ts
 }
@@ -199,11 +205,11 @@ func (x *index) rarest(q []string, k int) []string {
 
 // scratch holds per-query accumulators (pooled: queries run concurrently).
 type scratch struct {
-	score, cover []float32
-	nterm        []uint8  // distinct query terms matched
-	mark         []uint32 // mark[slot] == epoch: slot touched by this query
-	epoch        uint32
-	touched      []uint32
+	score     []float32
+	orig, alt []uint64 // query terms matched in the text / only in other wordings (bit per term)
+	mark      []uint32 // mark[slot] == epoch: slot touched by this query
+	epoch     uint32
+	touched   []uint32
 }
 
 var scratchPool = sync.Pool{New: func() any { return &scratch{} }}
@@ -219,21 +225,24 @@ const (
 // on their own, they only update documents already seen (and the seeds),
 // found by binary search when that beats a scan: the long posting lists of
 // common words are rarely walked. visit sees every touched document.
-func (x *index) lexical(q []string, seeds []uint32, gate float32, visit func(slot uint32, bm25, cover float32, nterm int)) {
+func (x *index) lexical(q []string, seeds []uint32, gate float32, visit func(slot uint32, bm25, cover float32, nterm, nalt int)) {
 	if x.live == 0 {
 		return
+	}
+	if len(q) > 64 {
+		q = q[:64]
 	}
 	sc := scratchPool.Get().(*scratch)
 	defer scratchPool.Put(sc)
 	if n := len(x.docs); len(sc.score) < n {
-		sc.score, sc.cover, sc.nterm, sc.mark, sc.epoch = make([]float32, n+n/4), make([]float32, n+n/4), make([]uint8, n+n/4), make([]uint32, n+n/4), 0
+		sc.score, sc.orig, sc.alt, sc.mark, sc.epoch = make([]float32, n+n/4), make([]uint64, n+n/4), make([]uint64, n+n/4), make([]uint32, n+n/4), 0
 	}
 	sc.epoch++
 	sc.touched = sc.touched[:0]
 	touch := func(s uint32) {
 		if sc.mark[s] != sc.epoch {
 			sc.mark[s] = sc.epoch
-			sc.score[s], sc.cover[s], sc.nterm[s] = 0, 0, 0
+			sc.score[s], sc.orig[s], sc.alt[s] = 0, 0, 0
 			sc.touched = append(sc.touched, s)
 		}
 	}
@@ -247,30 +256,40 @@ func (x *index) lexical(q []string, seeds []uint32, gate float32, visit func(slo
 	type term struct {
 		post  []posting
 		idf   float64
-		share float32
+		share float32 // upper bound of what this term adds to coverage
+		bit   uint64  // the query term's bit
+		alt   bool    // matches in other wordings (Alt), weighted down
 	}
-	ts := make([]term, 0, len(q))
+	ts := make([]term, 0, 2*len(q))
+	shares := make([]float32, len(q))
 	var mass float64
 	for _, t := range q {
-		p := x.post[t]
-		df := float64(len(p))
+		df := float64(len(x.post[t]))
 		mass += math.Log(1 + (N-max(df, 1)+0.5)/(max(df, 1)+0.5)) // an unseen word weighs as a rare one, not more
+	}
+	idf := func(df float64) float64 { return math.Log(1 + (N-df+0.5)/(df+0.5)) }
+	for i, t := range q {
+		p := x.post[t]
+		shares[i] = float32(idf(max(float64(len(p)), 1)) / mass)
 		if len(p) > 0 {
-			ts = append(ts, term{post: p, idf: math.Log(1 + (N-df+0.5)/(df+0.5))})
+			ts = append(ts, term{post: p, idf: idf(float64(len(p))), share: shares[i], bit: 1 << i})
+		}
+		if pa := x.post[altPrefix+t]; len(pa) > 0 {
+			ts = append(ts, term{post: pa, idf: altWeight * idf(float64(len(pa))), share: altWeight * shares[i], bit: 1 << i, alt: true})
 		}
 	}
 	sort.Slice(ts, func(i, j int) bool { return len(ts[i].post) < len(ts[j].post) })
 	var remaining float32
 	for i := range ts {
-		ts[i].share = float32(ts[i].idf / mass)
 		remaining += ts[i].share
 	}
 	add := func(t *term, p posting) {
 		tf := float64(p.tf)
 		sc.score[p.slot] += float32(t.idf * tf * (bm25K1 + 1) / (tf + bm25K1*(1-bm25B+bm25B*float64(x.dl[p.slot])/avg)))
-		sc.cover[p.slot] += t.share
-		if sc.nterm[p.slot] < 255 {
-			sc.nterm[p.slot]++
+		if t.alt {
+			sc.alt[p.slot] |= t.bit
+		} else {
+			sc.orig[p.slot] |= t.bit
 		}
 	}
 	for i := range ts {
@@ -300,9 +319,26 @@ func (x *index) lexical(q []string, seeds []uint32, gate float32, visit func(slo
 		remaining -= t.share
 	}
 	for _, s := range sc.touched {
-		visit(s, sc.score[s], sc.cover[s], int(sc.nterm[s]))
+		o, a := sc.orig[s], sc.alt[s]&^sc.orig[s]
+		var cover float32
+		for i := range q {
+			switch {
+			case o&(1<<i) != 0:
+				cover += shares[i]
+			case a&(1<<i) != 0:
+				cover += altWeight * shares[i]
+			}
+		}
+		visit(s, sc.score[s], cover, bits.OnesCount64(o), bits.OnesCount64(a))
 	}
 }
+
+// Other wordings (Item.Alt) are indexed as altPrefix+term and count
+// altWeight of a match in the item's own text.
+const (
+	altPrefix = "\x01"
+	altWeight = 0.6
+)
 
 func bitsLen(n int) int {
 	b := 1

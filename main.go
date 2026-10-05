@@ -26,6 +26,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
+	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/session"
 	"github.com/rajasatyajit/ternly/internal/tools"
@@ -53,6 +54,7 @@ type fileConfig struct {
 	Memory          *bool `json:"memory"`         // long-term memory (default on)
 	MemoryBudget    *int  `json:"memory_budget"`  // tokens of notes injected per turn (default 600)
 	MemoryVectors   *bool `json:"memory_vectors"` // use a local Ollama embedding model if present (default on)
+	MemoryEnrich    *bool `json:"memory_enrich"`  // the cheapest model writes other wordings per note (default on)
 	Providers       []struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
@@ -276,6 +278,7 @@ func run() int {
 	if mem != nil {
 		defer mem.Close()
 		mem.Root, mem.Redact, mem.Suspicious = reg.Root, reg.Redact.Apply, tools.Suspicious
+		mem.Notify = func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }
 		mem.SessionID = func() string {
 			if s := mgr.Current(); s != nil {
 				return s.ID
@@ -303,6 +306,23 @@ func run() int {
 			reg.Add(t)
 		}
 		ag.AddInstructions(memory.Guidance)
+		if fc.MemoryEnrich == nil || *fc.MemoryEnrich {
+			mem.SetEnricher(&memory.LLMEnricher{Model: "cheapest", Complete: func(ctx context.Context, system, user string) (string, error) {
+				select { // discovery runs in the background
+				case <-router.Ready():
+				case <-ctx.Done():
+					return "", ctx.Err()
+				}
+				um := router.Utility(4000)
+				if um == nil {
+					return "", errors.New("no model for enrichment")
+				}
+				out, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, llm.Request{Model: um.ID, System: system,
+					Messages: []llm.Message{{Role: "user", Content: user}}, MaxTokens: 160}))
+				ag.Commit(agent.Record{T: "usage", Usage: &u, Cost: um.Cost(u)}) // counted like any other spend
+				return out, err
+			}})
+		}
 		if (fc.MemoryVectors == nil || *fc.MemoryVectors) && !*noLocal && !fc.NoLocal {
 			go func() { // a local embedding model, if Ollama has one (never a cloud model)
 				base := "http://127.0.0.1:11434"
