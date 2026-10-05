@@ -85,9 +85,10 @@ eval() { # ADR 009: retrieval quality; needs Ollama with the models below pulled
 }
 
 fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME; records → bench/results/fabrication
-  local models=${MODELS:-qwen3.6} runs=${RUNS:-1} work
-  work=$(mktemp -d "$ROOT/.e2e-work-XXXXXX")
-  trap 'rm -rf "$work"' EXIT
+  local models=${MODELS:-qwen3.6} runs=${RUNS:-1}
+  FAB_WORK=$(mktemp -d "$ROOT/.e2e-work-XXXXXX") # global: the EXIT trap runs after this function returns
+  local work=$FAB_WORK
+  trap 'rm -rf "$FAB_WORK"' EXIT
   CGO_ENABLED=0 go build -tags "$GRAMMARS" -o "$work/ternly" .
   mkdir -p bench/results/fabrication "$work/home"
   for m in ${models//,/ }; do

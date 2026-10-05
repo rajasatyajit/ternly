@@ -26,6 +26,9 @@ var (
 
 // unsupported lists the answer's references that don't check out.
 func (a *Agent) unsupported(answer string) []string {
+	if a.NoFactChecks {
+		return nil
+	}
 	var out []string
 	seen := map[string]bool{}
 	for _, m := range reCite.FindAllStringSubmatch(answer, -1) {

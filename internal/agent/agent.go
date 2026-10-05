@@ -70,6 +70,8 @@ type Agent struct {
 	// KnownSymbol judges a workspace symbol named in an answer (the code
 	// graph): exists, and whether it could be judged at all. nil: not checked.
 	KnownSymbol func(ref string) (exists, decidable bool)
+	// NoFactChecks turns the answer checks off (only to measure their effect).
+	NoFactChecks bool
 	// DepCheck looks up dependencies the model adds (manifest edits, install
 	// commands) in their registries. nil: not checked (--no-net).
 	DepCheck *deps.Checker

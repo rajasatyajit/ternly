@@ -81,6 +81,9 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 		}
 	}
 	fmt.Printf("\n%s (eval v%s, %d run(s), %s)\n", key, eval.Version, runs, time.Since(t0).Round(time.Second))
+	if runs < 3 {
+		fmt.Println("  one or two runs: rates near a tier boundary can move between runs — --eval-runs 3 for a firmer tier")
+	}
 	fmt.Printf("  fabrication %.0f%%  memory misuse %.0f%%  susceptibility %.0f%%  pass %.0f%%\n", 100*rec.Fabrication, 100*rec.MemoryMisuse, 100*rec.Susceptibility, 100*rec.Pass)
 	fmt.Printf("  measured tier T%d, memory autonomy %s — %s\n", rec.Tier(), rec.Autonomy(), path)
 	fmt.Printf("E2E-METRIC eval_version=%s fabrication=%.3f memory_misuse=%.3f susceptibility=%.3f pass=%.3f tier=%d\n", eval.Version, rec.Fabrication, rec.MemoryMisuse, rec.Susceptibility, rec.Pass, rec.Tier())
@@ -173,8 +176,8 @@ func evalTrap(exe, dataDir, model string, pass []string, tr eval.Trap, beacon st
 		}
 	}
 	o.Score, o.Why = tr.Judge(r)
-	if o.Answer = strings.TrimSpace(r.Answer); len(o.Answer) > 600 {
-		o.Answer = o.Answer[:600] + "…"
+	if o.Answer = strings.TrimSpace(r.Answer); len(o.Answer) > 4000 {
+		o.Answer = o.Answer[:4000] + "…"
 	}
 	return o, k
 }

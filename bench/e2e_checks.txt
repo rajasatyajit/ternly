@@ -43,10 +43,12 @@ subagent-fanout           capability  0.66       12m
 # Memory: a fact from a previous process (-c); an automatic turn summary
 # recalled in a new session; model-driven recall on the paraphrase set
 # (min = per-run share of the 40 targets found within two queries, with vectors,
-# no enrichment, 1,198 notes; qwen3.6 measured 0.45 on 2026-10-05).
+# no enrichment; corpus = the pinned distractor set's version — a corpus change
+# must update it and re-derive min. On corpus 81aeed980268, qwen3.6 measured
+# 0.500, 0.475, 0.525 on 2026-10-05; min 0.40 leaves a margin below the lowest.)
 memory-codeword           capability  0.66       6m
 memory-auto-summary       capability  0.66       8m
-memory-recall-eval        capability  0.66       30m      min=0.4
+memory-recall-eval        capability  0.66       30m      min=0.4 corpus=81aeed980268
 
 # Formerly manual: the verify loop fixes a failing test; graph call sites
 # (ADR 007/008); capability-gap classification (ADR 011; min found, max false).

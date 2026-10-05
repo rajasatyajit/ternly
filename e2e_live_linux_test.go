@@ -853,3 +853,13 @@ func lastLines(s string, n int) string {
 	ls := strings.Split(strings.TrimRight(s, "\n"), "\n")
 	return strings.Join(ls[max(0, len(ls)-n):], "\n")
 }
+
+// TestManifestMatchesChecks runs in CI (go test -tags e2e -run this): a check
+// listed in bench/e2e_checks.txt but not registered, or registered but not
+// listed, fails on push rather than at the start of a real-model run.
+func TestManifestMatchesChecks(t *testing.T) {
+	root, _ := os.Getwd()
+	if _, err := loadManifest(filepath.Join(root, "bench", "e2e_checks.txt")); err != nil {
+		t.Fatal(err)
+	}
+}

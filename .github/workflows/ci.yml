@@ -34,6 +34,7 @@ jobs:
           go vet ./...
           GOOS=darwin go vet ./...
           go vet -tags e2e . # the real-model suite (bench/run.sh e2e) must keep compiling
+          go test -tags e2e -run '^TestManifestMatchesChecks$' . # …and its manifest must match its checks
       - name: go test -race
         env:
           TERNLY_REQUIRE_SANDBOX: "1" # sandbox/security tests fail instead of skipping

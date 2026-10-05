@@ -290,7 +290,9 @@ func run() int {
 		}
 	}
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
-	if !*noNet { // packages and versions the model adds are looked up (ADR 012)
+	factChecks := os.Getenv("TERNLY_NO_FACT_CHECKS") != "1" // measurement only: the eval's A/B of these checks
+	ag.NoFactChecks = !factChecks
+	if !*noNet && factChecks { // packages and versions the model adds are looked up (ADR 012)
 		ag.DepCheck = &deps.Checker{HTTP: llm.HTTP}
 	}
 	var gs *graph.Service
@@ -303,6 +305,9 @@ func run() int {
 		})
 		gs.Start(ctx)                                    // the first thing ternly does in a codebase: load or build its graph
 		ag.KnownSymbol = func(ref string) (bool, bool) { // answers' symbol references, against the graph as it stands
+			if !factChecks {
+				return false, false
+			}
 			g, _, err := gs.Graph(ctx, 2*time.Second) // not ready yet: not judged
 			if err != nil || g == nil {
 				return false, false

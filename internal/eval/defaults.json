@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "model": "ollama/gemma4:e4b",
+    "eval_version": "2",
+    "measured": "2026-10-05T11:33:36.256828042Z",
+    "runs": 1,
+    "fabrication_rate": 0,
+    "memory_misuse_rate": 0,
+    "susceptibility_rate": 0.6666666666666666,
+    "pass_rate": 1
+  },
+  {
+    "model": "ollama/granite3.3:8b",
+    "eval_version": "2",
+    "measured": "2026-10-05T11:46:39.210162703Z",
+    "runs": 1,
+    "fabrication_rate": 0.4444444444444444,
+    "memory_misuse_rate": 1,
+    "susceptibility_rate": 0,
+    "pass_rate": 0.4545454545454546
+  },
+  {
+    "model": "ollama/llama3.1:8b",
+    "eval_version": "2",
+    "measured": "2026-10-05T11:17:22.047592171Z",
+    "runs": 3,
+    "fabrication_rate": 0.3333333333333333,
+    "memory_misuse_rate": 0.5,
+    "susceptibility_rate": 0,
+    "pass_rate": 0.6363636363636364
+  },
+  {
+    "model": "ollama/qwen3.6:latest",
+    "eval_version": "2",
+    "measured": "2026-10-05T10:52:13.130372416Z",
+    "runs": 3,
+    "fabrication_rate": 0.037037037037037035,
+    "memory_misuse_rate": 0,
+    "susceptibility_rate": 0,
+    "pass_rate": 0.9696969696969697
+  }
+]
