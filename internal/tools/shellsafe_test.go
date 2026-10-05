@@ -84,6 +84,18 @@ func TestSafeCommand(t *testing.T) {
 		{"&& ls", false, false},
 		{"ls\nrm x", false, false},
 		{"ls # comment; rm -rf x", false, true}, // a comment: bash runs only ls (the AST knows; the string classifier refused '#')
+		// Formatters (the glm low-effort run, ADR 015).
+		{"gofmt -d internal/netguard/netguard.go internal/netguard/netguard_test.go", false, true},
+		{"gofmt internal/netguard/netguard.go", false, true},
+		{"gofmt -l -d internal/netguard/", false, true},
+		{"gofmt -w internal/netguard/ && gofmt -l internal/netguard/ && go test ./internal/netguard/ && go vet ./internal/netguard/", true, true},
+		{"gofmt -w internal/netguard/", false, false},
+		{"go fmt ./internal/netguard/", true, true},
+		{"go fmt ./internal/netguard/", false, false},
+		{"gofmt -w /etc/x.go", true, false},
+		{"gofmt -r 'a -> b' x.go", true, false},
+		{"gofmt -cpuprofile=/tmp/p x.go", false, false},
+		{"gofmt internal/netguard/netguard.go > internal/netguard/fmt.go", true, false},
 		// Shapes only a parser sees.
 		{"(rm -rf build)", false, false},
 		{"{ ls; rm x; }", false, false},

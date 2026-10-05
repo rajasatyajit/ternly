@@ -69,10 +69,39 @@ func (p *Policy) safeArgv(words []string, writes bool) bool {
 		}
 	}
 	s := strings.Join(words, " ")
+	if fmtWrites, isFmt := formatter(words); isFmt && !reForbidden.MatchString(s) { // paths were checked above; gofmt's -d is a diff
+		return !fmtWrites || writes // gofmt prints unless -w; gofmt -w and go fmt rewrite files in place, an edit
+	}
 	if reForbidden.MatchString(s) || reDanger.MatchString(s) || reUnsafeArg.MatchString(s) || reExecArg.MatchString(s) {
 		return false
 	}
 	return reSafe.MatchString(s) || reCd.MatchString(s) || writes && reMkdir.MatchString(s)
+}
+
+// formatter recognises gofmt and go fmt (dogfooding, ADR 015: a model
+// spent eight minutes on refused `gofmt -d` and `gofmt -w`), and whether
+// the call rewrites files.
+func formatter(argv []string) (writes, ok bool) {
+	switch {
+	case argv[0] == "gofmt":
+		for _, a := range argv[1:] {
+			if a == "-w" || strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && strings.Contains(a, "w") && strings.Trim(a[1:], "ldsew") == "" {
+				return true, true
+			}
+			if strings.HasPrefix(a, "-") && strings.Trim(a[1:], "ldse") != "" {
+				return false, false // -r (rewrite rules), -cpuprofile=…: not recognised
+			}
+		}
+		return false, true
+	case len(argv) >= 2 && argv[0] == "go" && argv[1] == "fmt":
+		for _, a := range argv[2:] {
+			if strings.HasPrefix(a, "-") {
+				return false, false // -n/-x are harmless, but -mod… and friends aren't worth reasoning about
+			}
+		}
+		return true, true
+	}
+	return false, false
 }
 
 // commands parses cmd and returns the argv of each simple command, or false
