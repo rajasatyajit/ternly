@@ -30,6 +30,7 @@ catalog (cached 24 h). `ternly -models` prints the table.
 |---|---|
 | Zero-token difficulty classifier → cheapest model with tier ≥ difficulty | trivial work goes to free/local or mini models |
 | Cascade escalation only after verification fails twice | frontier prices only when needed |
+| Reasoning budget set by routing: low for routine turns, medium for hard ones, high for `/architect` plans and after escalation (`reasoning_effort`; Anthropic thinking budgets); `--reasoning auto\|off\|low\|medium\|high` | reasoning tokens spent where they pay |
 | Provider failover on 429/5xx to an equal-tier model elsewhere | no wasted retries |
 | Anthropic prompt caching (system, tools, last turn) + byte-stable prefix; OpenAI auto-cache | repeated context billed at ~10 % |
 | `edit_file` diffs instead of rewrites; capped `read_file`/`grep`/`bash` output (head+tail) | fewer output & input tokens |
@@ -41,10 +42,23 @@ Strict engineering system prompt (+ the first of `TERNLY.md`, `AGENTS.md`, `CLAU
 (`go build && go vet`, `cargo check`, `npm run typecheck|lint|build`, `ruff`) fed back to the model,
 `/review` with the strongest available model, parallel read-only tool calls.
 
+**✓ means every changed source file was compiled by a check.** After the project's check, ternly
+proves coverage of each file the turn changed (shell edits included):
+- Go: the files' own packages, built and vetted in their own modules;
+- Python: `compile()`;
+- JavaScript: `node --check`;
+- TypeScript: the project's `tsc`, which must include the file;
+- Rust: cargo's dep-info;
+- Java: fresh class files.
+
+A file no check covers (a build tag, a stray `go.mod`, a file outside every tsconfig, a language
+without a checker) makes the turn **unverified (?)**, never ✓. `docs/adr/015-after-m8.md`.
+
 ## Security model
 Workspace path confinement (symlink-safe, `.git` internals blocked) · permission prompts for edits,
 shell and MCP (`/mode ask|edits|yolo`) · read-only, build and test commands auto-approved, alone or
-chained with `&&`/`||`/`;`/`|` (no redirects, expansions, or paths outside the workspace) · forbidden list (e.g. `rm -rf /`) even in yolo · shell runs in
+chained with `&&`/`||`/`;`/`|`, judged on the parsed bash syntax tree (no redirects but to `/dev/null`,
+no expansions, no paths outside the workspace; fuzzed against the parser) · forbidden list (e.g. `rm -rf /`) even in yolo · shell runs in
 **bubblewrap**: read-only root, writable workspace + toolchain caches, `~/.ssh ~/.aws ~/.gnupg …`
 masked, optional `--no-net` · provider keys stripped from the shell env and redacted from all tool
 output · keys file must be 0600 · repo-supplied `.mcp.json` is not started without `--project-mcp`.
@@ -206,7 +220,8 @@ Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
-`--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new` ·
+`--budget`, `--local-only`, `--no-local`, `--verify`, `--reasoning`, `--no-memory`, `--no-net`, `-C dir`, `-c`,
+`--resume [id]`, `--new`, `--mcp-login <server>` ·
 `ternly --eval --model <m>` (measure a model) · `ternly --models` (tiers and their basis).
 The binary embeds the code graph's six grammars; `go build -tags ternly_all_grammars` adds every
 other language gotreesitter has (+18 MB).
