@@ -178,7 +178,12 @@ func estTokens(sys string, msgs []llm.Message) int {
 }
 
 // Run handles one user turn end-to-end.
-func (a *Agent) Run(ctx context.Context, prompt string) {
+func (a *Agent) Run(ctx context.Context, prompt string) { a.RunWith(ctx, prompt, "") }
+
+// RunWith runs a turn whose user message also carries extra context (pinned
+// files, @mentions, command output, plan-mode instructions). The prompt
+// alone is the turn's record: titles, /rewind and memory see only it.
+func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	a.running.Store(true)
 	a.pause.Store(false)
 	defer func() {
@@ -205,6 +210,9 @@ func (a *Agent) Run(ctx context.Context, prompt string) {
 	}
 	if notes != "" {
 		content = notes + "\n\n" + content
+	}
+	if extra != "" {
+		content += "\n\n" + extra
 	}
 	st := newTurnState(a.state.Ledger.Cost)
 	st.lim, st.budget, st.verify, st.prompt = a.Limits, a.Budget, a.verify, prompt
@@ -603,7 +611,10 @@ func (a *Agent) maybeCompact(ctx context.Context, m *discover.Model) {
 	_ = a.Compact(ctx)
 }
 
-func (a *Agent) Compact(ctx context.Context) error {
+func (a *Agent) Compact(ctx context.Context) error { return a.CompactWith(ctx, "") }
+
+// CompactWith compacts, steering the summary with the user's instructions.
+func (a *Agent) CompactWith(ctx context.Context, instructions string) error {
 	h := a.Export().History
 	// cut on a user-message boundary so tool_call/result pairs stay intact
 	cut := -1
@@ -631,7 +642,11 @@ func (a *Agent) Compact(ctx context.Context) error {
 			fmt.Fprintf(&sb, "[tool %s %s]\n", tc.Name, tools.Cap(tc.Args, 400))
 		}
 	}
-	req := llm.Request{Model: um.ID, System: "You compress coding-session transcripts. Output a dense summary: user goals, decisions & rationale, files read/changed (paths), commands run & outcomes, current state, unresolved issues, next steps. No preamble.",
+	sys := "You compress coding-session transcripts. Output a dense summary: user goals, decisions & rationale, files read/changed (paths), commands run & outcomes, current state, unresolved issues, next steps. No preamble."
+	if instructions != "" {
+		sys += "\nThe user asks the summary to: " + instructions
+	}
+	req := llm.Request{Model: um.ID, System: sys,
 		Messages: []llm.Message{{Role: "user", Content: sb.String()}}, MaxTokens: 2000}
 	sum, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, req))
 	a.account(um, u)
@@ -762,4 +777,70 @@ func short(err error) string {
 		s = s[:120] + "…"
 	}
 	return s
+}
+
+// Ask answers a side question with the conversation as context and no
+// tools, without adding anything to the history (/btw). Its cost is counted.
+func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
+	if a.running.Load() {
+		return "", errors.New("a turn is running — ask when it finishes")
+	}
+	h := a.Export().History
+	m := a.Current()
+	if m == nil {
+		select {
+		case <-a.Router.Ready():
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+		m, _ = a.Router.Pick(discover.Classify(question, 0), estTokens(a.system, h)+4000)
+	}
+	if m == nil {
+		return "", errors.New("no usable model")
+	}
+	msgs := append(append([]llm.Message(nil), h...), llm.Message{Role: "user", Content: "Side question (answer briefly from what you already know in this conversation; no tools): " + question})
+	if len(h) > 0 && h[len(h)-1].Role == "user" { // keep roles alternating after an interrupted turn
+		msgs = append(append([]llm.Message(nil), h...), llm.Message{Role: "assistant", Content: "(interrupted)"}, msgs[len(msgs)-1])
+	}
+	out, u, err := llm.Collect(llm.New(m.Provider.Endpoint()).Stream(ctx, llm.Request{Model: m.ID, System: a.system, Messages: msgs, MaxTokens: 2000}))
+	a.account(m, u)
+	return out, err
+}
+
+// ContextUse is an estimate of what the next request would send.
+type ContextUse struct {
+	System, Tools, Notes, User, Assistant, ToolResults, Window int
+	Model                                                      string
+}
+
+// Context estimates the context the next request carries (tokens at ~3.6
+// characters each) against the current model's window.
+func (a *Agent) Context() ContextUse {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var c ContextUse
+	c.System = estTokens(a.system, nil)
+	for _, sp := range a.Reg.Specs() {
+		c.Tools += (len(sp.Name) + len(sp.Description) + len(sp.Schema)) * 10 / 36
+	}
+	for _, m := range a.state.History {
+		n := estTokens("", []llm.Message{m})
+		switch m.Role {
+		case "user":
+			if strings.HasPrefix(m.Content, "Notes from ternly's memory") {
+				notes, _, _ := strings.Cut(m.Content, "\n\n")
+				c.Notes += estTokens(notes, nil)
+				n -= estTokens(notes, nil)
+			}
+			c.User += n
+		case "assistant":
+			c.Assistant += n
+		default:
+			c.ToolResults += n
+		}
+	}
+	if a.current != nil {
+		c.Window, c.Model = a.current.Ctx, a.current.Key()
+	}
+	return c
 }

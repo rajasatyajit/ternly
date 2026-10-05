@@ -183,3 +183,24 @@ func TestSandboxBindsTmpDir(t *testing.T) {
 		t.Error("Writable should honour Binds")
 	}
 }
+
+// Plan mode: reads and safe commands only, whatever would be allowed otherwise.
+func TestPlanMode(t *testing.T) {
+	r := newReg(t, "plan")
+	ask := func(context.Context, string, string, bool) Decision { return AllowAlways } // would allow anything
+	r.Policy.Ask = ask
+	ctx := context.Background()
+	for name, summary := range map[string]string{"read_file": "a.go", "grep": "x", "bash": "git diff"} {
+		if ok, why := r.Policy.Check(ctx, r.Get(name), name, summary); !ok {
+			t.Errorf("%s %q refused in plan mode: %s", name, summary, why)
+		}
+	}
+	for name, summary := range map[string]string{"edit_file": "a.go", "write_file": "a.go", "bash": "rm a.go"} {
+		if ok, why := r.Policy.Check(ctx, r.Get(name), name, summary); ok || !strings.Contains(why, "plan mode") {
+			t.Errorf("%s %q allowed in plan mode", name, summary)
+		}
+	}
+	if ok, _ := r.Policy.Check(ctx, r.Get("bash"), "bash", "git status && rm -rf x"); ok {
+		t.Error("chained command allowed in plan mode")
+	}
+}

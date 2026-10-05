@@ -511,6 +511,19 @@ var lookRG = exec.LookPath
 
 // openRegular opens rel (inside the root) without blocking on FIFOs/devices
 // and refuses non-regular files.
+// ReadFile reads a workspace file for the UI (pinned files, @mentions)
+// through the same os.Root guard as the file tools; rel is relative to Root.
+func (r *Registry) ReadFile(rel string) ([]byte, error) {
+	full, err := r.resolve(rel)
+	if err != nil {
+		return nil, err
+	}
+	return r.readRegular(r.rel(full))
+}
+
+// Rel is p relative to the workspace root.
+func (r *Registry) Rel(p string) string { return r.rel(p) }
+
 func (r *Registry) openRegular(rel string) (*os.File, error) {
 	f, err := r.fs.OpenFile(rel, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {

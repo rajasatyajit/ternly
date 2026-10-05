@@ -50,6 +50,22 @@ var keepExts = []string{"go", "rs", "c", "h", "cc", "cpp", "hpp", "java", "kt", 
 	"js", "mjs", "cjs", "ts", "tsx", "jsx", "swift", "cs", "ex", "exs", "erl", "hs", "ml", "lua", "sh", "zig", "dart",
 	"vue", "svelte", "sql", "proto", "md", "rst", "adoc"}
 
+// IsSecretPath reports whether a workspace path matches SecretPatterns (and
+// isn't a source file re-included by extension), so it is never checkpointed,
+// pinned into a prompt or committed by /commit.
+func IsSecretPath(p string) bool {
+	base := filepath.Base(p)
+	if i := strings.LastIndexByte(base, '.'); i > 0 && slices.Contains(keepExts, base[i+1:]) {
+		return false
+	}
+	for _, pat := range SecretPatterns {
+		if ok, _ := filepath.Match(pat, base); ok {
+			return true
+		}
+	}
+	return false
+}
+
 func excludeFile() []byte {
 	var b strings.Builder
 	b.WriteString("# written by ternly: likely secrets are never checkpointed\n")

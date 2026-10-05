@@ -19,6 +19,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
+	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/session"
@@ -150,21 +151,30 @@ type Model struct {
 	pendingSwitch string // switch to this session when the running turn has paused
 	pendingStop   bool   // /stop issued mid-turn
 	paused        bool   // /pause while idle: the next prompt re-activates the session
+	comp          *completion
+	userCmds      []*commands.Command
+	pins          []string         // files sent with every prompt (/add)
+	pending       []string         // context for the next prompt (/run, /web output)
+	prevMode      string           // permission mode before plan mode
+	afterTurn     []func() tea.Cmd // run when the current turn ends (/ask, /architect)
+	lastFailed    bool             // the last turn ended with an error
 }
 
 // App bundles the long-lived services the UI drives.
 type App struct {
-	Agent    *agent.Agent
-	Router   *discover.Router
-	Reg      *tools.Registry
-	Discover func() ([]*discover.Model, []string)
-	Notes    []string
-	Version  string
-	Sessions *session.Manager // nil: no persistence (tests)
-	Banner   string           // shown at start (resumed session, fork offer)
-	Pick     bool             // open the session picker at start (bare --resume)
-	Memory   *memory.Memory   // nil: memory off
-	Theme    string           // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
+	Agent      *agent.Agent
+	Router     *discover.Router
+	Reg        *tools.Registry
+	Discover   func() ([]*discover.Model, []string)
+	Notes      []string
+	Version    string
+	Sessions   *session.Manager // nil: no persistence (tests)
+	Banner     string           // shown at start (resumed session, fork offer)
+	Pick       bool             // open the session picker at start (bare --resume)
+	Memory     *memory.Memory   // nil: memory off
+	Theme      string           // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
+	ConfigPath string           // the config file (for /config)
+	Status     func() []string  // extra /status and /doctor lines (code graph, …)
 }
 
 func New(app *App, dark bool) *Model {
@@ -193,6 +203,9 @@ func New(app *App, dark bool) *Model {
 	}
 	for _, n := range app.Notes {
 		m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("! ") + n})
+	}
+	for _, err := range m.loadUserCommands() {
+		m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("! ") + err.Error()})
 	}
 	return m
 }
@@ -303,6 +316,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentMsg:
 		cmds = append(cmds, m.onAgent(agent.Event(msg)))
 
+	case startMsg:
+		if m.busy {
+			m.queue = append(m.queue, msg.prompt)
+			break
+		}
+		m.blocks = append(m.blocks, &block{kind: bUser, text: msg.show})
+		cmds = append(cmds, m.startWith(msg.prompt, msg.extra))
+
+	case btwMsg:
+		m.blocks = append(m.blocks, &block{kind: bAssistant, text: msg.a})
+		m.addInfo(sDim.Render("  (side answer — not added to the conversation)"))
+
+	case ranMsg:
+		cmds = append(cmds, m.onRan(msg))
+
+	case webMsg:
+		m.onWeb(msg)
+
+	case editedMsg:
+		if msg.err != nil {
+			m.addInfo(sErr.Render("  editor: " + msg.err.Error()))
+		} else {
+			m.ta.SetValue(msg.text)
+			m.ta.SetHeight(min(8, max(1, m.ta.LineCount())))
+			m.layout()
+		}
+
 	case openPickerMsg:
 		m.openPicker()
 
@@ -338,6 +378,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var c tea.Cmd
 	m.ta, c = m.ta.Update(msg)
 	cmds = append(cmds, c)
+	if _, ok := msg.(tea.KeyPressMsg); ok {
+		m.updateCompletion()
+	}
 	if lc := min(8, max(1, m.ta.LineCount())); lc != m.ta.Height() {
 		m.ta.SetHeight(lc)
 		m.layout()
@@ -348,6 +391,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
+	}
+	if m.comp != nil && m.perm == nil {
+		if c, handled := m.compKey(k); handled {
+			return c, true
+		}
 	}
 	if m.perm != nil {
 		var d tools.Decision
@@ -398,7 +446,7 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.ta.SetHeight(1)
 		m.hist = append(m.hist, v)
 		m.histIx = len(m.hist)
-		if m.busy && !strings.HasPrefix(v, "/") {
+		if m.busy && !strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "!") {
 			m.queue = append(m.queue, v)
 			m.addInfo(sDim.Render("  queued: ") + v)
 			return nil, true
@@ -444,13 +492,24 @@ func (m *Model) interrupt() {
 
 func (m *Model) submit(v string) tea.Cmd {
 	if strings.HasPrefix(v, "/") {
-		return m.command(v)
+		return m.dispatch(v)
+	}
+	if cmd, ok := strings.CutPrefix(v, "!"); ok && strings.TrimSpace(cmd) != "" {
+		return m.runCmd(strings.TrimSpace(cmd), "")
 	}
 	m.blocks = append(m.blocks, &block{kind: bUser, text: v})
 	return m.start(v)
 }
 
-func (m *Model) start(prompt string) tea.Cmd {
+func (m *Model) start(prompt string) tea.Cmd { return m.startWith(prompt, "") }
+
+// startWith starts a turn; extra context (pins, @files, collected output,
+// plan-mode note) goes with the message but not into the turn's record.
+func (m *Model) startWith(prompt, extra string) tea.Cmd {
+	if a := m.attachments(prompt); a != "" {
+		extra = strings.TrimSpace(a + "\n\n" + extra)
+	}
+	m.lastFailed = false
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel, m.busy, m.activity = cancel, true, "Routing"
 	if m.paused { // a prompt after /pause continues the session
@@ -463,7 +522,7 @@ func (m *Model) start(prompt string) tea.Cmd {
 	}
 	m.refresh(true)
 	return func() tea.Msg {
-		m.App.Agent.Run(ctx, prompt)
+		m.App.Agent.RunWith(ctx, prompt, extra)
 		return nil
 	}
 }
@@ -513,6 +572,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 	case agent.EvUsage:
 		m.ledger = e.Ledger
 	case agent.EvError:
+		m.lastFailed = true
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
@@ -534,6 +594,18 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 				return m.switchTo(id)
 			}
 		}
+		if len(m.afterTurn) > 0 { // /ask restores the mode, /architect starts the editor turn
+			after := m.afterTurn
+			m.afterTurn = nil
+			var out []tea.Cmd
+			for _, f := range after {
+				out = append(out, f())
+			}
+			if m.busy { // an after-turn hook started a turn: it runs before the queue
+				m.refresh(true)
+				return tea.Batch(out...)
+			}
+		}
 		if len(m.queue) > 0 {
 			next := m.queue[0]
 			m.queue = m.queue[1:]
@@ -553,9 +625,10 @@ func (m *Model) addInfo(s string) {
 
 // ─────────────────────────── slash commands ───────────────────────────
 
-func (m *Model) command(v string) tea.Cmd {
-	f := strings.Fields(v)
-	arg := strings.TrimSpace(strings.TrimPrefix(v, f[0]))
+// legacyCommand runs the built-ins implemented before the command table
+// (name is canonical, e.g. "/resume"; v is the full line as typed).
+func (m *Model) legacyCommand(name, arg, v string) tea.Cmd {
+	f := []string{name}
 	if c, ok := m.sessionCommand(f[0], arg); ok {
 		return c
 	}
@@ -567,9 +640,7 @@ func (m *Model) command(v string) tea.Cmd {
 		defer m.saveSettings()
 	}
 	switch f[0] {
-	case "/help", "/?":
-		m.addInfo(helpText)
-	case "/exit", "/quit", "/q":
+	case "/exit":
 		return tea.Quit
 	case "/clear":
 		m.App.Agent.Reset()
@@ -624,14 +695,16 @@ func (m *Model) command(v string) tea.Cmd {
 		case "ask", "edits", "yolo":
 			m.App.Reg.Policy.SetMode(arg)
 			m.addInfo(sOK.Render("  permission mode: " + arg))
+		case "plan":
+			return m.cmdPlan("")
 		default:
-			m.addInfo(sErr.Render("  usage: /mode ask|edits|yolo"))
+			m.addInfo(sErr.Render("  usage: /mode ask|edits|yolo|plan"))
 		}
 	case "/verify":
 		if arg == "off" {
 			arg = ""
 		}
-		if arg != "" || strings.TrimSpace(v) == "/verify off" {
+		if arg != "" || strings.HasSuffix(strings.TrimSpace(v), " off") {
 			m.App.Agent.SetVerify(arg)
 		}
 		m.addInfo(fmt.Sprintf("  verify: %s", orStr(m.App.Agent.VerifyCmd(), "off")))
@@ -754,23 +827,6 @@ func (m *Model) strongest() *discover.Model {
 	return best
 }
 
-const helpText = `  /models [filter]   list discovered models (tier · price $/Mtok in/out · context)
-  /model <id|auto>   pin a model, or return to automatic cost-aware routing
-  /review            review uncommitted changes with the strongest model
-  /cost              tokens, cache hit-rate and spend this session
-  /compact           summarise history with the cheapest model to cut context
-  /undo              revert the last turn (files + conversation)
-  /rewind [n] [both|code|chat]   list turns, or restore to before turn n
-  /limits [steps N|time 45m|turn-usd X]   per-turn step/time/spend limits
-  /sessions          pick a session (fuzzy)  /switch|/resume <id>   switch in place
-  /new  /fork [n|id]  /rename <title>  /delete <id>  /export [md|json] [file]
-  /pause             stop at a safe point and save   /stop   save as stopped and exit
-  /mode ask|edits|yolo   permission mode      /verify <cmd|off>   post-edit check
-  /budget <usd>      hard spend cap          /refresh            re-discover providers
-  /memory [search|forget|edit|add]   view and edit what ternly remembers
-  /clear             new conversation        /exit
-  keys: Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history`
-
 func (m *Model) modelsTable(filter string) string {
 	ms := m.App.Router.Models()
 	var rows []string
@@ -816,6 +872,9 @@ func (m *Model) layout() {
 	}
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
+	}
+	if m.comp != nil {
+		permH += len(m.comp.items)
 	}
 	m.vp.SetWidth(m.w)
 	m.vp.SetHeight(max(3, m.h-1-inputH-1-permH))
@@ -905,6 +964,9 @@ func (m *Model) render() string {
 	}
 	if m.picker != nil {
 		sb.WriteString(m.pickerView() + "\n")
+	}
+	if m.comp != nil {
+		sb.WriteString(m.compView() + "\n")
 	}
 	box := sBox
 	if m.ta.Focused() {

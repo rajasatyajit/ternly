@@ -55,8 +55,23 @@ var (
 	reUnsafeArg = regexp.MustCompile(`(^|\s)(-delete|-exec|-execdir|-ok|-fprint\S*|--output\S*|-D|-d|-m|-M)(\s|$)|(^|\s)(/|~)|(^|[\s/])\.\.(/|\s|$)`)
 )
 
+// PlanDenied is the reason given for a mutation refused in plan mode.
+const PlanDenied = " (plan mode is read-only: investigate and propose the change instead of making it; the user leaves plan mode with /code)"
+
 func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool, string) {
 	key, mode := name, p.Mode()
+	if mode == "plan" { // read, search and safe commands only
+		switch t.Kind {
+		case ReadOnly:
+			return true, ""
+		case Exec:
+			cmd := strings.TrimSpace(summary)
+			if reSafe.MatchString(cmd) && !reDanger.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
+				return true, ""
+			}
+		}
+		return false, PlanDenied
+	}
 	switch t.Kind {
 	case ReadOnly:
 		return true, ""
@@ -93,6 +108,18 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 		}
 	}
 	return p.ask(ctx, name, summary, false, key)
+}
+
+// Always lists what was allowed for the rest of the session ("always").
+func (p *Policy) Always() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]string, 0, len(p.always))
+	for k := range p.always {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (p *Policy) isAlways(k string) bool { p.mu.Lock(); defer p.mu.Unlock(); return p.always[k] }

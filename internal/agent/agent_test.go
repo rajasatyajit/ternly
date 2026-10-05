@@ -659,3 +659,26 @@ func TestMakeTitleTimeout(t *testing.T) {
 		t.Fatalf("MakeTitle took %v", d)
 	}
 }
+
+// /btw: a side question doesn't touch the history; RunWith's extra context
+// goes into the message but not the turn's record.
+func TestAskAndRunWith(t *testing.T) {
+	f := newFake(t, reply{text: "first answer"}, reply{text: "side answer"})
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	a.RunWith(bg, "the prompt", "EXTRA CONTEXT")
+	h := a.Export().History
+	if a.Turns()[0].Prompt != "the prompt" || !strings.HasSuffix(h[0].Content, "EXTRA CONTEXT") {
+		t.Fatalf("turn %q, message %q", a.Turns()[0].Prompt, h[0].Content)
+	}
+	n := len(h)
+	got, err := a.Ask(bg, "what did you say?")
+	if err != nil || got != "side answer" {
+		t.Fatalf("ask: %q %v", got, err)
+	}
+	if len(a.Export().History) != n {
+		t.Fatal("side question added to the history")
+	}
+	if a.Ledger().Usage.In == 0 {
+		t.Fatal("side question not counted")
+	}
+}

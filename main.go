@@ -409,7 +409,13 @@ func run() int {
 			}
 		}
 		return ms, w
-	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME")}
+	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
+		ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
+			if gs == nil {
+				return []string{"code graph off (no go.mod, or code_graph: false)"}
+			}
+			return []string{"code graph on (Go): find_symbol, references, callers, … for the model"}
+		}}
 	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
 	p := tea.NewProgram(m, tea.WithContext(ctx))
 	emit = func(e agent.Event) { p.Send(tuiMsg(e)) }

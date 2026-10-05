@@ -117,13 +117,31 @@ so differently phrased questions still find it; `memory_enrich: false` turns thi
 `memory: false` turns memory off; `memory_vectors: false` keeps it lexical. Measurements are in
 `docs/adr/009-memory.md`.
 
+## Slash commands
+Type `/` for a list with fuzzy completion (Tab completes), or `/help`. The commands follow Claude
+Code, Codex, Gemini CLI, Aider and OpenCode; `docs/commands.md` has the table and sources.
+Highlights:
+- **Plan:** `/plan` (read-only, enforced), `/ask`, `/code`, `/architect` (the strongest model
+  plans, the cheapest capable one implements).
+- **Changes:** `/diff`, `/commit` (asks first; never commits secret-like files), `/git`,
+  `/review`, `/undo`, `/rewind`.
+- **Context:** `/add`, `/drop`, `/ls` (pinned files), `@path` in a prompt, `!cmd` and `/run`
+  (output goes with the next prompt), `/web <url>`, `/test`, `/lint` (failures go to the model).
+- **Info:** `/status`, `/context`, `/cost`, `/config`, `/permissions`, `/doctor`, `/tools`,
+  `/mcp`, `/btw <question>` (answered without adding to the conversation), `/copy`, `/editor`,
+  `/theme`, `/init` (writes AGENTS.md).
+
+**Your own commands** are markdown files in `.ternly/commands/` or `~/.config/ternly/commands/`
+(`$ARGUMENTS`, `$1`…). Commands written for Claude Code (`.claude/commands`), OpenCode, Gemini CLI
+(TOML) and Codex (`~/.codex/prompts`) work as they are.
+
 ## License
 Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
 `--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new`.
-TUI: `/models /model /review /cost /compact /mode /verify /budget /limits /undo /rewind /memory /refresh /clear` ·
-Enter send · Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history.
+TUI: `/help` for all commands · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn
+scroll · ↑↓ history.
 
 Config examples in `examples/` → copy to `~/.config/ternly/`.

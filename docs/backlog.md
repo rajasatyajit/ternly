@@ -33,9 +33,12 @@ milestone named, or noted as open.
 - **Automatic turn summaries** take their "outcome" from the first sentence of the model's answer,
   which is sometimes a weak summary.
 
-## UI (M5)
-- **bubbletea v2 migration** (ADR 006). It removes the 5 s start-up stall in terminals that ignore
-  status queries, and enables keyboard enhancements.
+## Commands (after M5)
+- **Skills as commands.** Claude Code merged custom commands into skills
+  (`.claude/skills/<name>/SKILL.md`) and Codex deprecated prompts for skills. Loading them is
+  part of M6 (requirement 8).
+- **`/mcp` management** (enable, disable, reconnect) comes with M6's hot reload; M5 only lists
+  servers.
 
 ## Infrastructure
 - **CI** was blocked by a GitHub account billing lock during M3. It is resolved: both jobs (Linux
