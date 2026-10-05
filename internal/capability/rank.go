@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
 // Candidate is a ranked entry with the parts of its score.
@@ -19,6 +21,7 @@ type Candidate struct {
 	Score                                       float64
 	Relevance, Trust, Footprint, Cover, Context float64
 	Reason                                      string
+	Flag                                        string // why its text looks manipulative ("" if it doesn't)
 }
 
 // Search finds and ranks candidates for a need: relevance, then trust from
@@ -41,16 +44,32 @@ func (c *Catalog) Search(n Need, limit int) []Candidate {
 		if e.Coverage <= 0 {
 			continue
 		}
-		cd := Candidate{Entry: e, Relevance: float64(h.BM25*(0.5+h.Cover)) / float64(max)}
-		if mentions(e.Name+" "+e.Description, systemOf(n.Key)) {
-			cd.Relevance = math.Min(1, cd.Relevance+0.3)
+		// Relevance rests on naming the system, not on how often words repeat:
+		// in the name 1.0, in the description 0.7, otherwise lexical similarity
+		// scaled to at most 0.5. Stuffing a description can't beat naming it.
+		sys := systemOf(n.Key)
+		lex := float64(h.BM25*(0.5+h.Cover)) / float64(max)
+		var rel float64
+		switch {
+		case mentions(e.Name, sys) || strings.Contains(strings.ToLower(e.Name), sys.Key):
+			rel = 1
+		case mentions(e.Description, sys):
+			rel = 0.7
+		default:
+			rel = 0.5 * lex
 		}
+		cd := Candidate{Entry: e, Relevance: rel}
 		cd.Trust = trustScore(e)
 		cd.Footprint = footprint(e)
 		cd.Cover = e.Coverage
 		cd.Context = 1 - math.Min(float64(e.Tokens), 2000)/2000
 		cd.Score = 0.45*cd.Relevance + 0.25*cd.Trust + 0.10*cd.Footprint + 0.15*cd.Cover + 0.05*cd.Context
 		cd.Reason = reason(e)
+		if why := tools.Manipulative(e.Name + " " + e.Description); why != "" { // catalog text is untrusted: it doesn't get to steer ranking
+			cd.Score *= 0.2
+			cd.Flag = why
+			cd.Reason = "⚠ " + why + " · " + cd.Reason
+		}
 		out = append(out, cd)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Score > out[j].Score })
@@ -206,21 +225,56 @@ func (s *Suggester) Dismiss(key string) error {
 	return os.WriteFile(s.File, b, 0o600)
 }
 
-// Service ties detection, the catalog and the suggestion policy together.
+// Service ties detection, the catalog, validation, outcomes and the
+// suggestion policy together.
 type Service struct {
 	Catalog   *Catalog
 	Detector  *Detector
 	Suggester *Suggester
+	Validator *Validator // nil: candidates aren't checked before showing
+	Outcomes  *Outcomes  // nil: nothing recorded
 }
 
-// AfterTurn looks at a finished turn and returns a suggestion to show, or nil.
+// AfterTurn looks at a finished turn and returns a suggestion to show, or
+// nil. Candidates are ranked (entries that failed before are demoted), and
+// each is confirmed to exist before it is shown; the first 3 that do are.
 func (s *Service) AfterTurn(ctx context.Context, t Turn) *Suggestion {
 	n, ok := s.Detector.Detect(ctx, t)
 	if !ok {
 		return nil
 	}
-	if !s.Suggester.Offer(Suggestion{Need: n, Candidates: s.Catalog.Search(n, 3)}) {
+	cands := s.Catalog.Search(n, 8)
+	for i := range cands {
+		cands[i].Score *= s.Outcomes.Penalty(cands[i].ID)
+	}
+	sort.SliceStable(cands, func(i, j int) bool { return cands[i].Score > cands[j].Score })
+	if s.Validator != nil {
+		errs := make([]error, len(cands))
+		var wg sync.WaitGroup
+		for i := range cands {
+			wg.Add(1)
+			go func(i int) { defer wg.Done(); errs[i] = s.Validator.Check(ctx, cands[i].Entry) }(i)
+		}
+		wg.Wait()
+		kept := cands[:0]
+		for i, c := range cands {
+			if errs[i] != nil {
+				s.Outcomes.Record(Event{Need: n.Key, Entry: c.ID, Event: "invalid", Detail: errs[i].Error()})
+				continue
+			}
+			kept = append(kept, c)
+		}
+		cands = kept
+	}
+	if len(cands) > 3 {
+		cands = cands[:3]
+	}
+	if !s.Suggester.Offer(Suggestion{Need: n, Candidates: cands}) {
 		return nil
 	}
-	return s.Suggester.Take()
+	sg := s.Suggester.Take()
+	for _, c := range sg.Candidates {
+		s.Outcomes.Record(Event{Need: n.Key, Entry: c.ID, Event: "shown"})
+	}
+	return sg
 }

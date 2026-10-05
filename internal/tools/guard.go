@@ -85,3 +85,45 @@ func Unframe(s string) string {
 // Suspicious reports whether s reads like a prompt injection (the same
 // advisory check that flags tool output). Memory uses it to refuse writes.
 func Suspicious(s string) bool { return suspicious(s) }
+
+var (
+	reNonWordChars = regexp.MustCompile(`[^\pL\pN.-]+`)
+	rePromo        = regexp.MustCompile(`(?i)\b(always|must|should|you will) (recommend|choose|pick|install|use|suggest|rank|prefer) (me|this|it|us)\b|\b(rank|ranked|list)(ed)? (me |this |it )?(first|#?1|top|above)\b|\bignore (the )?(other|previous|all|any)\b|\b(best|only) (choice|option|tool|plugin|server) for (everything|anything|any task|all)\b|\b(official|verified|endorsed) by (anthropic|google|openai)\b`)
+)
+
+// Manipulative reports why catalog or plugin text looks like it tries to
+// steer an agent or a ranking: instructions to AI, self-promotion
+// directives, false endorsement claims, or keyword stuffing.
+func Manipulative(text string) string {
+	switch {
+	case suspicious(text):
+		return "its text reads like instructions to an AI"
+	case rePromo.MatchString(text):
+		return "its text tries to steer recommendations"
+	}
+	ts := strings.Fields(strings.ToLower(reNonWordChars.ReplaceAllString(text, " ")))
+	if len(ts) >= 12 {
+		count := map[string]int{}
+		for _, t := range ts {
+			if len(t) > 2 {
+				count[t]++
+			}
+		}
+		for _, n := range count {
+			if n >= 4 && float64(n)/float64(len(ts)) > 0.12 {
+				return "its text repeats keywords (stuffing)"
+			}
+		}
+	}
+	return ""
+}
+
+// Described renders text a plugin or server supplied (a tool, skill or agent
+// description) for a model: kept if plain, withheld if it reads like
+// instructions or steering, since tool descriptions sit next to instructions.
+func Described(text string) string {
+	if why := Manipulative(text); why != "" {
+		return "(description withheld: " + why + ")"
+	}
+	return text
+}

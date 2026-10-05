@@ -68,16 +68,24 @@ func (m *Model) suggestKey(k tea.KeyPressMsg) tea.Cmd {
 		m.layout()
 		m.addInfo(sDim.Render("  fetching " + c.Name + " for review…"))
 		st := m.App.Plugins.Store
+		need := sg.s.Need.Key
+		m.outcome(need, c.ID, "accepted", "")
 		return func() tea.Msg {
 			t0 := time.Now()
 			p, err := capability.Prepare(context.Background(), st, c.Entry)
-			return pluginReviewMsg{p: p, t0: t0, err: err}
+			return pluginReviewMsg{p: p, t0: t0, err: err, need: need, entry: c.ID}
 		}
 	case "n", "esc":
+		for _, c := range sg.s.Candidates {
+			m.outcome(sg.s.Need.Key, c.ID, "declined", "not now")
+		}
 		m.suggest = nil
 		m.addInfo(sDim.Render("  not now — ternly won't suggest this again in this session"))
 	case "d":
 		need := sg.s.Need
+		for _, c := range sg.s.Candidates {
+			m.outcome(need.Key, c.ID, "dismissed", "")
+		}
 		m.suggest = nil
 		if err := m.App.Capabilities.Suggester.Dismiss(need.Key); err != nil {
 			m.addInfo(sErr.Render("  " + err.Error()))

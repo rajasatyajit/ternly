@@ -79,13 +79,18 @@ type Agent struct {
 
 	running atomic.Bool
 	pause   atomic.Bool // stop at the next safe point (between tool calls)
-	mu      sync.Mutex
-	verify  string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
-	state   State  // everything a session persists; changed only through commit
-	journal Journal
-	note    string // harness note prepended to the next prompt (e.g. workspace drift)
-	system  string
-	current *discover.Model
+
+	parent    *Agent       // a subagent's parent: usage is charged to it as it happens
+	turnCost0 float64      // session cost when the current turn started (subagent budgets)
+	subs      atomic.Int32 // subagents started this turn
+	subSem    chan struct{}
+	mu        sync.Mutex
+	verify    string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
+	state     State  // everything a session persists; changed only through commit
+	journal   Journal
+	note      string // harness note prepended to the next prompt (e.g. workspace drift)
+	system    string
+	current   *discover.Model
 }
 
 func New(reg *tools.Registry, r *discover.Router, emit func(Event)) *Agent {
@@ -244,6 +249,8 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	}
 	st := newTurnState(a.state.Ledger.Cost)
 	st.lim, st.budget, st.verify, st.prompt = a.Limits, a.Budget, a.verify, prompt
+	a.turnCost0 = st.cost0
+	a.subs.Store(0)
 	a.mu.Unlock()
 	a.commit(Record{T: "turn", Prompt: prompt})
 	a.commit(Record{T: "msg", Msg: &llm.Message{Role: "user", Content: content}})
@@ -474,6 +481,9 @@ func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm
 func (a *Agent) account(m *discover.Model, u llm.Usage) {
 	a.commit(Record{T: "usage", Usage: &u, Cost: m.Cost(u)})
 	a.Emit(Event{Kind: EvUsage, Ledger: a.Ledger()})
+	if p := a.parent; p != nil { // a subagent's spend is the session's spend, as it happens
+		p.account(m, u)
+	}
 }
 
 // runTools executes read-only calls concurrently, everything else in order,
@@ -892,10 +902,45 @@ func capabilityNote(added, removed []string) string {
 // Subagent runs a task with its own system prompt and a subset of the tools
 // (never this one: no recursion), under the same permission policy and
 // sandbox, and returns its final answer. Its cost is added to the session.
+// Fan-out limits for subagents: per turn, and running at once.
+var (
+	MaxSubagentsPerTurn    = 4
+	MaxConcurrentSubagents = 2
+)
+
 func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(name string) bool) (string, error) {
+	if n := a.subs.Add(1); int(n) > MaxSubagentsPerTurn {
+		return "", fmt.Errorf("fan-out limit: at most %d subagents per turn — do the rest yourself or in a later turn", MaxSubagentsPerTurn)
+	}
+	a.mu.Lock()
+	if a.subSem == nil {
+		a.subSem = make(chan struct{}, MaxConcurrentSubagents)
+	}
+	sem := a.subSem
+	lim, budget := a.Limits, a.Budget
+	spent, total := a.state.Ledger.Cost-a.turnCost0, a.state.Ledger.Cost
+	a.mu.Unlock()
+	// What's left of the parent's turn and session limits is the subagent's.
+	childLim := Limits{Steps: 30, Time: 10 * time.Minute}
+	if lim.TurnUSD > 0 {
+		if childLim.TurnUSD = lim.TurnUSD - spent; childLim.TurnUSD <= 0 {
+			return "", fmt.Errorf("the turn's spend limit ($%.2f) is used up — no subagent started", lim.TurnUSD)
+		}
+	}
+	var childBudget float64
+	if budget > 0 {
+		if childBudget = budget - total; childBudget <= 0 {
+			return "", fmt.Errorf("the session budget ($%.2f) is used up — no subagent started", budget)
+		}
+	}
+	select {
+	case sem <- struct{}{}:
+		defer func() { <-sem }()
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 	reg := a.Reg.Subset(func(n string) bool { return n != "task" && allow(n) })
-	lim, _ := a.Caps()
-	child := &Agent{Reg: reg, Router: a.Router, Limits: Limits{Steps: 30, Time: 10 * time.Minute, TurnUSD: lim.TurnUSD}, CP: a.CP}
+	child := &Agent{Reg: reg, Router: a.Router, Limits: childLim, Budget: childBudget, CP: a.CP, parent: a}
 	child.Emit = func(e Event) {
 		switch e.Kind {
 		case EvToolStart:
@@ -906,9 +951,6 @@ func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(
 	}
 	child.system = systemPrompt(a.Reg.Root) + "\n\n# Your role (a subagent)\n" + system + "\n\nWhen done, reply with your findings or result: it is returned to the agent that delegated this task.\n"
 	child.Run(ctx, prompt)
-	l := child.Ledger()
-	a.commit(Record{T: "usage", Usage: &l.Usage, Cost: l.Cost})
-	a.Emit(Event{Kind: EvUsage, Ledger: a.Ledger()})
 	h := child.Export().History
 	for i := len(h) - 1; i >= 0; i-- {
 		if h[i].Role == "assistant" && strings.TrimSpace(h[i].Content) != "" {

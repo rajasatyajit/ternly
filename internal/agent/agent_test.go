@@ -699,3 +699,80 @@ func TestCapabilityNoteAtTurnBoundary(t *testing.T) {
 		t.Fatalf("second message %q", c)
 	}
 }
+
+// Subagents: at most MaxSubagentsPerTurn per turn; their spend is the
+// session's as it happens, so turn and session limits hold across them; a
+// subagent doesn't start once the budget is used up.
+func TestSubagentFanOutAndBudget(t *testing.T) {
+	six := make([][2]string, 6)
+	for i := range six {
+		six[i] = call("task", fmt.Sprintf(`{"prompt":"part %d"}`, i))
+	}
+	f := newFake(t, reply{calls: six}, reply{text: "c1"}, reply{text: "c2"}, reply{text: "c3"}, reply{text: "c4"}, reply{text: "done"})
+	a, rec := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5)) // $0.0015 per fake request
+	a.Reg.Add(&tools.Tool{Kind: tools.Edit, Spec: llm.ToolSpec{Name: "task", Schema: json.RawMessage(`{"type":"object"}`)},
+		Summary: func(json.RawMessage) string { return "task" },
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			return a.Subagent(ctx, "You help.", string(raw), func(string) bool { return true })
+		}})
+	a.Run(bg, "split this")
+	if n := len(f.requests()); n != 6 {
+		t.Fatalf("%d requests; errors %q status %q", n, rec.text(EvError), rec.text(EvStatus))
+	}
+	res := f.toolResults(5)
+	var ok, limited int
+	for _, r := range res {
+		switch {
+		case strings.Contains(r, "fan-out limit"):
+			limited++
+		case strings.Contains(r, "<<<UNTRUSTED"):
+			ok++
+		}
+	}
+	if ok != 4 || limited != 2 {
+		t.Fatalf("subagents run %d, refused %d: %q", ok, limited, res)
+	}
+	if got := a.Ledger().Usage.In; got != 6*1000 { // parent 2 requests + 4 subagents
+		t.Fatalf("session input tokens %d, want 6000 (subagent spend not counted)", got)
+	}
+
+	// Budget: once the session budget is used up, no subagent starts.
+	f2 := newFake(t, reply{calls: [][2]string{call("task", `{"n":1}`), call("task", `{"n":2}`), call("task", `{"n":3}`)}}, reply{text: "c"}, reply{text: "end"})
+	b, _ := newAgent(t, "yolo", model(f2.URL, "m", 3, 1, 5))
+	b.SetCaps(Limits{Steps: 10}, 0.0025) // the parent's request leaves room for one subagent to start
+	b.Reg.Add(&tools.Tool{Kind: tools.Edit, Spec: llm.ToolSpec{Name: "task", Schema: json.RawMessage(`{"type":"object"}`)},
+		Summary: func(json.RawMessage) string { return "task" },
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			return b.Subagent(ctx, "You help.", "go", func(string) bool { return true })
+		}})
+	b.Run(bg, "split this")
+	var joined string
+	for _, m := range b.Export().History {
+		if m.Role == "tool" {
+			joined += m.Content + "\n"
+		}
+	}
+	if !strings.Contains(joined, "session budget ($0.00) is used up — no subagent started") || strings.Count(joined, "no subagent started") != 2 || b.Ledger().Cost > 0.0025+0.0015 {
+		t.Fatalf("budget not enforced across subagents: %q (spent $%.4f)", joined, b.Ledger().Cost)
+	}
+
+	// The turn's spend limit covers subagents the same way.
+	f3 := newFake(t, reply{calls: [][2]string{call("task", `{"n":1}`), call("task", `{"n":2}`), call("task", `{"n":3}`)}}, reply{text: "c"}, reply{text: "end"})
+	c, _ := newAgent(t, "yolo", model(f3.URL, "m", 3, 1, 5))
+	c.SetCaps(Limits{Steps: 10, TurnUSD: 0.0025}, 0)
+	c.Reg.Add(&tools.Tool{Kind: tools.Edit, Spec: llm.ToolSpec{Name: "task", Schema: json.RawMessage(`{"type":"object"}`)},
+		Summary: func(json.RawMessage) string { return "task" },
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			return c.Subagent(ctx, "You help.", "go", func(string) bool { return true })
+		}})
+	c.Run(bg, "split this")
+	joined = ""
+	for _, m := range c.Export().History {
+		if m.Role == "tool" {
+			joined += m.Content + "\n"
+		}
+	}
+	if strings.Count(joined, "turn's spend limit ($0.00) is used up — no subagent started") != 2 {
+		t.Fatalf("turn limit not enforced across subagents: %q (spent $%.4f)", joined, c.Ledger().Cost)
+	}
+}

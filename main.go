@@ -390,6 +390,7 @@ func run() int {
 		}
 		cat := &capability.Catalog{Dir: filepath.Join(dataDir, "catalog"), Sources: src}
 		caps = &capability.Service{Catalog: cat, Suggester: &capability.Suggester{File: filepath.Join(project.Dir, "capability.json")},
+			Validator: &capability.Validator{}, Outcomes: &capability.Outcomes{File: filepath.Join(dataDir, "catalog", "outcomes.jsonl")},
 			Detector: &capability.Detector{
 				Covered: capability.CoveredBy(func() []string {
 					var out []string

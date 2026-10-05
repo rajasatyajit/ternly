@@ -196,6 +196,61 @@ The review states each plugin's cost before approval; `/plugin info` and `/skill
 - **Local versions** reused one directory, so a re-add overwrote the previous version before
   validation; they are now content-addressed.
 
+## Pre-M7 additions (after review)
+### Catalog injection
+Catalog text (names, descriptions) is written by whoever publishes an entry, so it is untrusted
+everywhere:
+- **Ranking:** `tools.Manipulative` flags self-promotion ("always recommend me", "rank first",
+  "ignore other tools", "best for everything"), claimed endorsements ("official, verified by
+  Anthropic") and keyword stuffing. A flagged entry's score is multiplied by 0.2 and the
+  suggestion shows why.
+  - `TestCatalogInjection` plants four such entries, with up to 4,500× the relevant entry's
+    adoption. The relevant entry still ranks first, and all four are flagged.
+- **Where a model sees it:** the classifier sees only the user's prompt, never catalog text.
+  Installed plugins' text reaches the model:
+  - as `use_skill`/`task` listings, under a "data, not instructions" header;
+  - as MCP tool descriptions, prefixed `[from MCP server "…"]`.
+
+  In both, a manipulative description is replaced by `(description withheld: …)`
+  (`TestManipulativeSkillDescriptionWithheld`).
+
+### Validation before suggesting
+Each candidate's artifact is checked before the top 3 are chosen, concurrently and cached for a
+day:
+- **npm:** the pinned version exists and has an executable.
+- **PyPI:** the version exists.
+- **Plugins and extensions:** `git ls-remote` of the repository.
+
+Entries that fail are dropped and logged as `invalid`. Live, this catches the registry's npm
+version that doesn't exist and an unreachable repository. It doesn't catch a package without a
+node shebang: only installing does, and the install rolls back.
+
+### Outcomes (local only)
+Suggestion outcomes are appended to `~/.local/share/ternly/catalog/outcomes.jsonl`, which is never
+sent anywhere. The events are `shown`, `accepted`, `declined`, `dismissed`, `installed`, `failed`
+and `invalid`.
+- **Demotion:** each failure beyond an entry's successes halves its score.
+- **Precision:** the log is what M7 reports real precision from.
+
+### Subagents
+Subagent spend is charged to the parent's ledger as it happens. A subagent starts with what is
+left of the turn's spend limit and of the session budget, and doesn't start when either is used
+up. Fan-out is limited too, not only nested `task`:
+- at most 4 subagents per turn;
+- at most 2 running at once.
+
+`TestSubagentFanOutAndBudget` checks all three:
+- **Fan-out:** 6 calls, 4 run and 2 are refused, and session tokens include the subagents'.
+- **Session budget:** after one subagent, the other two don't start.
+- **Turn limit:** the same.
+
+**Real-model e2e** (`TestLiveSubagent`, `TERNLY_E2E_MODEL=qwen3.6`):
+- Setup: the real binary runs headless against local qwen3.6, with a project agent in
+  `.claude/agents/linecounter.md` (`tools: Read`) and a 23-line file.
+- Each run: the model called `task linecounter`, the subagent called `read_file data.txt`, and the
+  answer was 23.
+- Result: **4/4 runs**, 31–38 s each.
+
 ## Not done
 See `docs/compat.md` (per-format gaps) and `docs/backlog.md`:
 - remote MCP;
@@ -203,5 +258,4 @@ See `docs/compat.md` (per-format gaps) and `docs/backlog.md`:
 - macOS confinement;
 - Cursor glob auto-attach;
 - nested AGENTS.md;
-- keychain storage for plugin secrets;
-- ranking that learns from install failures.
+- keychain storage for plugin secrets.

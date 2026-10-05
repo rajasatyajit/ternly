@@ -185,7 +185,9 @@ func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, [
 			if len(schema) == 0 {
 				schema = json.RawMessage(`{"type":"object","properties":{}}`)
 			}
-			specs = append(specs, llm.ToolSpec{Name: t.Name, Description: Cap(t.Description, 1024), Schema: schema})
+			// A server's description sits next to instructions in the request:
+			// marked as server-provided, and withheld if it reads like instructions.
+			specs = append(specs, llm.ToolSpec{Name: t.Name, Description: "[from MCP server " + name + "] " + Described(Cap(t.Description, 1024)), Schema: schema})
 		}
 		if cursor = tl.NextCursor; cursor == "" {
 			break

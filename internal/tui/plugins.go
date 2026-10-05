@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/rajasatyajit/ternly/internal/capability"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -33,9 +34,17 @@ type pluginDoneMsg struct {
 
 // pluginReviewMsg carries a fetched plugin to show before asking.
 type pluginReviewMsg struct {
-	p   *plugins.Pending
-	t0  time.Time
-	err error
+	p           *plugins.Pending
+	t0          time.Time
+	err         error
+	need, entry string // set when it came from a capability suggestion
+}
+
+// outcome records what became of a suggested entry (local log only).
+func (m *Model) outcome(need, entry, event, detail string) {
+	if caps := m.App.Capabilities; caps != nil && entry != "" {
+		caps.Outcomes.Record(capability.Event{Need: need, Entry: entry, Event: event, Detail: detail})
+	}
 }
 
 func (m *Model) cmdPlugin(arg string) tea.Cmd {
@@ -266,6 +275,7 @@ func pluginSource(st *plugins.Store, s string) (plugins.Source, error) {
 // onPluginReview shows a fetched plugin and asks for approval.
 func (m *Model) onPluginReview(r pluginReviewMsg) tea.Cmd {
 	if r.err != nil {
+		m.outcome(r.need, r.entry, "failed", r.err.Error())
 		m.addInfo(sErr.Render("  plugin: " + r.err.Error()))
 		return nil
 	}
@@ -281,6 +291,7 @@ func (m *Model) onPluginReview(r pluginReviewMsg) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		if ask == nil || ask(ctx, verb, fmt.Sprintf("%s @ %s — see the review above", p.Manifest.Name, p.Commit[:min(12, len(p.Commit))]), danger) == tools.Deny {
+			m.outcome(r.need, r.entry, "declined", "")
 			st.Discard(p)
 			return pluginDoneMsg{text: sDim.Render("  not installed — nothing changed")}
 		}
@@ -298,11 +309,13 @@ func (m *Model) onPluginReview(r pluginReviewMsg) tea.Cmd {
 			}
 		}
 		if len(failed) > 0 {
+			m.outcome(r.need, r.entry, "failed", strings.Join(failed, "; "))
 			_ = st.Finish(in.Name, false)
 			m.App.Plugins.Apply(ctx)
 			return pluginDoneMsg{text: sErr.Render("  "+in.Name+" failed validation — nothing changed:") + "\n" + sErr.Render("  "+strings.Join(failed, "\n  ")), reload: true}
 		}
 		_ = st.Finish(in.Name, true)
+		m.outcome(r.need, r.entry, "installed", "")
 		text := sOK.Render(fmt.Sprintf("  %s %s @ %s — usable from your next prompt (%s after approval)", map[bool]string{true: "updated", false: "installed"}[p.Prev != nil], in.Name, in.Commit[:min(12, len(in.Commit))], time.Since(t1).Round(time.Millisecond)))
 		for _, w := range ws {
 			text += "\n" + sWarn.Render("  ! "+w)
