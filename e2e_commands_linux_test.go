@@ -61,6 +61,7 @@ func TestTUICommands(t *testing.T) {
 	send("/rewi")
 	scr.waitFor(t, "list turns, or restore")
 	send("\x1b") // esc
+	time.Sleep(400 * time.Millisecond) // see TestSessionFlows: Esc must stand alone
 	send("\x03") // ctrl+c clears the input
 
 	// User-defined command, Claude Code format: $0 is the first argument.

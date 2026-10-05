@@ -354,6 +354,7 @@ func TestSessionFlows(t *testing.T) {
 	scr.waitFor(t, "Sessions")
 	send("one-shot") // fuzzy filter by title words: the other session is titled too, so filter by its prompt-derived status
 	send("\x1b")     // esc closes
+	time.Sleep(400 * time.Millisecond) // a lone Esc is held 50 ms in case a sequence follows: keep the next key out of that window, even on a loaded CI runner
 	send("/rename Renamed Session\r")
 	scr.waitFor(t, "renamed: Renamed Session")
 	send("/new\r")
