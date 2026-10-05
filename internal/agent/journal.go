@@ -105,7 +105,7 @@ func (s *State) Apply(r Record) {
 		s.Turns = kept
 	case "rewind":
 		if r.Mode != RewindCode && r.N >= 1 && r.N <= len(s.Turns) {
-			s.History = s.History[:s.Turns[r.N-1].Hist]
+			s.History = s.History[:min(max(s.Turns[r.N-1].Hist, 0), len(s.History))]
 			s.Turns = s.Turns[:r.N-1]
 		}
 	case "reset":
@@ -142,17 +142,45 @@ func (s State) Clone() State {
 	return c
 }
 
-// Repair answers every tool call that has no result (the process stopped
-// mid-call), so the history is valid for every provider. It returns how many
-// results it added.
+// Repair makes the history valid for every provider after a crash or a bad
+// log: every tool call gets a result (the process stopped mid-call), results
+// that answer no earlier call are dropped (a compaction cut between them),
+// and turn indices stay inside the history. It returns how many changes it
+// made.
 func (s *State) Repair() int {
+	n := 0
+	called := map[string]bool{}
+	var dropped []int // indices of removed results, ascending
+	kept := s.History[:0]
+	for i, m := range s.History {
+		if m.Role == "assistant" { // only an assistant message's calls are calls
+			for _, tc := range m.ToolCalls {
+				called[tc.ID] = true
+			}
+		}
+		if m.Role == "tool" && !called[m.ToolCallID] {
+			dropped = append(dropped, i)
+			continue
+		}
+		kept = append(kept, m)
+	}
+	s.History = kept
+	for k := range s.Turns { // a turn starts as many messages earlier as were dropped before it
+		before := 0
+		for _, d := range dropped {
+			if d < s.Turns[k].Hist {
+				before++
+			}
+		}
+		s.Turns[k].Hist -= before
+	}
+	n += len(dropped)
 	answered := map[string]bool{}
 	for _, m := range s.History {
 		if m.Role == "tool" {
 			answered[m.ToolCallID] = true
 		}
 	}
-	n := 0
 	for i := len(s.History) - 1; i >= 0; i-- {
 		m := s.History[i]
 		if m.Role != "assistant" || len(m.ToolCalls) == 0 {
@@ -161,6 +189,7 @@ func (s *State) Repair() int {
 		var missing []llm.Message
 		for _, tc := range m.ToolCalls {
 			if !answered[tc.ID] {
+				answered[tc.ID] = true // a repeated ID gets one result
 				missing = append(missing, llm.Message{Role: "tool", ToolCallID: tc.ID, Content: "cancelled: the session ended before this tool call finished; its effects, if any, are unknown — check before relying on them."})
 			}
 		}
@@ -179,6 +208,12 @@ func (s *State) Repair() int {
 			}
 		}
 		n += len(missing)
+	}
+	for k := range s.Turns {
+		if h := min(max(s.Turns[k].Hist, 0), len(s.History)); h != s.Turns[k].Hist {
+			s.Turns[k].Hist = h
+			n++
+		}
 	}
 	return n
 }

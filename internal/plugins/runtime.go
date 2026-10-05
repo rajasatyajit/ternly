@@ -173,6 +173,9 @@ func (r *Runtime) Instructions() string {
 	for _, m := range r.active {
 		for _, c := range m.Components {
 			if (c.Kind == KRule || c.Kind == KContext) && c.Always {
+				if c.base != "" && !inside(c.base, c.Path) {
+					continue // changed since it was loaded: now points outside its directory
+				}
 				_, body, err := readFrontmatter(c.Path)
 				if err != nil || strings.TrimSpace(body) == "" {
 					continue
@@ -231,6 +234,9 @@ func (r *Runtime) command(c Component) *commands.Command {
 
 // body is a component's text with Claude Code / Gemini variables resolved.
 func (r *Runtime) body(c Component, args string) string {
+	if c.base != "" && !inside(c.base, c.Path) { // changed since it was loaded
+		return "(not loaded: " + filepath.Base(c.Path) + " now points outside its plugin's directory)"
+	}
 	var text string
 	if c.Origin == "gemini" && strings.HasSuffix(c.Path, ".toml") {
 		cs, _ := commands.Load([]commands.Dir{{Path: filepath.Dir(c.Path), Origin: commands.Gemini}}, nil)

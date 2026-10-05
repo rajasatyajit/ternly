@@ -181,6 +181,25 @@ func (m *Model) cmdPlugin(arg string) tea.Cmd {
 		return m.pluginScope(rest)
 	case "search":
 		return m.pluginSearch(rest)
+	case "suggestions": // what became of capability suggestions (local log only)
+		caps := m.App.Capabilities
+		if caps == nil || caps.Outcomes == nil {
+			m.addInfo(sDim.Render("  suggestions are off"))
+			return nil
+		}
+		ps := caps.Outcomes.Precision()
+		if len(ps) == 0 {
+			m.addInfo(sDim.Render("  no suggestions recorded yet (" + caps.Outcomes.File + ")"))
+			return nil
+		}
+		var b strings.Builder
+		b.WriteString("  suggestions, by how the need was detected (local log, never sent anywhere):\n")
+		for _, p := range ps {
+			fmt.Fprintf(&b, "    %-10s %d shown · %d accepted (%.0f%%) · %d installed · %d not now · %d don't-suggest (%.0f%% false)\n",
+				p.Via, p.Suggested, p.Accepted, 100*p.Rate(), p.Installed, p.Declined, p.Dismissed, 100*p.FalseRate())
+		}
+		m.addInfo(strings.TrimRight(b.String(), "\n"))
+		return nil
 	case "catalog":
 		caps := m.App.Capabilities
 		if caps == nil || caps.Catalog == nil {

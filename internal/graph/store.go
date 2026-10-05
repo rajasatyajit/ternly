@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -71,6 +72,15 @@ type Service struct {
 	Workers   int
 	MemBudget int64
 
+	// Languages other than Go (foreign.go): tagged per file, merged into
+	// whichever graph is current.
+	goMod  bool // the workspace is a Go module (otherwise only other languages)
+	fg     *foreign
+	fgOn   *Graph // the graph fgPkgs were put into
+	fgVer  int
+	fgPkgs []*Package
+	fgScan time.Time // last scan: at most one a second
+
 	dmu      sync.Mutex      // guards the watcher's state (never held across builds)
 	dirty    map[string]bool // files the watcher saw change ("*": rescan everything)
 	watching bool
@@ -86,7 +96,44 @@ type Timing struct {
 
 // NewService prepares a graph for root stored under cacheDir/graphs/projects/key.
 func NewService(root, cacheDir, key string, run Runner) *Service {
-	return &Service{Root: root, dir: filepath.Join(cacheDir, "graphs", "projects", key), cacheDir: cacheDir, run: run, ready: make(chan struct{}), dirty: map[string]bool{}, IdleRebuild: 2 * time.Minute}
+	s := &Service{Root: root, dir: filepath.Join(cacheDir, "graphs", "projects", key), cacheDir: cacheDir, run: run, ready: make(chan struct{}), dirty: map[string]bool{}, IdleRebuild: 2 * time.Minute}
+	_, err := os.Stat(filepath.Join(root, "go.mod"))
+	s.goMod = err == nil
+	s.fg = newForeign(root, filepath.Join(s.dir, "foreign.json"))
+	return s
+}
+
+// refresh brings the graph up to date: Go packages (typed), then the other
+// languages, which are merged into whichever graph is current.
+func (s *Service) refresh(ctx context.Context) error {
+	if err := s.refreshGo(ctx); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.g == nil {
+		s.g = newGraph(s.Root)
+	}
+	if time.Since(s.fgScan) >= time.Second {
+		s.fgScan = time.Now()
+		if s.fg.update(ctx, max(s.Workers, runtime.GOMAXPROCS(0))) || s.fgPkgs == nil && s.fg.ver == 0 {
+			s.fg.ver++
+		}
+	}
+	if s.fgOn == s.g && s.fgVer == s.fg.ver {
+		return nil
+	}
+	if s.fgOn == s.g {
+		for _, p := range s.fgPkgs {
+			s.g.remove(p)
+		}
+	}
+	s.fgPkgs = s.fg.packages()
+	for _, p := range s.fgPkgs {
+		s.g.put(p)
+	}
+	s.fgOn, s.fgVer = s.g, s.fg.ver
+	return nil
 }
 
 // Start builds or loads the graph in the background.
@@ -156,9 +203,12 @@ func (s *Service) Graph(ctx context.Context, wait time.Duration) (*Graph, string
 }
 
 // refresh loads the persisted graph if needed, then brings it up to date.
-func (s *Service) refresh(ctx context.Context) error {
+func (s *Service) refreshGo(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.goMod {
+		return nil
+	}
 	if s.building { // serve the current graph; edits since are applied after the swap
 		return nil
 	}

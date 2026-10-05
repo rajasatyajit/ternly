@@ -47,6 +47,14 @@ type Request struct {
 
 type Usage struct{ In, Out, CacheRead, CacheWrite int }
 
+// clamped zeroes negative counts: providers report them (cached tokens
+// above prompt tokens, or plain garbage), and a negative count is a negative
+// cost, which would let spend slip under a budget.
+func (u Usage) clamped() Usage {
+	u.In, u.Out, u.CacheRead, u.CacheWrite = max(u.In, 0), max(u.Out, 0), max(u.CacheRead, 0), max(u.CacheWrite, 0)
+	return u
+}
+
 func (u *Usage) Add(o Usage) {
 	u.In += o.In
 	u.Out += o.Out

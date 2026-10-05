@@ -25,6 +25,8 @@ type Stats struct {
 	Loops       int // no-progress loops detected
 	Challenged  int // success claims challenged for lack of a passing check
 	Unbacked    int // claims that stayed unbacked after the challenge
+	FactChecks  int // answers sent back because citations or symbols didn't check out
+	Unsupported int // references still unsupported after that
 	Checkpoints int // workspace checkpoints taken
 }
 
@@ -36,26 +38,27 @@ const (
 
 // turnState tracks one turn's progress for the guards.
 type turnState struct {
-	start      time.Time
-	cost0      float64
-	lim        Limits
-	budget     float64
-	verify     string
-	epoch      int            // advances on every successful edit
-	seen       map[string]int // epoch|tool|canonical args → count
-	fails      int            // consecutive failed tool calls
-	loops      int
-	lastEdit   int // step of the last successful edit (-1: none)
-	lastPass   int // step of the last passing verify/build/test (-1: none)
-	lastCheck  string
-	challenged bool
-	edited     bool
-	tree       string // checkpoint taken before this turn's first mutation
-	prompt     string // for memory
-	answer     string // the model's last text
-	failCmd    string // first failing check this turn, and its first error line
-	failErr    string
-	fix        *Fix // that check passed later: a verified fix
+	factChecked bool // the answer's references were sent back once
+	start       time.Time
+	cost0       float64
+	lim         Limits
+	budget      float64
+	verify      string
+	epoch       int            // advances on every successful edit
+	seen        map[string]int // epoch|tool|canonical args → count
+	fails       int            // consecutive failed tool calls
+	loops       int
+	lastEdit    int // step of the last successful edit (-1: none)
+	lastPass    int // step of the last passing verify/build/test (-1: none)
+	lastCheck   string
+	challenged  bool
+	edited      bool
+	tree        string // checkpoint taken before this turn's first mutation
+	prompt      string // for memory
+	answer      string // the model's last text
+	failCmd     string // first failing check this turn, and its first error line
+	failErr     string
+	fix         *Fix // that check passed later: a verified fix
 }
 
 func newTurnState(cost0 float64) *turnState {

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
+	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/tools"
@@ -66,6 +67,13 @@ func (l Ledger) CacheRate() float64 {
 }
 
 type Agent struct {
+	// KnownSymbol judges a workspace symbol named in an answer (the code
+	// graph): exists, and whether it could be judged at all. nil: not checked.
+	KnownSymbol func(ref string) (exists, decidable bool)
+	// DepCheck looks up dependencies the model adds (manifest edits, install
+	// commands) in their registries. nil: not checked (--no-net).
+	DepCheck *deps.Checker
+
 	Reg    *tools.Registry
 	Router *discover.Router
 	Emit   func(Event)
@@ -232,7 +240,16 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	}
 	a.Reg.Hold() // from now on tool changes wait for a turn boundary
 	changed := capabilityNote(a.Reg.Commit())
-	notes := a.recall(ctx, prompt) // before the lock: it may query a local embedding model
+	// The model is picked first: how much it may lean on memory notes follows
+	// its measured memory-misuse rate (ADR 012).
+	diff := discover.Classify(prompt, 0)
+	need := estTokens(a.system, a.Export().History) + 16000
+	model, reason := a.Router.Pick(diff, need)
+	autonomy := "full"
+	if model != nil {
+		autonomy = model.MemoryAutonomy()
+	}
+	notes := a.recall(ctx, prompt, autonomy) // before the lock: it may query a local embedding model
 	a.mu.Lock()
 	content := prompt
 	if a.note != "" {
@@ -264,9 +281,6 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	}
 
 	failures := 0
-	diff := discover.Classify(prompt, 0)
-	need := estTokens(a.system, a.Export().History) + 16000
-	model, reason := a.Router.Pick(diff, need)
 	if model == nil {
 		a.Emit(Event{Kind: EvError, Text: "No usable model found. Set an API key (e.g. ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY) or start Ollama / LM Studio, then /refresh."})
 		return
@@ -337,6 +351,17 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 					a.appendUser("Automatic verification (`" + st.verify + "`) failed:\n" + framed + "\nFix the root cause, then stop.")
 					continue
 				}
+			}
+			if probs := a.unsupported(msg.Content); len(probs) > 0 {
+				if !st.factChecked {
+					st.factChecked = true
+					a.count(func(s *Stats) { s.FactChecks++ })
+					a.Emit(Event{Kind: EvStatus, Text: "references that don't check out — asking the model to correct them"})
+					a.appendUser(msgFacts(probs))
+					continue
+				}
+				a.count(func(s *Stats) { s.Unsupported += len(probs) })
+				a.Emit(Event{Kind: EvStatus, Text: "⚠ unsupported: " + strings.Join(probs, "; ")})
 			}
 			if claimsSuccess(msg.Content) && st.lastPass <= st.lastEdit {
 				if !st.challenged {
@@ -522,7 +547,11 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary})
 		t0 := time.Now()
 		if !blocked[i] {
+			manifest, before := a.manifestBefore(tc)
 			res[i] = a.Reg.Call(ctx, tc)
+			if a.DepCheck != nil && !res[i].IsErr {
+				res[i].Out += a.checkDeps(ctx, tc, manifest, before)
+			}
 			if truncated && res[i].Rejected && strings.Contains(res[i].Out, "not valid JSON") {
 				res[i].Out += " Your reply hit the output-token limit, so the arguments were cut off: split the change into smaller edit_file calls."
 			}
@@ -717,6 +746,7 @@ Trust (non-negotiable):
 Facts:
 - Do not guess. If you are unsure about the code, an API, a flag, a package or a version, say "I don't know — let me check" and check it with tools. Cite code as file:line from output you have seen.
 - Never say something works, passes or is fixed unless a command you ran in this turn shows it; otherwise say it is unverified.
+- Cite only what a tool showed you in this session. Memory notes are leads, not facts: when a note and the code disagree, the code wins — open it before you state a detail from a note. ternly checks your citations and the packages you add, and tells you when one doesn't exist.
 
 Engineering standards:
 - Understand before changing: locate relevant code with grep/glob, read only the parts you need (use offset/limit).

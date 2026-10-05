@@ -14,7 +14,7 @@ import (
 )
 
 // Guidance is added to the system prompt when the graph tools are available.
-const Guidance = `Code graph (Go): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with exact file:line citations, and cost far fewer tokens than grep plus read_file. Use them first for Go code; then read_file only the cited lines (offset/limit). Use grep for text that is not a Go identifier (strings, comments, config).`
+const Guidance = `Code graph (Go, Python, TypeScript/JavaScript, Rust, Java): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with file:line citations, and cost far fewer tokens than grep plus read_file. Use them first; then read_file only the cited lines (offset/limit). Go edges are exact (type-checked); other languages' calls are matched by name, and a use marked "name match" may belong to another symbol of the same name — confirm it in the code. Use grep for text that is not an identifier (strings, comments, config).`
 
 // buildWait is how long a graph tool waits for the first build before telling
 // the model to fall back to grep/read.
@@ -215,6 +215,9 @@ func listRefs(rs []*Ref, limit int, empty string, src *source) string {
 		call := ""
 		if r.Call {
 			call = " call"
+		}
+		if r.Approx {
+			call += " (name match)"
 		}
 		fmt.Fprintf(&b, "%s:%d  in %s%s  │ %s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call, src.line(r.Pos.File, int(r.Pos.Line)))
 	}

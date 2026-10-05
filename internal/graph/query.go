@@ -325,3 +325,33 @@ func (g *Graph) FileSymbols(file string) []*Symbol {
 
 // Symbol returns the symbol with this ID.
 func (g *Graph) Symbol(id string) *Symbol { g.mu.RLock(); defer g.mu.RUnlock(); return g.byID[id] }
+
+// Known judges a code reference taken from an answer ("pkg.Name",
+// "Type.Method", "pkg.Type.Field"). It is decidable only when the qualifier
+// is a workspace package name or a workspace type, so claims about the
+// standard library or dependencies are never judged here (the compiler and
+// registries check those).
+func (g *Graph) Known(ref string) (exists, decidable bool) {
+	ref = strings.TrimSuffix(strings.TrimSpace(ref), "()")
+	parts := strings.Split(ref, ".")
+	if len(parts) < 2 {
+		return false, false
+	}
+	qual := parts[len(parts)-2]
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	for _, s := range g.byName[strings.ToLower(qual)] {
+		if s.Name == qual && (s.Kind == KType || s.Kind == KInterface) {
+			decidable = true
+		}
+	}
+	for path := range g.pkgs {
+		if pathName(path) == qual {
+			decidable = true
+		}
+	}
+	if !decidable {
+		return false, false
+	}
+	return len(g.resolve(qual+"."+parts[len(parts)-1])) > 0, true
+}

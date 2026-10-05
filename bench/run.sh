@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Reproduces the benchmarks cited in docs/adr (007, 008, 009), and runs the
 # real-model end-to-end checks (e2e). See bench/README.md.
-# Usage: bench/run.sh [graph|tokens|graphmem|store|memory|eval|all|e2e]   (default: all but eval and e2e)
+# Usage: bench/run.sh [graph|tokens|graphmem|store|memory|eval|all|e2e [quick]|fuzz|fabrication]   (default: all but eval and e2e)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
+GRAMMARS=$(cat "$ROOT/GRAMMAR_TAGS") # the code graph's languages (ADR 012); CI and releases use the same tags
 
-e2e() { # every real-model check in bench/e2e_checks.txt, against a fresh static build
+e2e() { # every real-model check in bench/e2e_checks.txt, against a fresh static build ("e2e quick": security, 1 run)
+  if [ "${1:-}" = quick ]; then export TERNLY_E2E_QUICK=1; fi
   if [ -z "${TERNLY_E2E_MODEL:-}" ]; then
     echo "bench/run.sh e2e: set TERNLY_E2E_MODEL to the model to test, e.g. TERNLY_E2E_MODEL=qwen3.6 bench/run.sh e2e" >&2
     exit 2
@@ -16,7 +18,7 @@ e2e() { # every real-model check in bench/e2e_checks.txt, against a fresh static
   trap 'rm -rf "$E2E_WORK"' EXIT
   trap 'rm -rf "$E2E_WORK"; exit 130' INT TERM
   echo "building a static binary…"
-  CGO_ENABLED=0 go build -o "$E2E_WORK/ternly" . || { echo "static build failed: fix the build, then rerun" >&2; exit 1; }
+  CGO_ENABLED=0 go build -tags "$GRAMMARS" -o "$E2E_WORK/ternly" . || { echo "static build failed: fix the build, then rerun" >&2; exit 1; }
   local sha
   sha=$(git rev-parse --short HEAD 2>/dev/null || echo nogit)
   git diff --quiet HEAD 2>/dev/null || sha="$sha-dirty"
@@ -82,8 +84,35 @@ eval() { # ADR 009: retrieval quality; needs Ollama with the models below pulled
     go test -count=1 -run TestEvalMatrix -v -timeout 4h ./internal/memory
 }
 
+fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME; records → bench/results/fabrication
+  local models=${MODELS:-qwen3.6} runs=${RUNS:-1} work
+  work=$(mktemp -d "$ROOT/.e2e-work-XXXXXX")
+  trap 'rm -rf "$work"' EXIT
+  CGO_ENABLED=0 go build -tags "$GRAMMARS" -o "$work/ternly" .
+  mkdir -p bench/results/fabrication "$work/home"
+  for m in ${models//,/ }; do
+    echo "== $m"
+    HOME="$work/home" XDG_CONFIG_HOME="$work/home/.config" XDG_DATA_HOME="$work/home/.local/share" XDG_CACHE_HOME="$work/home/.cache" \
+      "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || true
+  done
+  cp "$work"/home/.local/share/ternly/capability/*.json bench/results/fabrication/ 2>/dev/null || true
+}
+
+fuzz() { # every go test -fuzz target, FUZZTIME each (default 60s); new crashers land in testdata/fuzz
+  local t=${FUZZTIME:-60s}
+  for spec in internal/llm:FuzzSSE internal/llm:FuzzOpenAIStream internal/llm:FuzzAnthropicStream \
+    internal/tools:FuzzMCPRead internal/tools:FuzzMCPToolList internal/tools:FuzzMCPCallResult internal/tools:FuzzSchemaValidate \
+    internal/plugins:FuzzLoadClaude internal/plugins:FuzzLoadGemini internal/plugins:FuzzFrontmatter \
+    internal/session:FuzzLogRead internal/session:FuzzReplay; do
+    echo "== ${spec#*:} (./${spec%%:*}, $t)"
+    go test -run '^$' -fuzz "^${spec#*:}\$" -fuzztime "$t" "./${spec%%:*}" 2>&1 | tail -3
+  done
+}
+
 case "${1:-default}" in
-  e2e) e2e ;;
+  e2e) e2e "${2:-}" ;;
+  fuzz) fuzz ;;
+  fabrication) fabrication ;;
   graph|graphmem|tokens|store|memory|eval) "$1" ;;
   all) graph; graphmem; tokens; store; memory; eval ;;
   default) graph; graphmem; tokens; store; memory ;;

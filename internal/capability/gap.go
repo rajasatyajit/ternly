@@ -62,6 +62,7 @@ type Need struct {
 	Key, Label string
 	Query      string
 	Why        string // the signal, for the suggestion's first line
+	Via        string // "signal" (cheap rules) or "classifier" (the cheapest model)
 }
 
 // Turn is what a finished turn left for detection.
@@ -178,13 +179,14 @@ func (d *Detector) Detect(ctx context.Context, t Turn) (Need, bool) {
 	// 5. Only now, and only for an ambiguous mention: ask the cheapest model.
 	if ambiguous != nil && d.Classify != nil {
 		if d.classify(ctx, t.Prompt, ambiguous.Key) {
-			return Need{Key: ambiguous.Key, Label: ambiguous.Label, Query: ambiguous.Query, Why: "the task needs " + ambiguous.Label + " (judged by the cheapest model)"}, true
+			return Need{Key: ambiguous.Key, Label: ambiguous.Label, Query: ambiguous.Query, Why: "the task needs " + ambiguous.Label + " (judged by the cheapest model)", Via: "classifier"}, true
 		}
 	}
 	return Need{}, false
 }
 
 func (d *Detector) cheap(n Need) Need {
+	n.Via = "signal"
 	d.mu.Lock()
 	d.stats.Cheap++
 	d.mu.Unlock()

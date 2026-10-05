@@ -198,7 +198,7 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 		case perr != nil:
 			ch <- Event{Kind: EvError, Err: fmt.Errorf("stream: %w", perr)}
 		default:
-			ch <- Event{Kind: EvUsage, Usage: u}
+			ch <- Event{Kind: EvUsage, Usage: u.clamped()}
 			ch <- Event{Kind: EvDone, Stop: stop}
 		}
 	}()

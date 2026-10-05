@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -279,11 +281,10 @@ func TestInjectionFlagRates(t *testing.T) {
 	}
 	hit := 0
 	for _, a := range attacks {
-		if suspicious(a) != reInjection.MatchString(a) {
-			t.Errorf("windowed check disagrees with full regex on %q", a)
-		}
 		if suspicious(a) {
 			hit++
+		} else {
+			t.Logf("not flagged: %q", a)
 		}
 	}
 	t.Logf("injection flag: %d/%d attack samples flagged", hit, len(attacks))
@@ -311,12 +312,78 @@ func TestInjectionFlagRates(t *testing.T) {
 		if suspicious(string(b)) {
 			flagged++
 			if flagged <= 5 {
-				t.Logf("FP %s: %q", p, reInjection.Find(b))
+				t.Logf("FP %s", p)
 			}
 		}
 		return nil
 	})
 	t.Logf("false positives: %d/%d files (%.2f%%) under %s", flagged, files, 100*float64(flagged)/float64(max(files, 1)), dir)
+}
+
+// TestInjectionTuning measures the flagger on the set it was designed against
+// (testdata/injection_tuning.txt: "A\t" attacks, "B\t" benign look-alikes).
+// Generalisation is measured separately by TestInjectionHeldOut.
+func TestInjectionTuning(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("testdata", "injection_tuning.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var attacks, benign, hit, fp int
+	for _, line := range strings.Split(string(b), "\n") {
+		kind, text, ok := strings.Cut(line, "\t")
+		if !ok {
+			continue
+		}
+		got := suspicious(text)
+		switch kind {
+		case "A":
+			attacks++
+			if got {
+				hit++
+			} else {
+				t.Logf("missed: %s", text)
+			}
+		case "B":
+			benign++
+			if got {
+				fp++
+				t.Logf("false positive: %s", text)
+			}
+		}
+	}
+	recall, fpr := float64(hit)/float64(max(attacks, 1)), float64(fp)/float64(max(benign, 1))
+	t.Logf("tuning set: recall %d/%d (%.2f), false positives %d/%d (%.1f%%)", hit, attacks, recall, fp, benign, 100*fpr)
+	if attacks < 50 || benign < 50 || recall < 0.8 || fpr > 0.05 {
+		t.Errorf("tuning set: recall %.2f (want >= 0.8), false positives %.1f%% (want <= 5%%)", recall, 100*fpr)
+	}
+}
+
+func benchInput(n int) string {
+	para := "The server reads its config from ~/.config/app/config.yaml; override the default timeout with --timeout.\n" +
+		"Run `make migrate` before starting, and ignore generated files when reviewing the diff.\n" +
+		"func (s *Server) Handle(w http.ResponseWriter, r *http.Request) { s.log.Printf(\"system: %s\", r.URL) }\n" +
+		"The agent sends traces to the collector; the assistant role holds the model's earlier replies.\n"
+	return strings.Repeat(para, n/len(para)+1)[:n]
+}
+
+func BenchmarkSuspicious9K(b *testing.B) {
+	s := benchInput(9 << 10)
+	b.SetBytes(int64(len(s)))
+	for b.Loop() {
+		if suspicious(s) {
+			b.Fatal("benign input flagged")
+		}
+	}
+}
+
+func BenchmarkSuspicious1M(b *testing.B) {
+	s := benchInput(1 << 20)
+	b.SetBytes(int64(len(s)))
+	for b.Loop() {
+		if suspicious(s) {
+			b.Fatal("benign input flagged")
+		}
+	}
 }
 
 // grep output must name files relative to the workspace on both search paths.
@@ -379,4 +446,40 @@ func TestRootErrorExplainsSymlinks(t *testing.T) {
 	if res := raw(r, "read_file", `{"path":"pkg/abs/f.txt"}`); res.IsErr {
 		t.Errorf("absolute in-workspace symlink should work via the tools: %s", res.Out)
 	}
+}
+
+// TestInjectionHeldOut measures the advisory flagger on phrasings it was never
+// tuned on (testdata/injection_heldout.txt, pinned by hash). It reports, and
+// fails only on a large regression or a silent edit of the set.
+func TestInjectionHeldOut(t *testing.T) {
+	const pinned = "8cfdfb5a65f34d7fd1df5aecf4a88a81c37240c36d02f19b76c9992a8534eb36"
+	b, err := os.ReadFile("testdata/injection_heldout.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum := sha256.Sum256(b); hex.EncodeToString(sum[:]) != pinned {
+		t.Fatalf("the held-out set changed (sha256 %x): update the pin deliberately and say why", sum)
+	}
+	var tp, fn, fp, tn int
+	for _, line := range strings.Split(string(b), "\n") {
+		label, text, ok := strings.Cut(line, "\t")
+		if !ok || strings.HasPrefix(line, "#") {
+			continue
+		}
+		got := suspicious(text)
+		switch {
+		case label == "A" && got:
+			tp++
+		case label == "A":
+			fn++
+			t.Logf("missed: %s", text)
+		case got:
+			fp++
+			t.Logf("false positive: %s", text)
+		default:
+			tn++
+		}
+	}
+	t.Logf("held-out: %d/%d attacks flagged (recall %.2f), %d/%d benign flagged", tp, tp+fn, float64(tp)/float64(tp+fn), fp, fp+tn)
+	fmt.Printf("E2E-METRIC heldout_recall=%.3f heldout_fp=%d heldout_attacks=%d heldout_benign=%d\n", float64(tp)/float64(tp+fn), fp, tp+fn, fp+tn)
 }

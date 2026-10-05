@@ -56,7 +56,17 @@ Tool arguments are validated against each tool's JSON schema, with corrective er
 with no edit in between, and long failure streaks, are treated as loops: the model is redirected and
 escalated, then the turn is stopped. Per-turn step, time and spend limits (`/limits`, config
 `limits`) and the session budget end a turn with a zero-cost summary you can `continue` from.
-Success claims with no passing build or test since the last edit are challenged. Before a turn's first
+Success claims with no passing build or test since the last edit are challenged.
+
+**Fabrication checks** (docs/adr/012):
+- A final answer's `file:line` citations and backticked workspace symbols are checked against the
+  files and the code graph. What doesn't check out goes back to the model once, then you are
+  warned.
+- Dependencies the model adds (`go.mod`, `package.json`, `requirements*.txt`, `Cargo.toml`, or
+  `go get` / `npm install` / `pip install` / `cargo add`) are looked up in their registries; a
+  version that doesn't exist is reported to the model straight away.
+
+Before a turn's first
 change, the workspace is checkpointed into a per-session private git repo under
 `~/.cache/ternly/checkpoints` (including shell side effects; your `.git` is never touched). Secret-like
 files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are never captured, and you are told
@@ -64,15 +74,37 @@ which were skipped. `/undo` and `/rewind` restore it, and the repo is deleted wh
 File tools access the workspace through Go's `os.Root`, so a path swapped to a symlink mid-call can't
 escape. ternly's config, cache and session dirs are hidden from sandboxed commands.
 
-## Code graph (Go)
-On entering a Go workspace, ternly loads or builds a code graph in the background: packages, files,
-symbols, references, calls, and test links, with `file:line` spans. It is type-checked with
-`go/types` from `go list -export` data, which runs in the sandbox. The model gets `find_symbol`,
+## Code graph (Go, Python, TypeScript/JavaScript, Rust, Java)
+On entering a workspace, ternly loads or builds a code graph in the background: packages, files,
+symbols, references, calls, and test links, with `file:line` spans.
+- **Go** is type-checked with `go/types` from `go list -export` data, which runs in the sandbox.
+- **Python, TypeScript/TSX, JavaScript, Rust and Java** are parsed with a pure-Go tree-sitter
+  runtime. Calls are matched by name, scoped to the same file, then the same directory, then what
+  the file imports. A use with several candidates is marked "name match".
+
+The rest applies to both: The model gets `find_symbol`,
 `references`, `callers`, `callees`, `implementations`, `related_files` and `impact`, and is told to
 use them before grep/read. On kubernetes they answer "who calls X" with ~13× fewer tokens. The graph
 is shared by a project's sessions under `~/.cache/ternly/graphs`, with dependencies' exported API
 cached per module version. It updates incrementally as files change (~0.1 s for a body edit).
 `code_graph: false` turns it off.
+
+## Measured model tiers
+`ternly --eval --model <m>` runs seeded traps through the real agent:
+- symbols, flags, packages, versions and files that don't exist;
+- a stale README;
+- citation accuracy;
+- memory notes that are wrong but similar to the truth;
+- injection bait.
+
+It reports the model's fabrication, memory-misuse and susceptibility rates and saves them under
+`~/.local/share/ternly/capability`. Routing then uses the **measured** tier in place of the name
+table: `ternly --models` shows each tier's basis.
+
+A model's measured memory-misuse rate also sets how far it may lean on memory notes:
+- **full:** notes are injected as context;
+- **verify:** notes are injected as leads to check first;
+- **off:** nothing is injected; the `recall` tool still works.
 
 ## Sessions
 Every session is saved as it happens: a crash-safe, append-only log under `~/.local/share/ternly`
@@ -160,7 +192,10 @@ Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
-`--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new`.
+`--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new` ·
+`ternly --eval --model <m>` (measure a model) · `ternly --models` (tiers and their basis).
+Release builds embed only the code graph's grammars: `go build -tags "$(cat GRAMMAR_TAGS)"`, or see
+`bench/run.sh`. A plain `go build` embeds every grammar (+18 MB).
 TUI: `/help` for all commands · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn
 scroll · ↑↓ history.
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
+	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/testutil"
@@ -605,7 +606,7 @@ type fakeMemory struct {
 	learned []Learned
 }
 
-func (f *fakeMemory) Recall(_ context.Context, prompt string) (string, int) {
+func (f *fakeMemory) Recall(_ context.Context, prompt, _ string) (string, int) {
 	return "Notes from memory: the build needs ok.txt.", 1
 }
 func (f *fakeMemory) Learn(t Learned)  { f.mu.Lock(); f.learned = append(f.learned, t); f.mu.Unlock() }
@@ -774,5 +775,70 @@ func TestSubagentFanOutAndBudget(t *testing.T) {
 	}
 	if strings.Count(joined, "turn's spend limit ($0.00) is used up — no subagent started") != 2 {
 		t.Fatalf("turn limit not enforced across subagents: %q (spent $%.4f)", joined, c.Ledger().Cost)
+	}
+}
+
+// An answer's citations and workspace symbols are checked before the turn
+// ends: what doesn't check out goes back to the model once, then the user is
+// warned. Symbols the session's tools showed, or the graph can't judge, pass.
+func TestAnswerFactsChecked(t *testing.T) {
+	f := newFake(t,
+		reply{text: "Flush is at store.go:2 (also see store.go:40, gone.go:3), and `store.FlushAll` wraps it; `strings.Builder` too."},
+		reply{text: "Still: store.go:40."},
+		reply{text: "Flush is at store.go:2."})
+	a, rec := newAgent(t, "ask", model(f.URL, "m", 3, 0, 0))
+	write(t, a, "store.go", "package store\nfunc Flush() {}\n")
+	a.KnownSymbol = func(ref string) (bool, bool) {
+		switch ref {
+		case "store.FlushAll":
+			return false, true
+		case "store.Flush":
+			return true, true
+		}
+		return false, false
+	}
+	a.Run(bg, "where is Flush?")
+	reqs := f.requests()
+	if len(reqs) != 2 {
+		t.Fatalf("%d requests, want 2 (one correction round)", len(reqs))
+	}
+	last := reqs[1][len(reqs[1])-1]
+	msg := fmt.Sprint(last["content"])
+	for _, want := range []string{"store.go:40 — store.go has 2 lines", "gone.go:3 — no such file", "`store.FlushAll` — not found in the code graph"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("correction lacks %q:\n%s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "store.go:2 ") || strings.Contains(msg, "strings.Builder") {
+		t.Errorf("a valid or undecidable reference was flagged:\n%s", msg)
+	}
+	if a.Stats().FactChecks != 1 || a.Stats().Unsupported != 1 {
+		t.Errorf("stats %+v", a.Stats())
+	}
+	if !strings.Contains(rec.text(EvStatus), "⚠ unsupported: store.go:40") {
+		t.Error("the user wasn't warned about the reference that stayed unsupported")
+	}
+}
+
+// A manifest edit that adds a version the registry doesn't have gets the
+// registry's answer appended to its tool result.
+func TestDependencyCheckOnEdit(t *testing.T) {
+	reg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/github.com/google/uuid/@latest" {
+			return // 200: the module exists
+		}
+		w.WriteHeader(404)
+	}))
+	defer reg.Close()
+	f := newFake(t,
+		reply{calls: [][2]string{call("edit_file", `{"path":"go.mod","old_string":"go 1.22\n","new_string":"go 1.22\n\nrequire github.com/google/uuid v9.4.0\n"}`)}},
+		reply{text: "done"})
+	a, _ := newAgent(t, "yolo", model(f.URL, "m", 3, 0, 0))
+	a.DepCheck = &deps.Checker{GoProxy: reg.URL}
+	write(t, a, "go.mod", "module app\n\ngo 1.22\n")
+	a.Run(bg, "add uuid v9.4.0")
+	got := strings.Join(f.toolResults(1), "\n")
+	if !strings.Contains(got, "ternly dependency check") || !strings.Contains(got, "version v9.4.0 doesn't exist (the package does)") {
+		t.Fatalf("tool result: %s", got)
 	}
 }

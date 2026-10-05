@@ -10,8 +10,10 @@ import (
 // Memory is long-term memory across turns and sessions (internal/memory).
 type Memory interface {
 	// Recall returns notes relevant to the prompt, framed for the user
-	// message ("" if none), and how many items they hold.
-	Recall(ctx context.Context, prompt string) (notes string, n int)
+	// message ("" if none), and how many items they hold. autonomy is how far
+	// the model answering may lean on them: "full", "verify" (leads to check)
+	// or "off" (nothing injected).
+	Recall(ctx context.Context, prompt, autonomy string) (notes string, n int)
 	// Learn records a finished turn. It returns at once; writes happen in the background.
 	Learn(t Learned)
 	// Rewound forgets what was learned automatically from turns n and later
@@ -68,11 +70,11 @@ func clip(s string, n int) string {
 }
 
 // recall injects memory notes ahead of the prompt.
-func (a *Agent) recall(ctx context.Context, prompt string) string {
+func (a *Agent) recall(ctx context.Context, prompt, autonomy string) string {
 	if a.Mem == nil {
 		return ""
 	}
-	notes, n := a.Mem.Recall(ctx, prompt)
+	notes, n := a.Mem.Recall(ctx, prompt, autonomy)
 	if n > 0 {
 		a.Emit(Event{Kind: EvStatus, Text: "memory: " + plural(n, "note") + " recalled (/memory to review)"})
 	}

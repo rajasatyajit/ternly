@@ -74,7 +74,7 @@ agents, hooks), **no** (a reason is given).
 |---|---|---|---|
 | `/mcp` | CC CX GM | list MCP servers and their tools | yes (list); plugin servers: `/plugin` |
 | `/commands [reload]` | GM | list user-defined commands; reload them from disk | yes |
-| `/plugin` (`/plugins`, `/extensions`) | CC CX GM (`/extensions`) | install (pinned, reviewed), update with a diff, remove, enable, disable, scope, info, marketplaces, catalog search; see `docs/compat.md` | yes |
+| `/plugin` (`/plugins`, `/extensions`) | CC CX GM (`/extensions`) | install (pinned, reviewed), update with a diff, remove, enable, disable, scope, info, marketplaces, catalog search, `suggestions` (what became of capability suggestions: precision and false-suggestion rate by detection path, from the local log); see `docs/compat.md` | yes |
 | `/skills` | CC CX GM | skills, agents and rules available to the model, with their token cost | yes |
 | `/agents` | CC GM | subagents the model can delegate to (`task`) | yes |
 | `/hooks` | CC CX GM | lifecycle hooks: shown per plugin in `/plugin info` | no: managed through `/plugin` |

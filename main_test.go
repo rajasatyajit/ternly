@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rajasatyajit/ternly/internal/discover"
@@ -113,5 +114,23 @@ func TestEnrichModelPrivacy(t *testing.T) {
 	var e enrichSetting
 	if err := json.Unmarshal([]byte(`"cloud"`), &e); err == nil {
 		t.Error("unknown value accepted")
+	}
+}
+
+// Release builds embed the same grammar subset as CI (GRAMMAR_TAGS): the
+// goreleaser config can't read the file, so it is kept in step here.
+func TestGrammarTagsInStep(t *testing.T) {
+	want, err := os.ReadFile("GRAMMAR_TAGS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := os.ReadFile(".goreleaser.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tag := range strings.Fields(string(want)) {
+		if !strings.Contains(string(cfg), "      - "+tag+"\n") {
+			t.Errorf(".goreleaser.yaml lacks the %s tag in GRAMMAR_TAGS", tag)
+		}
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/capability"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
+	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
 	"github.com/rajasatyajit/ternly/internal/llm"
@@ -94,6 +95,9 @@ func run() int {
 		cont       = flag.Bool("c", false, "continue the most recent session in this directory")
 		resumeID   = flag.String("resume", "", "resume session `id` (bare --resume: choose one)")
 		newSession = flag.Bool("new", false, "start a new session instead of auto-resuming the last one")
+		evalMode   = flag.Bool("eval", false, "measure how often --model fabricates (seeded traps; see docs/adr/012) and record its tier")
+		evalRuns   = flag.Int("eval-runs", 1, "with --eval: runs of each trap")
+		evalOnly   = flag.String("eval-only", "", "with --eval: only traps whose name matches this regexp")
 	)
 	flag.BoolVar(cont, "continue", false, "same as -c")
 	os.Args = append(os.Args[:1], bareResume(os.Args[1:])...)
@@ -122,6 +126,24 @@ func run() int {
 	for _, d := range []string{cacheDir, dataDir} {
 		_ = os.MkdirAll(d, 0o700) // must exist so the sandbox can mask it
 	}
+	if *evalMode {
+		if *model == "" {
+			fmt.Fprintln(os.Stderr, "--eval needs --model (the model to measure)")
+			return 2
+		}
+		var pass []string // what each trap's child run inherits
+		if *localOnly {
+			pass = append(pass, "--local-only")
+		}
+		if *noLocal {
+			pass = append(pass, "--no-local")
+		}
+		if *budget >= 0 {
+			pass = append(pass, "--budget", fmt.Sprint(*budget))
+		}
+		return runEval(dataDir, *model, pass, *evalRuns, *evalOnly)
+	}
+	inEval := os.Getenv("TERNLY_EVAL") == "1" // a trap run: no personal memory, no suggestions
 
 	var fc fileConfig
 	if b, err := os.ReadFile(filepath.Join(cfgDir, "config.json")); err == nil {
@@ -167,7 +189,8 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer stop()
 
-	dopts := discover.Options{CacheDir: cacheDir, Keys: keys, Extra: extra, NoLocal: *noLocal || fc.NoLocal, LocalOnly: *localOnly, Overrides: fc.Tiers}
+	dopts := discover.Options{CacheDir: cacheDir, Keys: keys, Extra: extra, NoLocal: *noLocal || fc.NoLocal, LocalOnly: *localOnly, Overrides: fc.Tiers,
+		Measured: measurements(filepath.Join(dataDir, "capability"))}
 	discoverFn := func() ([]*discover.Model, []string) { return discover.Discover(ctx, dopts) }
 
 	if *listModels {
@@ -176,9 +199,13 @@ func run() int {
 			fmt.Fprintln(os.Stderr, "warning:", x)
 		}
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-		fmt.Fprintln(tw, "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tMODEL")
+		fmt.Fprintln(tw, "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL")
 		for _, m := range ms {
-			fmt.Fprintf(tw, "T%d\t%v\t%s\t%d\t%s\n", m.Tier, m.Tools, discover.Price(m), m.Ctx, m.Key())
+			basis := m.Basis
+			if ms := m.Measure; ms != nil {
+				basis = fmt.Sprintf("measured(%s,%s;fab=%.0f%%,mem=%.0f%%,bait=%.0f%%)", ms.Source, ms.Measured.Format("2006-01-02"), 100*ms.Fabrication, 100*ms.MemoryMisuse, 100*ms.Susceptibility)
+			}
+			fmt.Fprintf(tw, "T%d\t%v\t%s\t%d\t%s\t%s\n", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
 		}
 		tw.Flush()
 		return 0
@@ -263,15 +290,25 @@ func run() int {
 		}
 	}
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
+	if !*noNet { // packages and versions the model adds are looked up (ADR 012)
+		ag.DepCheck = &deps.Checker{HTTP: llm.HTTP}
+	}
 	var gs *graph.Service
-	if _, err := os.Stat(filepath.Join(reg.Root, "go.mod")); err == nil && (fc.CodeGraph == nil || *fc.CodeGraph) {
+	if (fc.CodeGraph == nil || *fc.CodeGraph) && graph.HasSources(reg.Root) {
 		if project.AdoptedKey != "" { // the graph records its root path: rebuild rather than move
 			_ = os.RemoveAll(filepath.Join(cacheDir, "graphs", "projects", project.AdoptedKey))
 		}
 		gs = graph.NewService(reg.Root, cacheDir, project.Key, func(ctx context.Context, dir string, env []string, argv ...string) ([]byte, error) {
 			return sb.Output(ctx, dir, env, argv...) // go list compiles repo code: sandboxed
 		})
-		gs.Start(ctx) // the first thing ternly does in a codebase: load or build its graph
+		gs.Start(ctx)                                    // the first thing ternly does in a codebase: load or build its graph
+		ag.KnownSymbol = func(ref string) (bool, bool) { // answers' symbol references, against the graph as it stands
+			g, _, err := gs.Graph(ctx, 2*time.Second) // not ready yet: not judged
+			if err != nil || g == nil {
+				return false, false
+			}
+			return g.Known(ref)
+		}
 		for _, t := range graph.Tools(gs) {
 			reg.Add(t)
 		}
@@ -279,7 +316,11 @@ func run() int {
 	}
 	var mem *memory.Memory
 	if fc.Memory == nil || *fc.Memory {
-		if mem, err = memory.Open(project.Dir, filepath.Join(dataDir, "user")); err != nil {
+		userDir := filepath.Join(dataDir, "user")
+		if inEval {
+			userDir = filepath.Join(project.Dir, "eval-user") // the user's own notes would contaminate the measurement
+		}
+		if mem, err = memory.Open(project.Dir, userDir); err != nil {
 			notes = append(notes, "memory off: "+err.Error())
 			mem = nil
 		}
@@ -377,7 +418,7 @@ func run() int {
 		}
 	}
 	var caps *capability.Service
-	if prt != nil && (fc.Suggestions == nil || *fc.Suggestions) {
+	if prt != nil && (fc.Suggestions == nil || *fc.Suggestions) && !inEval {
 		src := capability.DefaultSources
 		if cs := fc.CatalogSources; cs != nil {
 			src.Marketplaces = append(src.Marketplaces, cs.Marketplaces...)
@@ -491,7 +532,9 @@ func run() int {
 
 	if *prompt != "" {
 		code := headless(ctx, ag, router, discoverFn, pin, *prompt, &emit, notes, background)
-		mgr.AutoTitle(ctx)
+		if !inEval {
+			mgr.AutoTitle(ctx)
+		}
 		return code
 	}
 

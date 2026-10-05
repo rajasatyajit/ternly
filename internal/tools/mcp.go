@@ -157,7 +157,7 @@ func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, [
 	}
 	_ = s.notify("notifications/initialized")
 	var specs []llm.ToolSpec
-	cursor := ""
+	cursor, pages := "", 0
 	for {
 		params := map[string]any{}
 		if cursor != "" {
@@ -168,32 +168,53 @@ func StartMCPCmd(ctx context.Context, name string, cmd *exec.Cmd) (*MCPServer, [
 			s.Close()
 			return nil, nil, fmt.Errorf("tools/list: %w", err)
 		}
-		var tl struct {
-			Tools []struct {
-				Name        string          `json:"name"`
-				Description string          `json:"description"`
-				InputSchema json.RawMessage `json:"inputSchema"`
-			} `json:"tools"`
-			NextCursor string `json:"nextCursor"`
-		}
-		if err := json.Unmarshal(res, &tl); err != nil {
+		page, next, err := parseToolList(name, res)
+		if err != nil {
 			s.Close()
 			return nil, nil, err
 		}
-		for _, t := range tl.Tools {
-			schema := t.InputSchema
-			if len(schema) == 0 {
-				schema = json.RawMessage(`{"type":"object","properties":{}}`)
-			}
-			// A server's description sits next to instructions in the request:
-			// marked as server-provided, and withheld if it reads like instructions.
-			specs = append(specs, llm.ToolSpec{Name: t.Name, Description: "[from MCP server " + name + "] " + Described(Cap(t.Description, 1024)), Schema: schema})
+		specs = append(specs, page...)
+		if pages++; pages >= maxToolPages || len(specs) >= maxServerTools {
+			break // a server that pages forever (or lists thousands of tools) gets what it listed so far
 		}
-		if cursor = tl.NextCursor; cursor == "" {
+		if cursor = next; cursor == "" {
 			break
 		}
 	}
 	return s, specs, nil
+}
+
+// Limits on what one server may list.
+const (
+	maxToolPages   = 50
+	maxServerTools = 2000
+)
+
+// parseToolList reads a tools/list result: the server's tools as specs, and
+// the next page's cursor.
+func parseToolList(server string, res json.RawMessage) ([]llm.ToolSpec, string, error) {
+	var tl struct {
+		Tools []struct {
+			Name        string          `json:"name"`
+			Description string          `json:"description"`
+			InputSchema json.RawMessage `json:"inputSchema"`
+		} `json:"tools"`
+		NextCursor string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(res, &tl); err != nil {
+		return nil, "", err
+	}
+	var specs []llm.ToolSpec
+	for _, t := range tl.Tools {
+		schema := t.InputSchema
+		if len(schema) == 0 {
+			schema = json.RawMessage(`{"type":"object","properties":{}}`)
+		}
+		// A server's description sits next to instructions in the request:
+		// marked as server-provided, and withheld if it reads like instructions.
+		specs = append(specs, llm.ToolSpec{Name: t.Name, Description: "[from MCP server " + server + "] " + Described(Cap(t.Description, 1024)), Schema: schema})
+	}
+	return specs, tl.NextCursor, nil
 }
 
 // MCPTool wraps one of a server's tools as a registry tool named name.
@@ -297,6 +318,12 @@ func (s *MCPServer) call(ctx context.Context, tool string, args json.RawMessage)
 	if err != nil {
 		return "", err
 	}
+	return parseCallResult(res)
+}
+
+// parseCallResult reads a tools/call result: text content, other content
+// types noted, capped; isError becomes an error.
+func parseCallResult(res json.RawMessage) (string, error) {
 	var r struct {
 		Content []struct {
 			Type, Text string
@@ -312,7 +339,10 @@ func (s *MCPServer) call(ctx context.Context, tool string, args json.RawMessage)
 			sb.WriteString(c.Text)
 			sb.WriteByte('\n')
 		} else {
-			fmt.Fprintf(&sb, "[%s content omitted]\n", c.Type)
+			fmt.Fprintf(&sb, "[%s content omitted]\n", Cap(c.Type, 40))
+		}
+		if sb.Len() > maxOutBytes {
+			break
 		}
 	}
 	out := Cap(sb.String(), maxOutBytes)

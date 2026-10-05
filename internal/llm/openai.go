@@ -164,13 +164,16 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 		sort.Ints(idx)
 		for n, i := range idx {
 			a := calls[i]
+			if a.name == "" { // a fragment without a function name isn't a call
+				continue
+			}
 			if a.id == "" { // some local servers omit ids
 				a.id = fmt.Sprintf("call_%d", n)
 			}
 			ch <- Event{Kind: EvToolCall, Call: ToolCall{ID: a.id, Name: a.name, Args: a.args.String()}}
 		}
 		if usage != nil {
-			ch <- Event{Kind: EvUsage, Usage: *usage}
+			ch <- Event{Kind: EvUsage, Usage: usage.clamped()}
 		}
 		ch <- Event{Kind: EvDone, Stop: stop}
 	}()

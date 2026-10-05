@@ -243,3 +243,29 @@ func TestValidationAndOutcomes(t *testing.T) {
 		t.Fatalf("penalty %v", p)
 	}
 }
+
+// Precision groups responses by how the need was detected; a "don't
+// suggest" counts as a false suggestion.
+func TestOutcomePrecision(t *testing.T) {
+	o := &Outcomes{File: filepath.Join(t.TempDir(), "outcomes.jsonl")}
+	for _, e := range []Event{
+		{Need: "postgres", Event: "suggested", Detail: "signal"}, {Need: "postgres", Entry: "a", Event: "shown"},
+		{Need: "postgres", Entry: "a", Event: "accepted"}, {Need: "postgres", Entry: "a", Event: "installed"},
+		{Need: "slack", Event: "suggested", Detail: "classifier"}, {Need: "slack", Entry: "b", Event: "dismissed"},
+		{Need: "jira", Event: "suggested", Detail: "classifier"}, {Need: "jira", Entry: "c", Event: "accepted"},
+		{Need: "jira", Entry: "c", Event: "failed"},
+		{Need: "figma", Event: "suggested", Detail: "classifier"}, // ignored
+	} {
+		o.Record(e)
+	}
+	ps := o.Precision()
+	if len(ps) != 2 || ps[0].Via != "signal" || ps[1].Via != "classifier" {
+		t.Fatalf("%+v", ps)
+	}
+	if s := ps[0]; s.Suggested != 1 || s.Accepted != 1 || s.Installed != 1 || s.Rate() != 1 {
+		t.Fatalf("signal %+v", s)
+	}
+	if c := ps[1]; c.Suggested != 3 || c.Accepted != 1 || c.Dismissed != 1 || c.FalseRate() < 0.33 || c.FalseRate() > 0.34 {
+		t.Fatalf("classifier %+v", c)
+	}
+}

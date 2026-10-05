@@ -54,6 +54,34 @@ type Model struct {
 	// Params is the parameter count in billions, as the server reports it
 	// (Ollama /api/tags details.parameter_size; 0 = unknown).
 	Params float64 `json:"params,omitempty"`
+	// Basis is where Tier came from: "measured" (ternly --eval), "name"
+	// (the name table, for unmeasured models) or "config".
+	Basis   string       `json:"basis,omitempty"`
+	Measure *Measurement `json:"measure,omitempty"`
+}
+
+// Measurement is a model's measured capability (ternly --eval, ADR 012).
+type Measurement struct {
+	Tier, Runs     int
+	Autonomy       string // memory autonomy: full, verify, off
+	Measured       time.Time
+	Fabrication    float64
+	MemoryMisuse   float64
+	Susceptibility float64
+	Pass           float64
+	Source         string // "you" (your own --eval) or "ternly" (shipped with this version)
+}
+
+// MemoryAutonomy is how far the model may lean on memory notes: measured
+// where it has been, else "verify" for small models and "full" otherwise.
+func (m *Model) MemoryAutonomy() string {
+	switch {
+	case m.Measure != nil && m.Measure.Autonomy != "":
+		return m.Measure.Autonomy
+	case m.Tier <= 1:
+		return "verify"
+	}
+	return "full"
 }
 
 func (m *Model) Key() string      { return m.ProvID + "/" + m.ID }
@@ -134,7 +162,8 @@ type Options struct {
 	Extra     []Provider // from config
 	NoLocal   bool
 	LocalOnly bool
-	Overrides map[string]int // model key → tier
+	Overrides map[string]int         // model key → tier
+	Measured  map[string]Measurement // model key → measured capability (beats the name table)
 }
 
 var skipModel = regexp.MustCompile(`(?i)embed|whisper|tts|dall-?e|image|moderation|rerank|audio|realtime|transcri|guard|speech|vision-preview|search-preview|omni-moderation|sora|veo|imagen|lyria|aqa`)
@@ -204,9 +233,12 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 			continue
 		}
 		cat.enrich(m)
-		m.Tier = tierOf(m)
+		m.Tier, m.Basis = tierOf(m), "name"
+		if ms, ok := o.Measured[m.Key()]; ok {
+			m.Tier, m.Basis, m.Measure = ms.Tier, "measured", &ms
+		}
 		if t, ok := o.Overrides[m.Key()]; ok {
-			m.Tier = t
+			m.Tier, m.Basis = t, "config"
 		}
 		if m.Ctx == 0 {
 			m.Ctx = 32000
@@ -488,7 +520,9 @@ func (c catalog) enrich(m *Model) {
 
 // ─────────────────────────── capability tiers ───────────────────────────
 // Tier 3 = frontier coding models, 2 = strong/fast, 1 = small/cheap.
-// Name rules go stale; price is the fallback signal, and config overrides win.
+// Measured capability (ternly --eval, ADR 012) decides where it exists; this
+// name table is the fallback for unmeasured models (Basis "name"), with price
+// as its own fallback. Config overrides win over both.
 
 var (
 	reT1      = regexp.MustCompile(`(?i)nano|lite|tiny|smol|gemma|phi-?\d|[:\-_](0\.5|1|1\.5|2|3|4|7|8|9)b\b|llama-?3\.2`)

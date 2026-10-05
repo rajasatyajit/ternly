@@ -250,3 +250,75 @@ func (o *Outcomes) Report() map[string]int {
 	}
 	return out
 }
+
+// Precision is what became of suggestions, by how the need was detected.
+type Precision struct {
+	Via       string
+	Suggested int // suggestions shown
+	Accepted  int // the user chose a candidate to install
+	Installed int // and it installed
+	Declined  int // "not now"
+	Dismissed int // "don't suggest this again": the need was wrong or unwanted
+}
+
+// Rate is accepted / suggested; FalseRate is dismissed / suggested.
+func (p Precision) Rate() float64      { return ratio(p.Accepted, p.Suggested) }
+func (p Precision) FalseRate() float64 { return ratio(p.Dismissed, p.Suggested) }
+
+func ratio(a, b int) float64 {
+	if b == 0 {
+		return 0
+	}
+	return float64(a) / float64(b)
+}
+
+// Precision reads the log. A response belongs to the latest "suggested"
+// event for its need (a need is suggested at most once per session).
+func (o *Outcomes) Precision() []Precision {
+	f, err := os.Open(o.File)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	by := map[string]*Precision{}
+	via := map[string]string{}           // need → how its latest suggestion was detected
+	seen := map[string]map[string]bool{} // need → responses already counted for that suggestion
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		var e Event
+		if json.Unmarshal(sc.Bytes(), &e) != nil {
+			continue
+		}
+		if e.Event == "suggested" {
+			v := orStr(e.Detail, "signal")
+			via[e.Need], seen[e.Need] = v, map[string]bool{}
+			if by[v] == nil {
+				by[v] = &Precision{Via: v}
+			}
+			by[v].Suggested++
+			continue
+		}
+		v, ok := via[e.Need]
+		if !ok || seen[e.Need][e.Event] {
+			continue
+		}
+		seen[e.Need][e.Event] = true
+		switch p := by[v]; e.Event {
+		case "accepted":
+			p.Accepted++
+		case "installed":
+			p.Installed++
+		case "declined":
+			p.Declined++
+		case "dismissed":
+			p.Dismissed++
+		}
+	}
+	var out []Precision
+	for _, v := range []string{"signal", "classifier"} {
+		if p := by[v]; p != nil {
+			out = append(out, *p)
+		}
+	}
+	return out
+}

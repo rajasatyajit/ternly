@@ -50,6 +50,40 @@ type Component struct {
 
 	Hook *Hook
 	MCP  *MCPServer
+
+	base string // the directory Path must stay inside ("" = not confined: the user's own files)
+}
+
+// confine drops components whose file isn't inside m.Dir once symlinks are
+// resolved (a manifest path with "..", or a repository file linked to
+// ~/.ssh), and marks the rest so their bodies are re-checked when read.
+func (m *Manifest) confine() {
+	base, err := filepath.EvalSymlinks(m.Dir)
+	if err != nil {
+		base = filepath.Clean(m.Dir)
+	}
+	kept := m.Components[:0]
+	for _, c := range m.Components {
+		if c.Path != "" {
+			if !inside(base, c.Path) {
+				m.skip(c.Name, "its file is outside the plugin's directory (a path or symlink that leaves it)")
+				continue
+			}
+			c.base = base
+		}
+		kept = append(kept, c)
+	}
+	m.Components = kept
+}
+
+// inside reports whether path, with symlinks resolved, is within base.
+func inside(base, path string) bool {
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(base, real)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // Hook is an executable hook handler.
@@ -118,6 +152,7 @@ func Load(dir, fallbackName string) (*Manifest, error) {
 	if !validName.MatchString(m.Name) {
 		return nil, fmt.Errorf("invalid plugin name %q", m.Name)
 	}
+	m.confine()
 	sort.SliceStable(m.Components, func(i, j int) bool { return m.Components[i].Name < m.Components[j].Name })
 	return m, nil
 }
@@ -421,6 +456,10 @@ func loadHooks(m *Manifest, raw []byte, wrapped bool, origin string) {
 			for _, h := range g.Hooks {
 				if h.Type != "command" && h.Type != "" {
 					m.skip(fmt.Sprintf("hook %s (%s)", ev, h.Type), "only command hooks are supported")
+					continue
+				}
+				if strings.TrimSpace(h.Command) == "" && len(h.Args) == 0 {
+					m.skip("hook "+ev, "no command to run")
 					continue
 				}
 				if h.Async {

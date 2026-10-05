@@ -50,6 +50,7 @@ type fakeProvider struct {
 	n     int
 	tools []string
 	users []string
+	specs []string // the tool listing of each request, raw JSON
 }
 
 func newProvider(t *testing.T, steps ...step) *fakeProvider {
@@ -64,6 +65,7 @@ func newProvider(t *testing.T, steps ...step) *fakeProvider {
 				Role    string `json:"role"`
 				Content string `json:"content"`
 			} `json:"messages"`
+			Tools json.RawMessage `json:"tools"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if strings.Contains(body.Messages[0].Content, "Title this coding-session") { // auto-title: not part of the script
@@ -72,6 +74,7 @@ func newProvider(t *testing.T, steps ...step) *fakeProvider {
 			return
 		}
 		f.mu.Lock()
+		f.specs = append(f.specs, string(body.Tools))
 		if last := body.Messages[len(body.Messages)-1]; last.Role == "tool" {
 			f.tools = append(f.tools, last.Content)
 		} else if last.Role == "user" {

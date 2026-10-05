@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,7 +52,8 @@ func TestModelRecall(t *testing.T) {
 	for i, f := range evalFacts {
 		ids[i] = add(f.kind, f.text, f.keys)
 	}
-	for _, s := range repoSentences(t) {
+	corpus, version := recallCorpus(t)
+	for _, s := range corpus {
 		add("note", s, nil)
 	}
 	e := &Ollama{Base: base, Model: "nomic-embed-text"}
@@ -63,7 +66,7 @@ func TestModelRecall(t *testing.T) {
 		return quantize(vs[0])
 	}
 	none := func(string) ([]byte, float32) { return nil, 0 }
-	t.Logf("store: %d notes, enrichment %v", m.Project.Len(), len(alts) > 0)
+	t.Logf("store: %d notes (corpus %s), enrichment %v", m.Project.Len(), version, len(alts) > 0)
 
 	only := os.Getenv("TERNLY_MEM_RECALL_MODES") // "lexical", "vectors" or both (default)
 	for _, model := range strings.Split(models, ",") {
@@ -116,7 +119,7 @@ func TestModelRecall(t *testing.T) {
 			}
 			n := float64(len(evalFacts))
 			t.Logf("| %-28s | %-9s | %.2f | %.2f | %d | %d calls, %v |", model, mode.name, float64(first)/n, float64(second)/n, wrongFound, calls, time.Since(t0).Round(time.Second))
-			fmt.Printf("E2E-METRIC mode=%s first=%.3f within2=%.3f wrong_found=%d calls=%d\n", mode.key, float64(first)/n, float64(second)/n, wrongFound, calls) // read by bench/run.sh e2e
+			fmt.Printf("E2E-METRIC corpus=%s mode=%s first=%.3f within2=%.3f wrong_found=%d calls=%d\n", version, mode.key, float64(first)/n, float64(second)/n, wrongFound, calls) // read by bench/run.sh e2e
 		}
 	}
 }
@@ -143,4 +146,31 @@ func cleanQuery(s string) string {
 		s = l
 	}
 	return s
+}
+
+// recallCorpus is the pinned distractor set for TestModelRecall: repository
+// sentences snapshotted into testdata/recall_corpus.txt, so the eval doesn't
+// drift as the docs change. Its version (sha256 prefix) is pinned in
+// bench/e2e_checks.txt; regenerate deliberately with
+// TERNLY_MEM_WRITE_CORPUS=1 go test -run TestWriteRecallCorpus ./internal/memory
+// and re-derive the threshold.
+func recallCorpus(t *testing.T) ([]string, string) {
+	b, err := os.ReadFile(filepath.Join("testdata", "recall_corpus.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(b)
+	return strings.Split(strings.TrimRight(string(b), "\n"), "\n"), hex.EncodeToString(sum[:])[:12]
+}
+
+func TestWriteRecallCorpus(t *testing.T) {
+	if os.Getenv("TERNLY_MEM_WRITE_CORPUS") == "" {
+		t.Skip("TERNLY_MEM_WRITE_CORPUS not set")
+	}
+	_ = os.MkdirAll("testdata", 0o755)
+	if err := os.WriteFile(filepath.Join("testdata", "recall_corpus.txt"), []byte(strings.Join(repoSentences(t), "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, v := recallCorpus(t)
+	t.Logf("wrote testdata/recall_corpus.txt, version %s", v)
 }

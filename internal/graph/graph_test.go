@@ -395,3 +395,24 @@ func TestIdleRebuild(t *testing.T) {
 	}
 	t.Fatal("no idle rebuild")
 }
+
+func TestKnown(t *testing.T) {
+	g := newGraph("/r")
+	g.put(&Package{Path: "app/store", Symbols: []Symbol{
+		{ID: "app/store.Store", Name: "Store", Kind: KType},
+		{ID: "app/store.Store.Flush", Name: "Flush", Kind: KMethod},
+		{ID: "app/store.New", Name: "New", Kind: KFunc},
+	}})
+	for ref, want := range map[string][2]bool{
+		"store.New":       {true, true},
+		"store.Missing":   {false, true},
+		"Store.Flush()":   {true, true},
+		"Store.FlushAll":  {false, true},
+		"strings.Builder": {false, false}, // not a workspace package: not judged
+		"Flush":           {false, false},
+	} {
+		if e, d := g.Known(ref); e != want[0] || d != want[1] {
+			t.Errorf("%s: exists=%v decidable=%v, want %v", ref, e, d, want)
+		}
+	}
+}

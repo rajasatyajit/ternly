@@ -58,7 +58,9 @@ type Ref struct {
 	To   string
 	Pos  Pos
 	Call bool
-	pkg  *Package // owner, set when indexed
+	// Approx: resolved by name among several candidates (non-Go languages).
+	Approx bool     `json:",omitempty"`
+	pkg    *Package // owner, set when indexed
 }
 
 // FileInfo is what change detection compares.

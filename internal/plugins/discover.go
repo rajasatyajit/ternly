@@ -44,6 +44,7 @@ func Local(root, home string) []*Manifest {
 		}
 	}
 
+	proj.confine() // repository files: a skill linked to ~/.ssh stays out (your own files under home may link anywhere)
 	var out []*Manifest
 	for _, m := range []*Manifest{user, proj} {
 		for i := range m.Components { // personal and project items keep their bare names, as in Claude Code

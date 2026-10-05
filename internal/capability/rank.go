@@ -273,6 +273,7 @@ func (s *Service) AfterTurn(ctx context.Context, t Turn) *Suggestion {
 		return nil
 	}
 	sg := s.Suggester.Take()
+	s.Outcomes.Record(Event{Need: n.Key, Event: "suggested", Detail: n.Via})
 	for _, c := range sg.Candidates {
 		s.Outcomes.Record(Event{Need: n.Key, Entry: c.ID, Event: "shown"})
 	}

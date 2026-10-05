@@ -195,7 +195,7 @@ func TestRecallBudget(t *testing.T) {
 		_, _ = m.Add(Item{Kind: "note", Text: strings.Repeat("graph build detail ", 8) + string(rune('a'+i%26)) + strings.Repeat("x", i), Source: "model"})
 	}
 	m.Budget = 200
-	notes, n := m.Recall(context.Background(), "graph build detail")
+	notes, n := m.Recall(context.Background(), "graph build detail", AutonomyFull)
 	if n == 0 || EstTokens(notes) > 200 {
 		t.Fatalf("%d notes, %d tokens (budget 200)", n, EstTokens(notes))
 	}
@@ -203,7 +203,7 @@ func TestRecallBudget(t *testing.T) {
 		t.Fatalf("notes not framed: %q", notes[:80])
 	}
 	// The same session doesn't get the same notes again (they are in its context).
-	again, n2 := m.Recall(context.Background(), "graph build detail")
+	again, n2 := m.Recall(context.Background(), "graph build detail", AutonomyFull)
 	for _, l := range strings.Split(again, "\n")[1:] {
 		if strings.Contains(notes, l) {
 			t.Fatalf("note injected twice in one session: %q", l)
@@ -219,15 +219,15 @@ func TestCompactedReoffers(t *testing.T) {
 	for _, txt := range []string{"Graph caches live under the cache dir as gob shards", "Graph builds run go list inside the sandbox", "Graph tools cite file and line for every symbol"} {
 		_, _ = m.Add(Item{Kind: "note", Text: txt, Source: "model"})
 	}
-	first, n := m.Recall(context.Background(), "graph caches builds tools")
+	first, n := m.Recall(context.Background(), "graph caches builds tools", AutonomyFull)
 	if n != 3 {
 		t.Fatalf("recalled %d", n)
 	}
-	if again, _ := m.Recall(context.Background(), "graph caches builds tools"); again != "" {
+	if again, _ := m.Recall(context.Background(), "graph caches builds tools", AutonomyFull); again != "" {
 		t.Fatalf("re-injected in the same context: %q", again)
 	}
 	m.Compacted("Summary: graph caches live under the cache dir as gob shards.")
-	third, n3 := m.Recall(context.Background(), "graph caches builds tools")
+	third, n3 := m.Recall(context.Background(), "graph caches builds tools", AutonomyFull)
 	if n3 != 2 || strings.Contains(third, "gob shards") {
 		t.Fatalf("after compaction got %d: %q (first %q)", n3, third, first)
 	}
@@ -421,7 +421,7 @@ func TestConcurrentUse(t *testing.T) {
 				if err == nil && i%10 == 0 {
 					_ = m.Forget(it.ID)
 				}
-				m.Recall(context.Background(), fmt.Sprintf("graph sync f%d.go", i%7))
+				m.Recall(context.Background(), fmt.Sprintf("graph sync f%d.go", i%7), AutonomyFull)
 				m.Learn(agent.Learned{Turn: i, Prompt: "flush the budget graph", Changed: []string{"f1.go"}})
 			}
 		}()
@@ -472,7 +472,7 @@ func TestEnrichment(t *testing.T) {
 	if len(hits) == 0 || hits[0].Item.ID != target.ID {
 		t.Fatalf("paraphrase not found after enrichment: %+v", hits)
 	}
-	notes, _ := m.Recall(context.Background(), q.Text)
+	notes, _ := m.Recall(context.Background(), q.Text, AutonomyFull)
 	if strings.Contains(notes, "durability") {
 		t.Fatal("enrichment injected")
 	}

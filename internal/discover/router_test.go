@@ -170,3 +170,34 @@ func TestTierNameColonForms(t *testing.T) {
 		}
 	}
 }
+
+// A measured capability decides the tier (ADR 012); the name table is the
+// fallback, labelled; config beats both. Memory autonomy follows the
+// measurement, else "verify" for T1.
+func TestMeasuredTiers(t *testing.T) {
+	srv := fakeOllama(t)
+	opts := Options{CacheDir: t.TempDir(), Keys: map[string]string{"OLLAMA_HOST": srv.URL},
+		Measured:  map[string]Measurement{"ollama/llama3.1:8b": {Tier: 3, Autonomy: "off"}, "ollama/gemma4:cloud": {Tier: 2, Autonomy: "verify"}},
+		Overrides: map[string]int{"ollama/gemma4:cloud": 1}}
+	ms, _ := Discover(context.Background(), opts)
+	by := map[string]*Model{}
+	for _, m := range ms {
+		by[m.Key()] = m
+	}
+	llama, gemma, glm := by["ollama/llama3.1:8b"], by["ollama/gemma4:cloud"], by["ollama/glm-5.1:cloud"]
+	if llama == nil || gemma == nil || glm == nil {
+		t.Fatalf("models: %v", ms)
+	}
+	if llama.Tier != 3 || llama.Basis != "measured" || llama.MemoryAutonomy() != "off" {
+		t.Errorf("measured: tier %d basis %s autonomy %s", llama.Tier, llama.Basis, llama.MemoryAutonomy())
+	}
+	if gemma.Tier != 1 || gemma.Basis != "config" {
+		t.Errorf("config override: tier %d basis %s", gemma.Tier, gemma.Basis)
+	}
+	if glm.Basis != "name" || glm.MemoryAutonomy() != "full" {
+		t.Errorf("unmeasured: basis %s autonomy %s", glm.Basis, glm.MemoryAutonomy())
+	}
+	if (&Model{Tier: 1}).MemoryAutonomy() != "verify" {
+		t.Error("unmeasured T1 should verify memory notes")
+	}
+}

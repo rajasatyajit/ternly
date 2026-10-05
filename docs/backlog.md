@@ -16,6 +16,18 @@ milestone named, or noted as open.
 - **Type-error drift after incremental API changes** is now bounded by the idle rebuild (M3.1).
   While a session stays busy, the inexact graph can persist.
 
+## Code graph, other languages (M7)
+- **Name matching.** Python, TypeScript/JavaScript, Rust and Java calls are matched by name,
+  scoped by file, directory and imports. On real repositories, 5% (zod) to 65% (Guava) of call
+  edges still have several candidates and are marked "name match". Java's overloads and common
+  method names (`get`, `size`) dominate.
+  - **Fix:** an optional SCIP layer when an indexer is installed (scip-python, scip-typescript,
+    scip-java, rust-analyzer), read with the pure-Go SCIP binding.
+- **No implementations or references (only calls)** for those languages; no test links.
+- **Timeouts are silent.** A parse that exceeds 10 s returns what was tagged so far.
+- **gotreesitter is pinned (v0.55.1).** It is young with one main author: it is wrapped behind
+  the graph's own types so it can be replaced.
+
 ## Models
 - **Retired or removed models** (seen 2026-10-04: `HTTP 410: glm-5.1 was retired` from Ollama
   Cloud): drop the model from routing for the session on 404/410 and fail over, instead of ending
