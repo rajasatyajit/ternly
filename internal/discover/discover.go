@@ -58,6 +58,24 @@ type Model struct {
 	// (the name table, for unmeasured models) or "config".
 	Basis   string       `json:"basis,omitempty"`
 	Measure *Measurement `json:"measure,omitempty"`
+	// Reasoning: the model takes a reasoning budget (Ollama's "thinking"
+	// capability, or a known reasoning family). Only then is one sent.
+	Reasoning bool `json:"reasoning,omitempty"`
+}
+
+// reReasoning names model families known to take a reasoning budget
+// (reasoning_effort, or Anthropic's extended thinking), for providers that
+// don't report it.
+var reReasoning = regexp.MustCompile(`(?i)(^|/)(o[1-9](-|$)|o[1-9]-mini|gpt-5|gpt-oss|claude-(3-7|(opus|sonnet|haiku)-4|opus-5|sonnet-5|fable)|gemini-(2\.5|3)|grok-[34]-mini|qwq|deepseek-r1)`)
+
+// SetReasoning marks models of known reasoning families (providers that
+// report it, like Ollama, have already set it).
+func SetReasoning(ms []*Model) {
+	for _, m := range ms {
+		if !m.Reasoning && reReasoning.MatchString(m.ID) {
+			m.Reasoning = true
+		}
+	}
 }
 
 // Measurement is a model's measured capability and trust (ternly --eval,
@@ -253,6 +271,7 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 		}
 		out = append(out, m)
 	}
+	SetReasoning(out)
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Tier != out[j].Tier {
 			return out[i].Tier > out[j].Tier
@@ -388,6 +407,7 @@ func ollamaCaps(ctx context.Context, p *Provider, ms []*Model) {
 			}
 			if len(d.Capabilities) > 0 {
 				m.Tools = contains(d.Capabilities, "tools")
+				m.Reasoning = contains(d.Capabilities, "thinking")
 			}
 			for k, v := range d.ModelInfo {
 				if strings.HasSuffix(k, ".context_length") {

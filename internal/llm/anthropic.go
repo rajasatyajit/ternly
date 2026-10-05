@@ -23,8 +23,28 @@ type cacheCtl struct {
 	Type string `json:"type"`
 }
 type aMsg struct {
-	Role    string   `json:"role"`
-	Content []aBlock `json:"content"`
+	Role    string `json:"role"`
+	Content []any  `json:"content"` // aBlock, or a thinking block kept verbatim (json.RawMessage)
+}
+
+// thinkingBudget maps the router's effort to an extended-thinking budget
+// (ADR 015). Low is no extended thinking: routine edits don't pay for it.
+var thinkingBudget = map[string]int{"medium": 4096, "high": 16384}
+
+// canThink reports whether extended thinking may be enabled: Anthropic
+// requires the assistant turn being continued through tool results to start
+// with its thinking block, so a tool exchange begun without one (another
+// model, a low-effort step) is finished without thinking.
+func canThink(ms []Message) bool {
+	for i := len(ms) - 1; i >= 0; i-- {
+		switch m := ms[i]; {
+		case m.Role == "user":
+			return true
+		case m.Role == "assistant" && len(m.ToolCalls) > 0 && len(m.Thinking) == 0:
+			return false
+		}
+	}
+	return true
 }
 
 var ephemeral = &cacheCtl{Type: "ephemeral"}
@@ -33,7 +53,7 @@ var ephemeral = &cacheCtl{Type: "ephemeral"}
 // Keeping system+tools byte-identical across turns is what makes the cache hit.
 func (c *anthropic) body(r Request) map[string]any {
 	var msgs []aMsg
-	push := func(role string, blocks ...aBlock) {
+	push := func(role string, blocks ...any) {
 		if n := len(msgs); n > 0 && msgs[n-1].Role == role {
 			msgs[n-1].Content = append(msgs[n-1].Content, blocks...)
 			return
@@ -47,7 +67,10 @@ func (c *anthropic) body(r Request) map[string]any {
 		case "tool":
 			push("user", aBlock{Type: "tool_result", ToolUseID: m.ToolCallID, Content: nonEmpty(m.Content)})
 		case "assistant":
-			var bs []aBlock
+			var bs []any
+			for _, t := range m.Thinking {
+				bs = append(bs, t)
+			}
 			if strings.TrimSpace(m.Content) != "" {
 				bs = append(bs, aBlock{Type: "text", Text: m.Content})
 			}
@@ -61,14 +84,21 @@ func (c *anthropic) body(r Request) map[string]any {
 		}
 	}
 	if n := len(msgs); n > 0 {
-		last := &msgs[n-1].Content[len(msgs[n-1].Content)-1]
-		last.CacheControl = ephemeral
+		c := msgs[n-1].Content
+		if last, ok := c[len(c)-1].(aBlock); ok {
+			last.CacheControl = ephemeral
+			c[len(c)-1] = last
+		}
 	}
 	maxTok := r.MaxTokens
 	if maxTok == 0 {
 		maxTok = 8192
 	}
 	b := map[string]any{"model": r.Model, "max_tokens": maxTok, "messages": msgs, "stream": true}
+	if budget := thinkingBudget[r.Effort]; budget > 0 && canThink(r.Messages) {
+		b["thinking"] = map[string]any{"type": "enabled", "budget_tokens": budget}
+		b["max_tokens"] = max(maxTok, budget+8192)
+	}
 	if r.System != "" {
 		b["system"] = []aBlock{{Type: "text", Text: r.System, CacheControl: ephemeral}}
 	}
@@ -98,12 +128,15 @@ type aEvent struct {
 	} `json:"message"`
 	ContentBlock *struct {
 		Type, ID, Name string
+		Data           string `json:"data"` // redacted_thinking
 	} `json:"content_block"`
 	Delta *struct {
 		Type        string `json:"type"`
 		Text        string `json:"text"`
 		PartialJSON string `json:"partial_json"`
 		StopReason  string `json:"stop_reason"`
+		Thinking    string `json:"thinking"`
+		Signature   string `json:"signature"`
 	} `json:"delta"`
 	Usage *aUsage `json:"usage"`
 	Error *struct {
@@ -137,6 +170,13 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 			args     strings.Builder
 		}
 		tools := map[int]*tool{}
+		type thought struct {
+			Type      string `json:"type"`
+			Thinking  string `json:"thinking,omitempty"`
+			Signature string `json:"signature,omitempty"`
+			Data      string `json:"data,omitempty"`
+		}
+		thoughts := map[int]*thought{}
 		var u Usage
 		var stop string
 		var streamErr error
@@ -152,8 +192,12 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 					u.In, u.CacheRead, u.CacheWrite = mu.InputTokens, mu.CacheReadInputTokens, mu.CacheCreationInputTokens
 				}
 			case "content_block_start":
-				if ev.ContentBlock != nil && ev.ContentBlock.Type == "tool_use" {
-					tools[ev.Index] = &tool{id: ev.ContentBlock.ID, name: ev.ContentBlock.Name}
+				switch cb := ev.ContentBlock; {
+				case cb == nil:
+				case cb.Type == "tool_use":
+					tools[ev.Index] = &tool{id: cb.ID, name: cb.Name}
+				case cb.Type == "thinking" || cb.Type == "redacted_thinking":
+					thoughts[ev.Index] = &thought{Type: cb.Type, Data: cb.Data}
 				}
 			case "content_block_delta":
 				if ev.Delta == nil {
@@ -167,13 +211,24 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 						t.args.WriteString(ev.Delta.PartialJSON)
 					}
 					ch <- Event{Kind: EvProgress}
-				default: // thinking, signatures
+				case "thinking_delta", "signature_delta":
+					if t := thoughts[ev.Index]; t != nil {
+						t.Thinking += ev.Delta.Thinking
+						t.Signature += ev.Delta.Signature
+					}
+					ch <- Event{Kind: EvProgress}
+				default:
 					ch <- Event{Kind: EvProgress}
 				}
 			case "content_block_stop":
 				if t := tools[ev.Index]; t != nil {
 					ch <- Event{Kind: EvToolCall, Call: ToolCall{ID: t.id, Name: t.name, Args: t.args.String()}}
 					delete(tools, ev.Index)
+				}
+				if t := thoughts[ev.Index]; t != nil {
+					raw, _ := json.Marshal(t)
+					ch <- Event{Kind: EvThinking, Raw: raw}
+					delete(thoughts, ev.Index)
 				}
 			case "message_delta":
 				if ev.Delta != nil && ev.Delta.StopReason != "" {

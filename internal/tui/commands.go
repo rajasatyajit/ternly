@@ -369,7 +369,7 @@ func (m *Model) cmdStatus(string) tea.Cmd {
 		"workspace  " + m.App.Reg.Root,
 		"model      " + model,
 		"mode       " + m.App.Reg.Policy.Mode() + " · sandbox " + m.App.Reg.Sandbox.Mode(),
-		"verify     " + orStr(a.VerifyCmd(), "off"),
+		"verify     " + verifyLabel(a.VerifyCmd()),
 		fmt.Sprintf("limits     %d steps · %s · $%.2f per turn · budget $%.2f", lim.Steps, lim.Time, lim.TurnUSD, budget),
 		"checkpoints " + map[bool]string{true: "on", false: "off"}[a.CP != nil],
 	}
@@ -450,7 +450,7 @@ func (m *Model) cmdConfig(arg string) tea.Cmd {
 		sDim.Render("config file: " + orStr(m.App.ConfigPath, "(none)") + " · /config <key> <value> sets one for this session"),
 		"mode           " + m.App.Reg.Policy.Mode(),
 		"model          " + pin,
-		"verify         " + orStr(a.VerifyCmd(), "off"),
+		"verify         " + verifyLabel(a.VerifyCmd()),
 		fmt.Sprintf("budget         $%.2f", budget),
 		fmt.Sprintf("limits         steps %d · time %s · turn-usd %.2f", lim.Steps, lim.Time, lim.TurnUSD),
 		"theme          " + m.style + map[bool]string{true: " (fixed)", false: " (follows the terminal)"}[m.themeSet],
@@ -826,6 +826,7 @@ func (m *Model) cmdArchitect(arg string) tea.Cmd {
 		return m.start("Implement the plan above exactly, as the editor. Make the edits, then verify they build and the tests pass.")
 	})
 	m.blocks = append(m.blocks, &block{kind: bUser, text: "/architect " + arg})
+	m.App.Agent.SetNextEffort("high") // the plan is where reasoning pays (ADR 015)
 	return m.start("As the architect, plan this change for an implementer who will follow your plan exactly: name the files, functions and concrete edits, in order, and how to verify. Do not edit.\n\nTask: " + arg)
 }
 
@@ -1025,7 +1026,11 @@ func (m *Model) cmdRun(arg string) tea.Cmd {
 }
 
 func (m *Model) cmdTest(arg string) tea.Cmd {
-	cmd := orStr(arg, orStr(m.App.Agent.VerifyCmd(), agent.DetectVerify(m.App.Reg.Root)))
+	v := m.App.Agent.VerifyCmd()
+	if v == "off" {
+		v = ""
+	}
+	cmd := orStr(arg, orStr(v, agent.DetectVerify(m.App.Reg.Root)))
 	if cmd == "" {
 		m.addInfo(sErr.Render("  no test command detected — /test <command> or /verify <command>"))
 		return nil
@@ -1174,6 +1179,18 @@ func (m *Model) cmdTools(string) tea.Cmd {
 }
 
 type mcpMsg struct{ text string }
+
+// verifyLabel describes the verify setting: a command, coverage checks
+// only, or off.
+func verifyLabel(v string) string {
+	switch v {
+	case "off":
+		return "off"
+	case "":
+		return "coverage checks of changed files (no project command)"
+	}
+	return v + " + coverage checks of changed files"
+}
 
 func (m *Model) cmdMCP(arg string) tea.Cmd {
 	if f := strings.Fields(arg); len(f) > 0 {

@@ -41,13 +41,14 @@ import (
 var version = "0.1.0"
 
 type fileConfig struct {
-	Mode    string         `json:"mode"`
-	Budget  float64        `json:"budget"`
-	Verify  *string        `json:"verify"`
-	NoLocal bool           `json:"no_local"`
-	Model   string         `json:"model"`
-	Tiers   map[string]int `json:"tiers"`
-	Limits  struct {
+	Mode      string         `json:"mode"`
+	Budget    float64        `json:"budget"`
+	Verify    *string        `json:"verify"`
+	Reasoning string         `json:"reasoning"` // auto (default), off, low, medium, high (ADR 015)
+	NoLocal   bool           `json:"no_local"`
+	Model     string         `json:"model"`
+	Tiers     map[string]int `json:"tiers"`
+	Limits    struct {
 		Steps       *int     `json:"steps"`
 		TurnMinutes *float64 `json:"turn_minutes"`
 		TurnUSD     *float64 `json:"turn_usd"`
@@ -87,6 +88,7 @@ func run() int {
 		mode       = flag.String("mode", "", "permissions: ask | edits | yolo")
 		budget     = flag.Float64("budget", -1, "hard USD spend cap per session (0 = none)")
 		verify     = flag.String("verify", "", "command run after edits (default: auto-detected; 'off' disables)")
+		reasoning  = flag.String("reasoning", "", "reasoning budget: auto (routing decides), off (model default), low, medium, high")
 		localOnly  = flag.Bool("local-only", false, "use only local models (zero cost, fully offline)")
 		noLocal    = flag.Bool("no-local", false, "ignore local model servers")
 		noSandbox  = flag.Bool("no-sandbox", false, "run shell commands without bubblewrap")
@@ -96,6 +98,7 @@ func run() int {
 		dir        = flag.String("C", ".", "workspace directory")
 		showVer    = flag.Bool("version", false, "print version")
 		mcpLogin   = flag.String("mcp-login", "", "log in to a remote MCP server (OAuth in the browser) and exit")
+		noMemory   = flag.Bool("no-memory", false, "no long-term memory this run (neither recalled nor saved)")
 		cont       = flag.Bool("c", false, "continue the most recent session in this directory")
 		resumeID   = flag.String("resume", "", "resume session `id` (bare --resume: choose one)")
 		newSession = flag.Bool("new", false, "start a new session instead of auto-resuming the last one")
@@ -275,11 +278,15 @@ func run() int {
 	if *verify != "" {
 		vcmd = *verify
 	}
-	if vcmd == "off" {
-		vcmd = ""
-	}
-	ag.SetVerify(vcmd)
+	ag.SetVerify(vcmd) // "off" disables it; "" leaves the coverage checks (ADR 015)
 	ag.Budget = fc.Budget
+	ag.Reasoning = orStr(*reasoning, fc.Reasoning)
+	switch ag.Reasoning {
+	case "", "auto", "off", "low", "medium", "high":
+	default:
+		fmt.Fprintln(os.Stderr, "--reasoning: auto, off, low, medium or high")
+		return 2
+	}
 	if *budget >= 0 {
 		ag.Budget = *budget
 	}
@@ -338,7 +345,7 @@ func run() int {
 		ag.AddInstructions(graph.Guidance)
 	}
 	var mem *memory.Memory
-	if fc.Memory == nil || *fc.Memory {
+	if (fc.Memory == nil || *fc.Memory) && !*noMemory {
 		userDir := filepath.Join(dataDir, "user")
 		if inEval {
 			userDir = filepath.Join(project.Dir, "eval-user") // the user's own notes would contaminate the measurement
@@ -736,10 +743,19 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 		case agent.EvVerify:
 			fmt.Fprintf(os.Stderr, "  ▸ verify: %s\n", e.Text)
 		case agent.EvToolEnd:
+			if e.Tool == "verify" {
+				switch e.Verdict {
+				case agent.VerdictVerified:
+					fmt.Fprintf(os.Stderr, "  ✓ verified in %s: %s\n", e.Elapsed.Round(time.Millisecond), e.Text)
+				case agent.VerdictUnverified:
+					fmt.Fprintf(os.Stderr, "  ? %s\n", strings.ReplaceAll(strings.TrimSpace(e.Text), "\n", "\n    "))
+				default:
+					fmt.Fprintf(os.Stderr, "  ✗ verification failed: %s\n", firstOutputLine(e.Text))
+				}
+				break
+			}
 			if !e.OK {
 				fmt.Fprintf(os.Stderr, "  ✗ %s failed: %s\n", e.Tool, strings.SplitN(strings.TrimSpace(e.Text), "\n", 2)[0])
-			} else if e.Tool == "verify" {
-				fmt.Fprintf(os.Stderr, "  ✓ verified in %s\n", e.Elapsed.Round(time.Millisecond))
 			}
 		case agent.EvStatus:
 			fmt.Fprintln(os.Stderr, "  ↻", e.Text)
@@ -747,7 +763,7 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 			failed = true
 			fmt.Fprintln(os.Stderr, "error:", e.Text)
 		case agent.EvDone:
-			fmt.Fprintf(os.Stderr, "\n$%.4f · %.0f%% cache hits\n", e.Ledger.Cost, e.Ledger.CacheRate()*100)
+			fmt.Fprintf(os.Stderr, "\n$%.4f · %.0f%% cache hits · %d tokens in, %d out\n", e.Ledger.Cost, e.Ledger.CacheRate()*100, e.Ledger.Usage.In+e.Ledger.Usage.CacheRead, e.Ledger.Usage.Out)
 		}
 	}
 	background()
@@ -760,6 +776,17 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 		return 1
 	}
 	return 0
+}
+
+// firstOutputLine is the first line of a check's output that isn't the
+// "$ command" header.
+func firstOutputLine(s string) string {
+	for _, l := range strings.Split(strings.TrimSpace(s), "\n") {
+		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "$ ") {
+			return l
+		}
+	}
+	return strings.TrimSpace(s)
 }
 
 func orStr(s, d string) string {

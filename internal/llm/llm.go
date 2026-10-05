@@ -25,6 +25,10 @@ type Message struct {
 	Content    string
 	ToolCalls  []ToolCall
 	ToolCallID string
+	// Thinking holds a provider's reasoning blocks verbatim (Anthropic's
+	// thinking and redacted_thinking, with signatures), sent back with the
+	// message as the provider requires during tool use.
+	Thinking []json.RawMessage `json:",omitempty"`
 }
 
 type ToolCall struct {
@@ -44,6 +48,10 @@ type Request struct {
 	Messages  []Message
 	Tools     []ToolSpec
 	MaxTokens int
+	// Effort is the reasoning budget the router chose: "low", "medium",
+	// "high", or "" to send nothing (the model's default; ADR 015). Only set
+	// for models known to reason.
+	Effort string
 }
 
 type Usage struct{ In, Out, CacheRead, CacheWrite int }
@@ -72,6 +80,7 @@ const (
 	EvDone
 	EvError
 	EvProgress // the stream is producing something other than text (tool arguments, reasoning)
+	EvThinking // a complete reasoning block to keep with the message (Raw)
 )
 
 type Event struct {
@@ -79,6 +88,7 @@ type Event struct {
 	Text  string
 	Call  ToolCall
 	Usage Usage
+	Raw   json.RawMessage
 	Stop  string
 	Err   error
 }

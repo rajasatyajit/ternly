@@ -117,7 +117,7 @@ type block struct {
 	text     string
 	rendered string
 	tool, id string
-	state    int // 0 running, 1 ok, 2 fail
+	state    int // 0 running, 1 ok, 2 fail, 3 unverified
 	detail   string
 	elapsed  time.Duration
 }
@@ -591,6 +591,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 						b.detail = firstLines(e.Text, 2)
 					}
 				}
+				if e.Verdict == agent.VerdictUnverified {
+					b.state, b.detail = 3, firstLines(e.Text, 4)
+				}
 				break
 			}
 		}
@@ -739,13 +742,10 @@ func (m *Model) legacyCommand(name, arg, v string) tea.Cmd {
 			m.addInfo(sErr.Render("  usage: /mode ask|edits|yolo|plan"))
 		}
 	case "/verify":
-		if arg == "off" {
-			arg = ""
+		if arg != "" {
+			m.App.Agent.SetVerify(arg) // "off" disables verification
 		}
-		if arg != "" || strings.HasSuffix(strings.TrimSpace(v), " off") {
-			m.App.Agent.SetVerify(arg)
-		}
-		m.addInfo(fmt.Sprintf("  verify: %s", orStr(m.App.Agent.VerifyCmd(), "off")))
+		m.addInfo("  verify: " + verifyLabel(m.App.Agent.VerifyCmd()))
 	case "/budget":
 		lim, b := m.App.Agent.Caps()
 		if _, err := fmt.Sscanf(arg, "%f", &b); err == nil {
@@ -970,6 +970,8 @@ func (m *Model) renderBlock(b *block) string {
 			icon = sOK.Render("●")
 		case 2:
 			icon = sErr.Render("●")
+		case 3: // unverified: neither ✓ nor a failure
+			icon = sWarn.Render("?")
 		}
 		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.w-30))
 		if b.elapsed > 0 {

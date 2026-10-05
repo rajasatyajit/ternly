@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/discover"
 )
 
 // Limits bound one user turn. Zero disables a limit. The session Budget is separate.
@@ -59,7 +61,12 @@ type turnState struct {
 	answer      string // the model's last text
 	failCmd     string // first failing check this turn, and its first error line
 	failErr     string
-	fix         *Fix // that check passed later: a verified fix
+	fix         *Fix            // that check passed later: a verified fix
+	paths       map[string]bool // files edit tools touched (changedSources without checkpoints)
+	shellRan    bool            // a shell command ran since the last verification
+	gapsTold    bool            // the model was told about coverage gaps once
+	effort      string          // reasoning budget for this turn's steps (ADR 015)
+	Verdict     string          // the last verification's verdict ("" if none ran)
 }
 
 func newTurnState(cost0 float64) *turnState {
@@ -108,4 +115,39 @@ func deniedMsg(name string) string {
 
 func repeatMsg(name string, n int) string {
 	return fmt.Sprintf("error: refused — this exact %s call has now been made %d times with no successful edit in between, so its result cannot have changed. Use the earlier result or change approach.", name, n)
+}
+
+// effortFor is the reasoning budget for a new turn (ADR 015).
+func (a *Agent) effortFor(diff int, next string) string {
+	switch a.Reasoning {
+	case "off":
+		return ""
+	case "low", "medium", "high":
+		return a.Reasoning
+	}
+	switch {
+	case next != "":
+		return next
+	case diff >= 3:
+		return "medium"
+	}
+	return "low"
+}
+
+// escalated is the budget after an escalation: high, unless fixed or off.
+func (a *Agent) escalated(cur string) string {
+	if a.Reasoning == "" || a.Reasoning == "auto" {
+		return "high"
+	}
+	return cur
+}
+
+// SetNextEffort sets the next turn's reasoning budget (/architect: high).
+func (a *Agent) SetNextEffort(e string) { a.mu.Lock(); a.nextEffort = e; a.mu.Unlock() }
+
+func effortNote(m *discover.Model, effort string) string {
+	if m == nil || !m.Reasoning || effort == "" {
+		return ""
+	}
+	return " · reasoning " + effort
 }

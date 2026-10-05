@@ -37,6 +37,7 @@ type fakeLLM struct {
 	mu      sync.Mutex
 	replies []reply
 	reqs    [][]map[string]any
+	efforts []string // each request's reasoning_effort ("" if none)
 	delay   time.Duration
 }
 
@@ -45,11 +46,13 @@ func newFake(t *testing.T, replies ...reply) *fakeLLM {
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Messages []map[string]any `json:"messages"`
+			Effort   string           `json:"reasoning_effort"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		f.mu.Lock()
 		n := len(f.reqs)
 		f.reqs = append(f.reqs, body.Messages)
+		f.efforts = append(f.efforts, body.Effort)
 		rp := f.replies[min(n, len(f.replies)-1)]
 		f.mu.Unlock()
 		time.Sleep(f.delay)
@@ -889,14 +892,32 @@ func TestDeniedCallNotRepeated(t *testing.T) {
 	}
 }
 
-// A stray nested go.mod hides a package from `go build ./...`: the passing
-// verify is not believed, and the model is told why (dogfooding, ADR 014).
+// verdicts lists the verify verdicts a run produced, in order.
+func (r *recorder) verdicts() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var v []string
+	for _, e := range r.events {
+		if e.Kind == EvToolEnd && e.Tool == "verify" {
+			v = append(v, e.Verdict)
+		}
+	}
+	return v
+}
+
+// The qwen netguard scenario (ADR 014 → 015): a stray empty go.mod makes the
+// new package its own module, so the project's `go build ./...` passes
+// without compiling it. Coverage builds it in its module: failed, never ✓;
+// once the model removes the go.mod, the broken code itself fails.
 func TestVerifyNotFooledByNestedModule(t *testing.T) {
+	testutil.Require(t, "go", testutil.Have("go"))
 	f := newFake(t,
 		reply{calls: [][2]string{call("write_file", `{"path":"internal/ng/go.mod","content":""}`), call("write_file", `{"path":"internal/ng/ng.go","content":"package ng\nfunc broken( {\n"}`)}},
-		reply{text: "done"},
+		reply{text: "done, verified"},
 		reply{calls: [][2]string{call("delete_file", `{"path":"internal/ng/go.mod"}`)}},
 		reply{text: "removed the go.mod"},
+		reply{calls: [][2]string{call("write_file", `{"path":"internal/ng/ng.go","content":"package ng\n\nfunc Fixed() {}\n"}`)}},
+		reply{text: "fixed"},
 	)
 	a, rec := newAgent(t, "edits", model(f.URL, "m", 3, 1, 5))
 	repo, err := checkpoint.OpenRepo(a.Reg.Root, t.TempDir(), "proj")
@@ -904,21 +925,86 @@ func TestVerifyNotFooledByNestedModule(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.CP, _ = repo.Session("t")
-	write(t, a, "go.mod", "module example.com/x\n")
+	write(t, a, "go.mod", "module example.com/x\n\ngo 1.22\n")
 	a.SetVerify("go build ./...") // passes: ./... stops at internal/ng/go.mod
 	a.Run(bg, "add package ng")
-	if !strings.Contains(rec.text(EvStatus), "didn't cover") {
-		t.Fatalf("status: %s", rec.text(EvStatus))
+	got := strings.Join(rec.verdicts(), " ")
+	if got != "failed failed verified" {
+		t.Fatalf("verdicts %q", got)
 	}
-	var found bool
+	var told bool
 	for _, req := range f.requests() {
 		for _, m := range req {
-			if s := fmt.Sprint(m["content"]); strings.Contains(s, "internal/ng/go.mod makes internal/ng a separate module") {
-				found = true
+			if s := fmt.Sprint(m["content"]); strings.Contains(s, "Automatic verification") && strings.Contains(s, "internal/ng") {
+				told = true
 			}
 		}
 	}
-	if !found {
-		t.Fatal("the model wasn't told about the nested module")
+	if !told {
+		t.Fatal("the model wasn't shown the failing module")
+	}
+}
+
+// A file no check compiles is a gap: the turn ends "unverified", not ✓,
+// after the model is told once.
+func TestVerifyGapIsUnverified(t *testing.T) {
+	testutil.Require(t, "go", testutil.Have("go"))
+	f := newFake(t,
+		reply{calls: [][2]string{call("write_file", `{"path":"x_windows.go","content":"package x\n\nfunc W() { nope }\n"}`)}},
+		reply{text: "done"},
+		reply{text: "x_windows.go is unverified: it only builds on Windows."},
+	)
+	a, rec := newAgent(t, "edits", model(f.URL, "m", 3, 1, 5))
+	repo, _ := checkpoint.OpenRepo(a.Reg.Root, t.TempDir(), "proj")
+	a.CP, _ = repo.Session("t")
+	write(t, a, "go.mod", "module example.com/x\n\ngo 1.22\n")
+	write(t, a, "x.go", "package x\n")
+	a.Run(bg, "add a windows file")
+	if got := strings.Join(rec.verdicts(), " "); got != "unverified unverified" {
+		t.Fatalf("verdicts %q", got)
+	}
+	if !strings.Contains(rec.text(EvStatus), "ends unverified") {
+		t.Fatalf("status: %s", rec.text(EvStatus))
+	}
+}
+
+// Routing sets the reasoning budget (ADR 015): low for a routine turn,
+// medium for a hard one, high after an escalation; nothing for a model that
+// doesn't reason, or with --reasoning off.
+func TestReasoningEffortRouting(t *testing.T) {
+	run := func(policy string, reasoning bool, prompt string, replies ...reply) []string {
+		f := newFake(t, replies...)
+		m := model(f.URL, "m", 3, 1, 5)
+		m.Reasoning = reasoning
+		a, _ := newAgent(t, "yolo", m)
+		a.Reasoning = policy
+		a.Run(bg, prompt)
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return append([]string(nil), f.efforts...)
+	}
+	done := reply{text: "ok"}
+	if got := run("", true, "rename the variable x to y in a.go", done); strings.Join(got, ",") != "low" {
+		t.Errorf("routine: %q", got)
+	}
+	if got := run("", true, "redesign the concurrency model of the scheduler to fix the deadlock", done); strings.Join(got, ",") != "medium" {
+		t.Errorf("hard: %q", got)
+	}
+	if got := run("off", true, "rename x", done); strings.Join(got, ",") != "" {
+		t.Errorf("off: %q", got)
+	}
+	if got := run("high", true, "rename x", done); strings.Join(got, ",") != "high" {
+		t.Errorf("fixed: %q", got)
+	}
+	if got := run("", false, "rename x", done); strings.Join(got, ",") != "" {
+		t.Errorf("non-reasoning model: %q", got)
+	}
+	a := &Agent{}
+	if a.escalated("low") != "high" {
+		t.Error("escalation keeps the budget")
+	}
+	a.Reasoning = "low"
+	if a.escalated("low") != "low" {
+		t.Error("escalation overrode a fixed budget")
 	}
 }

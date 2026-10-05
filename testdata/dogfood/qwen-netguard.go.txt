@@ -1,0 +1,119 @@
+// Package netGuard builds an http.Client that enforces a network grant of
+// hosts (and optionally private addressing) per remote MCP server.
+package netguard
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+)
+
+// Grant is what one remote server may reach.
+type Grant struct {
+	Hosts        []string // host or host:port, exact case-insensitive match; bare host allows any port
+	AllowPrivate bool     // allow loopback, private and link-local (only for servers on such an address)
+}
+
+// ErrNotGranted is returned (wrapped) for any refused connection.
+var ErrNotGranted = errors.New("netGuard: host not granted")
+
+type grantErr struct{ host string }
+
+func (e grantErr) Error() string  { return fmt.Sprintf("%w: %s", ErrNotGranted, e.host) }
+func (e grantErr) Unwrap() error  { return ErrNotGranted }
+
+// Client returns an http.Client that only connects to hosts the server is granted.
+func Client(g Grant, timeout time.Duration) *http.Client {
+	tr := &http.Transport{DialContext: makeDialer(g)}
+	c := &http.Client{Timeout: timeout, Transport: tr}
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("%w: too many redirects", ErrNotGranted)
+		}
+		if !hostGranted(g.Hosts, req.URL.String()) {
+			return grantErr{req.URL.Hostname()}
+		}
+		if via[0].URL.Scheme == "https" && req.URL.Scheme == "http" {
+			return fmt.Errorf("%w: https→http redirect", ErrNotGranted)
+		}
+		return nil
+	}
+	return c
+}
+
+func makeDialer(g Grant) func(context.Context, string, string) (net.Conn, error) {
+	d := &net.Dialer{Timeout: 30 * time.Second}
+	return func(ctx context.Context, _ string, addr string) (net.Conn, error) {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			host = addr
+		}
+		if ip := net.ParseIP(host); ip != nil && !g.AllowPrivate && isPriv(ip) {
+			return nil, grantErr{host}
+		}
+		return d.DialContext(ctx, "tcp", addr)
+	}
+}
+
+// hostGranted checks whether the URL's raw host (with or without port) matches
+// any entry in hosts. A bare host grants any port; a host:port grants that port only.
+func hostGranted(hosts []string, raw string) bool {
+	for _, h := range hosts {
+		if strings.EqualFold(h, raw) {
+			return true
+		}
+		if !strings.ContainsRune(h, ':') {
+			tgt := raw
+			if i := strings.Index(tgt, ":"); i >= 0 {
+				tgt = tgt[:i]
+			}
+			if strings.EqualFold(tgt, h) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isPriv reports whether ip is loopback, RFC-1918 private, link-local,
+// unspecified or multicast.
+func isPriv(ip net.IP) bool {
+	if v4 := ip.To4(); v4 != nil {
+		switch {
+		case v4[0] == 127: // 127.0.0.0/8 loopback
+			return true
+		case v4[0] == 10: // RFC-1918 10.0.0.0/8
+			return true
+		case v4[0] == 172 && v4[1]&0xF0 == 16<<4: // 172.16.0.0/12
+			return true
+		case v4[0] == 192 && v4[1] == 168: // 192.168.0.0/16
+			return true
+		case v4[0] == 169 && v4[1] == 254: // link-local 169.254.0.0/16
+			return true
+		case (v4[0] & 0xE0) == 0xE0: // multicast 224.0.0.0/4
+			return true
+		case v4[0] == 0 && v4[1] == 0 && v4[2] == 0 && v4[3] == 0: // unspecified
+			return true
+		default:
+			return false
+		}
+	}
+	switch {
+	case ip.Equal(net.IPv6loopback):     // ::1/128
+		return true
+	case ip.Equal(net.IPv6unspecified):  // ::/128
+		return true
+	case (ip[0] == 0xfe) && (ip[1]&0xc0 == 0x80): // fe80::/10 link-local
+		return true
+	case (ip[0] & 0xff) == 0xfc:        // fc00::/7 ULA
+		return true
+	case (ip[0] & 0xff) == 0xff:        // ff00::/8 multicast
+		return true
+	default:
+		return false
+	}
+}

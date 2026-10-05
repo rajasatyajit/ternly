@@ -9,6 +9,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/odvcencio/gotreesitter v0.55.1
 	golang.org/x/sys v0.48.0
+	mvdan.cc/sh/v3 v3.14.1
 )
 
 require (

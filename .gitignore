@@ -2,3 +2,4 @@ dist/
 .e2e-home-*/
 bench/results/
 .e2e-work-*/
+bench/dogfood/

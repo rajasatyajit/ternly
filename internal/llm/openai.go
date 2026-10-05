@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync/atomic"
 )
+
+var reNoReasoning = regexp.MustCompile(`(?i)reasoning|thinking`)
 
 type openAI struct {
 	ep          Endpoint
@@ -44,6 +47,9 @@ func (c *openAI) body(r Request, usage bool) map[string]any {
 		msgs = append(msgs, om)
 	}
 	b := map[string]any{"model": r.Model, "messages": msgs, "stream": true}
+	if r.Effort != "" {
+		b["reasoning_effort"] = r.Effort // OpenAI, Ollama, Gemini, Groq…
+	}
 	if usage {
 		b["stream_options"] = map[string]any{"include_usage": true}
 	}
@@ -95,6 +101,12 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 		if ae, ok := err.(*APIError); ok && ae.Status == 400 && strings.Contains(ae.Body, "stream_options") {
 			c.noUsageOpts.Store(true)
 			resp, err = post(ctx, url, hdr, c.body(r, false))
+		}
+		// A model that doesn't take a reasoning budget ("does not support
+		// thinking", "Unsupported parameter: 'reasoning_effort'"): without it.
+		if ae, ok := err.(*APIError); ok && ae.Status == 400 && r.Effort != "" && reNoReasoning.MatchString(ae.Body) {
+			r.Effort = ""
+			resp, err = post(ctx, url, hdr, c.body(r, !c.noUsageOpts.Load()))
 		}
 		if err != nil {
 			ch <- Event{Kind: EvError, Err: err}

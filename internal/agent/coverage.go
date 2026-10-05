@@ -2,52 +2,125 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"path"
-	"regexp"
+	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/rajasatyajit/ternly/internal/rootfs"
+	"github.com/rajasatyajit/ternly/internal/verify"
 )
 
-var reGoAll = regexp.MustCompile(`\bgo\s+(build|vet|test)\b[^&|;]*\./\.\.\.`)
+// Verdicts of a turn's verification (ADR 015). Only VerdictVerified is ✓:
+// the project's check passed and every changed source file was covered by
+// a check that compiled it.
+const (
+	VerdictVerified   = "verified"
+	VerdictFailed     = "failed"
+	VerdictUnverified = "unverified"
+)
 
-// uncovered names the files changed this turn that a passing Go verify
-// command can't have checked: `./...` stops at a nested go.mod, so a stray
-// go.mod (a model's workaround for a refused mkdir, in dogfooding — ADR 014)
-// silently removes a package from the build, vet and tests.
-func (a *Agent) uncovered(ctx context.Context, st *turnState, cmd string) string {
-	if a.CP == nil || st.tree == "" || !reGoAll.MatchString(cmd) {
-		return ""
-	}
-	cs, err := a.CP.Pending(ctx, st.tree)
-	if err != nil {
-		return ""
-	}
-	ws, err := rootfs.Open(a.Reg.Root)
-	if err != nil {
-		return ""
-	}
-	nested := map[string][]string{} // go.mod → changed files under it
-	for _, c := range cs {
-		// Pending describes restoring: 'A' (recreate) is a file this turn deleted.
-		if c.Status == 'A' || !strings.HasSuffix(c.Path, ".go") && path.Base(c.Path) != "go.mod" {
-			continue
-		}
-		for d := path.Dir(c.Path); d != "." && d != "/"; d = path.Dir(d) {
-			if mod := d + "/go.mod"; ws.Exists(mod) {
-				nested[mod] = append(nested[mod], c.Path)
-				break
+// changedSources lists the files this turn created or modified (from the
+// checkpoint taken before its first change, so shell edits count too).
+// blind is set when changes can't be listed: no checkpoints, and a shell
+// command ran.
+func (a *Agent) changedSources(ctx context.Context, st *turnState) (files []string, blind bool) {
+	if a.CP != nil && st.tree != "" {
+		cs, err := a.CP.Pending(ctx, st.tree)
+		if err == nil {
+			for _, c := range cs {
+				if c.Status != 'A' { // Pending describes restoring: 'A' recreates a file this turn deleted
+					files = append(files, c.Path)
+				}
 			}
+			return files, false
 		}
 	}
-	if len(nested) == 0 {
-		return ""
+	for p := range st.paths {
+		files = append(files, p)
+	}
+	return files, st.shellRan
+}
+
+// verifyTurn runs the project's check (if any) and the coverage checks on
+// the turn's changed files, and returns the verdict with what the model and
+// the user should see. ok is false when nothing was verified because
+// verification is off or nothing changed.
+func (a *Agent) verifyTurn(ctx context.Context, st *turnState) (verdict, text, label string, ran bool) {
+	if st.verify == "off" {
+		return "", "", "", false
+	}
+	changed, blind := a.changedSources(ctx, st)
+	sources := 0
+	for _, f := range changed {
+		if verify.IsSource(f) {
+			sources++
+		}
+	}
+	if sources == 0 && !blind && (st.verify == "" || len(changed) == 0) {
+		return "", "", "", false // nothing a check could cover
+	}
+	label = st.verify
+	if label == "" {
+		label = "coverage checks"
+	}
+	a.Emit(Event{Kind: EvVerify, Text: label})
+	t0 := time.Now()
+	end := func(v, text string) (string, string, string, bool) {
+		a.Emit(Event{Kind: EvToolEnd, ToolID: "verify", Tool: "verify", OK: v == VerdictVerified, Verdict: v, Text: text, Elapsed: time.Since(t0)})
+		return v, a.Reg.Redact.Apply(text), label, true
+	}
+	run := func(ctx context.Context, cmd string) (string, int, error) {
+		return a.Reg.Sandbox.Run(ctx, a.Reg.Root, cmd, 600)
+	}
+	if st.verify != "" {
+		out, code, err := run(ctx, st.verify)
+		if err != nil || code != 0 {
+			if err != nil {
+				out += "\n" + err.Error()
+			}
+			return end(VerdictFailed, "$ "+st.verify+"\n"+out)
+		}
+	}
+	rep := verify.Cover(ctx, a.Reg.Root, changed, run)
+	if rep.Failed != "" {
+		return end(VerdictFailed, rep.Failed)
+	}
+	if blind {
+		rep.Gaps = append(rep.Gaps, verify.Gap{File: "(shell changes)", Why: "files changed by shell commands can't be listed without checkpoints"})
 	}
 	var b strings.Builder
-	for mod, files := range nested {
-		fmt.Fprintf(&b, "%s makes %s a separate module, so `%s` did not build, vet or test %s.\n", mod, path.Dir(mod), cmd, listFew(files, 4))
+	if len(rep.Gaps) > 0 {
+		fmt.Fprintf(&b, "unverified: no check covered %d changed source file(s):\n", len(rep.Gaps))
+		for i, g := range rep.Gaps {
+			if i == 8 {
+				fmt.Fprintf(&b, "- … %d more\n", len(rep.Gaps)-8)
+				break
+			}
+			fmt.Fprintf(&b, "- %s: %s\n", g.File, g.Why)
+		}
+		return end(VerdictUnverified, strings.TrimSpace(b.String()))
 	}
-	b.WriteString("If it isn't meant to be a module, delete that go.mod (delete_file); write_file creates directories by itself.")
-	return b.String()
+	parts := rep.Summary
+	if st.verify != "" {
+		parts = append([]string{st.verify}, parts...)
+	}
+	fmt.Fprintf(&b, "%s · %d changed source file(s) covered", strings.Join(parts, " · "), len(rep.Covered))
+	return end(VerdictVerified, b.String())
+}
+
+// trackPath records the file an edit tool touched (for changedSources when
+// checkpoints are off).
+func (st *turnState) trackPath(rel func(string) string, args string) {
+	var v struct{ Path string }
+	if json.Unmarshal([]byte(args), &v) == nil && v.Path != "" {
+		if st.paths == nil {
+			st.paths = map[string]bool{}
+		}
+		p := v.Path
+		if filepath.IsAbs(p) {
+			p = rel(p)
+		}
+		st.paths[filepath.ToSlash(filepath.Clean(p))] = true
+	}
 }

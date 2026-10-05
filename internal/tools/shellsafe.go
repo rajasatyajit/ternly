@@ -4,77 +4,197 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"mvdan.cc/sh/v3/syntax"
 )
 
 // Commands that run without confirmation (ADR 014, from dogfooding: every
-// model's first exploration command was a chain like `ls -la && cat go.mod`,
-// and a refusal there costs a turn and a retry). A command qualifies when
-// every segment of its &&, ||, ; or | chain is a known read-only, build or
-// test command; quoting is understood, and anything that expands or
-// redirects ($, backquotes, <, >, braces, parentheses, a lone &) still asks.
+// model's first exploration command was a chain like `ls -la && cat go.mod`).
+// The command is parsed as bash (mvdan.cc/sh) and classified on the syntax
+// tree (ADR 015), not by rewriting its text: it qualifies when it is only
+// simple commands joined by &&, ||, ;, newlines and |, each a known
+// read-only, build or test command whose words are plain literals (quotes
+// allowed, nothing that expands), with no redirection but `2>&1` and
+// output to /dev/null.
 
-// envOK are the variables a segment may set in front of its command
+// envOK are the variables a command may set in front of itself
 // (`CGO_ENABLED=0 go build`): build knobs that can't load code or change
 // where it comes from (not GOFLAGS, LD_PRELOAD, PATH, …).
 var envOK = map[string]bool{"CGO_ENABLED": true, "GOOS": true, "GOARCH": true, "GOARM": true, "GOAMD64": true, "GOEXPERIMENT": true,
 	"NODE_ENV": true, "RUST_BACKTRACE": true, "CI": true, "TZ": true, "LANG": true, "LC_ALL": true, "NO_COLOR": true}
 
 var (
-	reAssign           = regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)=([\w.,:/+-]*)$`)
-	reCd               = regexp.MustCompile(`^cd\s+[^-~\s]\S*$`) // into the workspace (paths are checked above); a bare cd would go home
-	reMkdir            = regexp.MustCompile(`^mkdir(\s+-p)?(\s+[^-\s]\S*)+$`)
-	reHarmlessRedirect = regexp.MustCompile(`\s(2>&1|[12]?>\s?/dev/null)(\s|$)`)
-	reExecArg          = regexp.MustCompile(`(^|\s)(--pre|--pre-glob|-toolexec|--exec)(=|\s|$)`)
+	reEnvValue = regexp.MustCompile(`^[\w.,:/+-]*$`)
+	reCd       = regexp.MustCompile(`^cd\s+[^-~\s]\S*$`) // into the workspace (paths are checked); a bare cd would go home
+	reMkdir    = regexp.MustCompile(`^mkdir(\s+-p)?(\s+[^-\s]\S*)+$`)
+	reExecArg  = regexp.MustCompile(`(^|\s)(--pre|--pre-glob|-toolexec|--exec)(=|\s|$)`)
 )
 
 // safeCommand reports whether cmd may run without confirmation; mkdir (in
 // the workspace) counts only when writes is set (edits and yolo modes).
 func (p *Policy) safeCommand(cmd string, writes bool) bool {
-	// Merging stderr into stdout, or discarding output, writes nothing. The
-	// match is replaced by a space: removing it would join the words around
-	// it (`--pre 2>&1 ./x` read as `--pre./x`) and hide them from the checks.
-	cmd = reHarmlessRedirect.ReplaceAllString(cmd, " ")
-	segs, ok := splitChain(cmd)
-	if !ok {
+	argvs, ok := commands(cmd)
+	if !ok || len(argvs) == 0 {
 		return false
 	}
-	for _, seg := range segs {
-		words, ok := shellWords(seg)
-		if !ok || len(words) == 0 {
-			return false
-		}
-		for len(words) > 1 {
-			m := reAssign.FindStringSubmatch(words[0])
-			if m == nil {
-				break
-			}
-			if !envOK[m[1]] {
-				return false
-			}
-			words = words[1:]
-		}
-		for i, w := range words {
-			for _, v := range pathsIn(w) {
-				switch {
-				case strings.HasPrefix(v, "~"), v == "..", strings.HasPrefix(v, "../"), strings.Contains(v, "/../"), strings.HasSuffix(v, "/.."):
-					return false
-				case strings.HasPrefix(v, "/") && !p.inRoot(v):
-					return false
-				}
-			}
-			if strings.HasPrefix(w, "/") {
-				words[i] = "./" + w // in the workspace: as safe as a relative path
-			}
-		}
-		s := strings.Join(words, " ")
-		if reForbidden.MatchString(s) || reDanger.MatchString(s) || reUnsafeArg.MatchString(s) || reExecArg.MatchString(s) {
-			return false
-		}
-		if !reSafe.MatchString(s) && !reCd.MatchString(s) && !(writes && reMkdir.MatchString(s)) {
+	for _, words := range argvs {
+		if !p.safeArgv(words, writes) {
 			return false
 		}
 	}
 	return true
+}
+
+// ReadOnlyCommand reports whether cmd only reads (or builds and tests):
+// what plan mode allows, and what can't have changed the workspace.
+func (p *Policy) ReadOnlyCommand(cmd string) bool { return p.safeCommand(cmd, false) }
+
+// safeArgv checks one simple command's words (env prefixes already removed).
+func (p *Policy) safeArgv(words []string, writes bool) bool {
+	words = append([]string(nil), words...)
+	for i, w := range words {
+		if strings.ContainsAny(w, " \t\n") && i == 0 {
+			return false // a command name with spaces is not one we know
+		}
+		for _, v := range pathsIn(w) {
+			switch {
+			case strings.HasPrefix(v, "~"), v == "..", strings.HasPrefix(v, "../"), strings.Contains(v, "/../"), strings.HasSuffix(v, "/.."):
+				return false
+			case strings.HasPrefix(v, "/") && !p.inRoot(v):
+				return false
+			}
+		}
+		if strings.HasPrefix(w, "/") {
+			words[i] = "./" + w // in the workspace: as safe as a relative path
+		}
+	}
+	s := strings.Join(words, " ")
+	if reForbidden.MatchString(s) || reDanger.MatchString(s) || reUnsafeArg.MatchString(s) || reExecArg.MatchString(s) {
+		return false
+	}
+	return reSafe.MatchString(s) || reCd.MatchString(s) || writes && reMkdir.MatchString(s)
+}
+
+// commands parses cmd and returns the argv of each simple command, or false
+// when anything in it is more than a chain of simple commands with literal
+// words and harmless redirections.
+func commands(cmd string) ([][]string, bool) {
+	f, err := syntax.NewParser(syntax.Variant(syntax.LangBash)).Parse(strings.NewReader(cmd), "")
+	if err != nil {
+		return nil, false
+	}
+	var out [][]string
+	for _, st := range f.Stmts {
+		if !stmt(st, &out) {
+			return nil, false
+		}
+	}
+	return out, true
+}
+
+func stmt(st *syntax.Stmt, out *[][]string) bool {
+	if st.Negated || st.Background || st.Coprocess || st.Disown {
+		return false
+	}
+	for _, r := range st.Redirs {
+		if !harmlessRedirect(r) {
+			return false
+		}
+	}
+	switch c := st.Cmd.(type) {
+	case *syntax.CallExpr:
+		if len(c.Args) == 0 { // a bare assignment
+			return false
+		}
+		for _, a := range c.Assigns {
+			if a.Append || a.Naked || a.Index != nil || a.Array != nil || !envOK[a.Name.Value] {
+				return false
+			}
+			v, ok := literal(a.Value)
+			if !ok || !reEnvValue.MatchString(v) {
+				return false
+			}
+		}
+		argv := make([]string, 0, len(c.Args))
+		for _, w := range c.Args {
+			s, ok := literal(w)
+			if !ok {
+				return false
+			}
+			argv = append(argv, s)
+		}
+		*out = append(*out, argv)
+		return true
+	case *syntax.BinaryCmd:
+		switch c.Op {
+		case syntax.AndStmt, syntax.OrStmt, syntax.Pipe:
+			return stmt(c.X, out) && stmt(c.Y, out)
+		}
+	}
+	return false // subshells, blocks, functions, loops, conditionals, |&, …
+}
+
+// harmlessRedirect: 2>&1, and output (fd 1 or 2) to /dev/null.
+func harmlessRedirect(r *syntax.Redirect) bool {
+	if r.Hdoc != nil {
+		return false
+	}
+	w, ok := literal(r.Word)
+	if !ok {
+		return false
+	}
+	n := ""
+	if r.N != nil {
+		n = r.N.Value
+	}
+	switch r.Op {
+	case syntax.DplOut: // n>&w
+		return n == "2" && w == "1"
+	case syntax.RdrOut, syntax.AppOut, syntax.RdrAll:
+		return (n == "" || n == "1" || n == "2") && w == "/dev/null"
+	}
+	return false
+}
+
+// literal returns a word's value when nothing in it expands: plain text,
+// single quotes, and double quotes holding plain text. Unquoted braces and a
+// leading ~ (which bash expands) and backslash escapes are refused.
+func literal(w *syntax.Word) (string, bool) {
+	if w == nil {
+		return "", true
+	}
+	var b strings.Builder
+	for i, part := range w.Parts {
+		switch x := part.(type) {
+		case *syntax.Lit:
+			if strings.ContainsAny(x.Value, "{}\\") || i == 0 && strings.HasPrefix(x.Value, "~") {
+				return "", false
+			}
+			b.WriteString(x.Value)
+		case *syntax.SglQuoted:
+			if x.Dollar { // $'…' interprets escapes
+				return "", false
+			}
+			b.WriteString(x.Value)
+		case *syntax.DblQuoted:
+			if x.Dollar {
+				return "", false
+			}
+			for _, q := range x.Parts {
+				l, ok := q.(*syntax.Lit)
+				if !ok || strings.Contains(l.Value, "\\") {
+					return "", false
+				}
+				b.WriteString(l.Value)
+			}
+		default: // $x, ${x}, $(…), `…`, $((…)), <(…), extglob
+			return "", false
+		}
+	}
+	if strings.IndexFunc(b.String(), func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return "", false // control characters: what's checked must be what bash sees (found by FuzzClassifier)
+	}
+	return b.String(), true
 }
 
 // pathsIn returns what in a word may be a path: the word, the value of
@@ -96,94 +216,4 @@ func (p *Policy) inRoot(path string) bool {
 	}
 	rel, err := filepath.Rel(p.Root, filepath.Clean(path))
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, "../")
-}
-
-// splitChain splits cmd at unquoted &&, ||, ; and |. It fails on anything
-// that expands, substitutes, redirects or backgrounds, quoted or not
-// (except inside single quotes, where nothing expands).
-func splitChain(cmd string) ([]string, bool) {
-	var segs []string
-	var cur strings.Builder
-	var q byte
-	for i := 0; i < len(cmd); i++ {
-		c := cmd[i]
-		if q == '\'' {
-			if c == '\'' {
-				q = 0
-			}
-			cur.WriteByte(c)
-			continue
-		}
-		if q == '"' {
-			switch c {
-			case '`', '$', '\\', '!':
-				return nil, false
-			case '"':
-				q = 0
-			}
-			cur.WriteByte(c)
-			continue
-		}
-		switch c {
-		case '\'', '"':
-			q = c
-			cur.WriteByte(c)
-		case '`', '$', '<', '>', '(', ')', '{', '}', '\n', '\r', '\\', '!', '#':
-			return nil, false
-		case ';', '&', '|':
-			if c != ';' && i+1 < len(cmd) && cmd[i+1] == c {
-				i++
-			} else if c == '&' {
-				return nil, false // background
-			}
-			if strings.TrimSpace(cur.String()) == "" {
-				return nil, false
-			}
-			segs = append(segs, cur.String())
-			cur.Reset()
-		default:
-			cur.WriteByte(c)
-		}
-	}
-	if q != 0 || strings.TrimSpace(cur.String()) == "" {
-		return nil, false
-	}
-	return append(segs, cur.String()), true
-}
-
-// shellWords splits a segment (already checked by splitChain) into words,
-// removing quotes. A word that was quoted keeps a marker-free value, which
-// only makes the checks above stricter (a quoted "-delete" still matches).
-func shellWords(seg string) ([]string, bool) {
-	var words []string
-	var cur strings.Builder
-	var q byte
-	in := false
-	for i := 0; i < len(seg); i++ {
-		c := seg[i]
-		switch {
-		case q != 0 && c == q:
-			q = 0
-		case q != 0:
-			cur.WriteByte(c)
-		case c == '\'' || c == '"':
-			q, in = c, true
-		case c == ' ' || c == '\t':
-			if in {
-				words = append(words, cur.String())
-				cur.Reset()
-				in = false
-			}
-		default:
-			cur.WriteByte(c)
-			in = true
-		}
-	}
-	if q != 0 {
-		return nil, false
-	}
-	if in {
-		words = append(words, cur.String())
-	}
-	return words, true
 }

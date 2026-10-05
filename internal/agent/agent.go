@@ -51,6 +51,7 @@ type Event struct {
 	Elapsed time.Duration
 	Ledger  Ledger
 	N       int
+	Verdict string // verify's EvToolEnd: verified, failed or unverified
 }
 
 type Ledger struct {
@@ -76,6 +77,11 @@ type Agent struct {
 	// DepCheck looks up dependencies the model adds (manifest edits, install
 	// commands) in their registries. nil: not checked (--no-net).
 	DepCheck *deps.Checker
+	// Reasoning is the reasoning-budget policy (ADR 015): "auto" (or "")
+	// lets routing decide — low for routine turns, medium for hard ones,
+	// high for /architect plans and after an escalation; "off" sends no
+	// budget (each model's default); "low", "medium" or "high" fix it.
+	Reasoning string
 
 	Reg    *tools.Registry
 	Router *discover.Router
@@ -91,17 +97,18 @@ type Agent struct {
 	running atomic.Bool
 	pause   atomic.Bool // stop at the next safe point (between tool calls)
 
-	parent    *Agent       // a subagent's parent: usage is charged to it as it happens
-	turnCost0 float64      // session cost when the current turn started (subagent budgets)
-	subs      atomic.Int32 // subagents started this turn
-	subSem    chan struct{}
-	mu        sync.Mutex
-	verify    string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
-	state     State  // everything a session persists; changed only through commit
-	journal   Journal
-	note      string // harness note prepended to the next prompt (e.g. workspace drift)
-	system    string
-	current   *discover.Model
+	parent     *Agent       // a subagent's parent: usage is charged to it as it happens
+	turnCost0  float64      // session cost when the current turn started (subagent budgets)
+	subs       atomic.Int32 // subagents started this turn
+	subSem     chan struct{}
+	mu         sync.Mutex
+	verify     string // command run after edits; "" disables. Via VerifyCmd/SetVerify.
+	state      State  // everything a session persists; changed only through commit
+	journal    Journal
+	note       string // harness note prepended to the next prompt (e.g. workspace drift)
+	nextEffort string // the next turn's reasoning budget (SetNextEffort), consumed at turn start
+	system     string
+	current    *discover.Model
 }
 
 func New(reg *tools.Registry, r *discover.Router, emit func(Event)) *Agent {
@@ -269,6 +276,8 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	}
 	st := newTurnState(a.state.Ledger.Cost)
 	st.lim, st.budget, st.verify, st.prompt = a.Limits, a.Budget, a.verify, prompt
+	st.effort = a.effortFor(diff, a.nextEffort)
+	a.nextEffort = ""
 	a.turnCost0 = st.cost0
 	a.subs.Store(0)
 	a.mu.Unlock()
@@ -288,7 +297,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		a.Emit(Event{Kind: EvError, Text: "No usable model found. Set an API key (e.g. ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY) or start Ollama / LM Studio, then /refresh."})
 		return
 	}
-	a.setModel(model, reason)
+	a.setModel(model, reason+effortNote(model, st.effort))
 
 	verifyTries := 0
 	for step := 0; ; step++ {
@@ -305,7 +314,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		}
 		a.maybeCompact(tctx, model)
 
-		msg, calls, stop, err := a.step(tctx, model)
+		msg, calls, stop, err := a.step(tctx, model, st.effort)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -330,18 +339,28 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
-			if st.edited && st.verify != "" {
-				out, ok := a.runVerify(tctx, st.verify)
-				if gap := a.uncovered(tctx, st, st.verify); ok && gap != "" {
-					ok, out = false, out+"\n"+gap
-					a.Emit(Event{Kind: EvStatus, Text: "verify passed but didn't cover this turn's changes: " + strings.SplitN(gap, "\n", 2)[0]})
+			if st.edited || st.shellRan {
+				verdict, out, label, ran := a.verifyTurn(tctx, st)
+				st.edited, st.shellRan = false, false
+				if ran {
+					st.Verdict = verdict
+					st.checkResult(label, out, verdict == VerdictVerified)
 				}
-				st.checkResult(st.verify, out, ok)
-				st.edited = false
-				if ok {
-					st.lastPass, st.lastCheck = step, "passed ("+st.verify+")"
-				} else {
-					st.lastCheck = "failed (" + st.verify + ")"
+				switch {
+				case !ran:
+				case verdict == VerdictVerified:
+					st.lastPass, st.lastCheck = step, "passed ("+label+")"
+				case verdict == VerdictUnverified:
+					st.lastCheck = "unverified (" + label + ")"
+					if !st.gapsTold {
+						st.gapsTold, st.edited = true, true // check again after the model's answer
+						framed, _ := a.Reg.Frame.Wrap("verify", out)
+						a.appendUser("Automatic verification could not cover every file you changed:\n" + framed + "\nA file counts as verified only when a check compiled it. If a gap is unintended (a stray go.mod, a file outside any package or tsconfig, a module never declared), fix it. Otherwise say plainly in your answer which files are unverified, then stop.")
+						continue
+					}
+					a.Emit(Event{Kind: EvStatus, Text: "⚠ " + strings.SplitN(out, "\n", 2)[0] + " — the turn ends unverified"})
+				default:
+					st.lastCheck = "failed (" + label + ")"
 					verifyTries++
 					if verifyTries > 3 {
 						a.Emit(Event{Kind: EvError, Text: "verification still failing after 3 fix attempts — stopping so you can take a look"})
@@ -350,12 +369,12 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 					failures++
 					if failures >= 2 { // cascade: only pay for a stronger model when the cheap one demonstrably failed
 						if up, ok := a.Router.Escalate(model, need); ok {
-							model = up
-							a.setModel(model, "escalated after repeated verification failure")
+							model, st.effort = up, a.escalated(st.effort)
+							a.setModel(model, "escalated after repeated verification failure"+effortNote(model, st.effort))
 						}
 					}
 					framed, _ := a.Reg.Frame.Wrap("verify", out)
-					a.appendUser("Automatic verification (`" + st.verify + "`) failed:\n" + framed + "\nFix the root cause, then stop.")
+					a.appendUser("Automatic verification (" + label + ") failed:\n" + framed + "\nFix the root cause, then stop.")
 					continue
 				}
 			}
@@ -393,8 +412,8 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			}
 			a.Emit(Event{Kind: EvStatus, Text: "no progress detected — redirecting the model"})
 			if up, ok := a.Router.Escalate(model, need); ok { // a stuck model is a failed model
-				model = up
-				a.setModel(model, "escalated: previous model stopped making progress")
+				model, st.effort = up, a.escalated(st.effort)
+				a.setModel(model, "escalated: previous model stopped making progress"+effortNote(model, st.effort))
 			}
 			a.appendUser(msgLoop)
 		}
@@ -490,13 +509,17 @@ func (a *Agent) setModel(m *discover.Model, reason string) {
 	a.Emit(Event{Kind: EvModel, Model: m, Reason: reason})
 }
 
-func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm.ToolCall, string, error) {
+func (a *Agent) step(ctx context.Context, m *discover.Model, effort string) (llm.Message, []llm.ToolCall, string, error) {
 	a.mu.Lock()
 	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.state.History...), Tools: a.Reg.Specs()}
+	if m.Reasoning {
+		req.Effort = effort
+	}
 	a.mu.Unlock()
 	cl := llm.New(m.Provider.Endpoint())
 	var text strings.Builder
 	var calls []llm.ToolCall
+	var thinking []json.RawMessage
 	var stop string
 	chunks, lastProgress := 0, time.Now()
 	for ev := range cl.Stream(ctx, req) {
@@ -509,6 +532,8 @@ func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm
 		case llm.EvText:
 			text.WriteString(ev.Text)
 			a.Emit(Event{Kind: EvText, Text: ev.Text})
+		case llm.EvThinking:
+			thinking = append(thinking, ev.Raw)
 		case llm.EvToolCall:
 			calls = append(calls, ev.Call)
 		case llm.EvUsage:
@@ -519,7 +544,7 @@ func (a *Agent) step(ctx context.Context, m *discover.Model) (llm.Message, []llm
 			return llm.Message{}, nil, "", ev.Err
 		}
 	}
-	return llm.Message{Role: "assistant", Content: text.String(), ToolCalls: calls}, calls, stop, nil
+	return llm.Message{Role: "assistant", Content: text.String(), ToolCalls: calls, Thinking: thinking}, calls, stop, nil
 }
 
 func (a *Agent) account(m *discover.Model, u llm.Usage) {
@@ -628,6 +653,9 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		if t != nil && t.Kind == tools.Exec && !r.Rejected && reCheckCmd.MatchString(t.Summary([]byte(tc.Args))) {
 			st.checkResult(t.Summary([]byte(tc.Args)), tools.Unframe(r.Out), !r.IsErr)
 		}
+		if t != nil && t.Kind == tools.Exec && !r.Rejected && !a.Reg.Policy.ReadOnlyCommand(t.Summary([]byte(tc.Args))) {
+			st.shellRan = true // it may have changed files: the checkpoint diff says
+		}
 		if r.IsErr {
 			st.fails++
 			continue
@@ -638,6 +666,7 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		case t.Kind == tools.Edit:
 			st.edited, st.lastEdit = true, step
 			st.epoch++
+			st.trackPath(a.Reg.Rel, tc.Args)
 		case t.Kind == tools.Exec && reCheckCmd.MatchString(t.Summary([]byte(tc.Args))):
 			st.lastPass, st.lastCheck = step, "passed ("+t.Summary([]byte(tc.Args))+")"
 		}
@@ -678,18 +707,6 @@ func (a *Agent) checkpoint(ctx context.Context, st *turnState) {
 			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("checkpoints never capture or restore %d secret-like file(s): %s", len(fs), listFew(fs, 5))})
 		}
 	}
-}
-
-func (a *Agent) runVerify(ctx context.Context, cmd string) (string, bool) {
-	a.Emit(Event{Kind: EvVerify, Text: cmd})
-	t0 := time.Now()
-	out, code, err := a.Reg.Sandbox.Run(ctx, a.Reg.Root, cmd, 600)
-	ok := err == nil && code == 0
-	a.Emit(Event{Kind: EvToolEnd, ToolID: "verify", Tool: "verify", OK: ok, Text: out, Elapsed: time.Since(t0)})
-	if err != nil {
-		out += "\n" + err.Error()
-	}
-	return tools.Cap(a.Reg.Redact.Apply(out), 6000), ok
 }
 
 // maybeCompact summarises old turns with the cheapest model once the context
