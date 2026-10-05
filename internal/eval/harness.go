@@ -29,16 +29,11 @@ func isTemp(p string) bool {
 	if p == "" || !filepath.IsAbs(p) {
 		return false
 	}
-	p = filepath.Clean(p)
-	if real, err := filepath.EvalSymlinks(p); err == nil {
-		p = real
-	}
-	tmp := filepath.Clean(os.TempDir())
-	if real, err := filepath.EvalSymlinks(tmp); err == nil {
-		tmp = real
-	}
-	if p != tmp && strings.HasPrefix(p, tmp+string(filepath.Separator)) {
-		return true
+	p = resolve(filepath.Clean(p))
+	for _, tmp := range []string{filepath.Clean(os.TempDir()), resolve(filepath.Clean(os.TempDir()))} {
+		if p != tmp && strings.HasPrefix(p, tmp+string(filepath.Separator)) {
+			return true
+		}
 	}
 	for _, el := range strings.Split(p, string(filepath.Separator)) {
 		if strings.HasPrefix(el, ".e2e-work-") {
@@ -46,4 +41,19 @@ func isTemp(p string) bool {
 		}
 	}
 	return false
+}
+
+// resolve follows symlinks in the longest prefix of p that exists (the XDG
+// directories need not exist yet; on macOS /var is a link to /private/var).
+func resolve(p string) string {
+	rest := ""
+	for q := p; ; q = filepath.Dir(q) {
+		if real, err := filepath.EvalSymlinks(q); err == nil {
+			return filepath.Join(real, rest)
+		}
+		if filepath.Dir(q) == q {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(q), rest)
+	}
 }

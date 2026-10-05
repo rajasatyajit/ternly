@@ -220,6 +220,12 @@ func TestWriteDefaults(t *testing.T) {
 
 func TestHarnessIsolated(t *testing.T) {
 	tmp := t.TempDir()
+	// Like macOS, where the temp dir is reached through a link (/var → /private/var).
+	link := filepath.Join(t.TempDir(), "via")
+	if err := os.Symlink(tmp, link); err == nil {
+		t.Setenv("TMPDIR", link)
+		tmp = filepath.Join(link, "run") // inside the temp dir, reached through the link; not created yet
+	}
 	set := func(home, cfg, data, cache, state string) {
 		t.Setenv("HOME", home)
 		t.Setenv("XDG_CONFIG_HOME", cfg)
