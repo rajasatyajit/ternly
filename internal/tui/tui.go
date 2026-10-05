@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
@@ -33,8 +33,8 @@ var (
 	cGreen  = lipgloss.Color("#34D399")
 	cRed    = lipgloss.Color("#F87171")
 	cAmber  = lipgloss.Color("#FBBF24")
-	cDim    = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#6B7280"}
-	cFaint  = lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#374151"}
+	cDim    = lipgloss.Color("#6B7280")
+	cFaint  = lipgloss.Color("#374151") // setTheme: lighter on a light background
 
 	sDim    = lipgloss.NewStyle().Foreground(cDim)
 	sAccent = lipgloss.NewStyle().Foreground(cAccent).Bold(true)
@@ -126,6 +126,8 @@ type Model struct {
 	ta            textarea.Model
 	md            *glamour.TermRenderer
 	style         string
+	dark          bool
+	themeSet      bool // the user chose a theme (/theme or TERNLY_THEME): ignore the terminal's answer
 	w, h          int
 	blocks        []*block
 	busy          bool
@@ -162,6 +164,7 @@ type App struct {
 	Banner   string           // shown at start (resumed session, fork offer)
 	Pick     bool             // open the session picker at start (bare --resume)
 	Memory   *memory.Memory   // nil: memory off
+	Theme    string           // "dark" or "light" fixes the theme (TERNLY_THEME); "": follow the terminal
 }
 
 func New(app *App, dark bool) *Model {
@@ -171,17 +174,14 @@ func New(app *App, dark bool) *Model {
 	ta.Prompt = ""
 	ta.CharLimit = 0
 	ta.SetHeight(1)
-	ta.KeyMap.InsertNewline.SetKeys("alt+enter", "ctrl+j")
-	fs, bs := textarea.DefaultStyles()
-	fs.CursorLine = lipgloss.NewStyle()
-	fs.Placeholder = sDim
-	ta.FocusedStyle, ta.BlurredStyle = fs, bs
-	ta.Focus()
-	style := "dark"
-	if !dark {
-		style = "light"
+	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
+	m := &Model{App: app, ta: ta, vp: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)), discovering: true}
+	switch app.Theme {
+	case "dark", "light":
+		dark, m.themeSet = app.Theme == "dark", true
 	}
-	m := &Model{App: app, ta: ta, vp: viewport.New(80, 20), style: style, discovering: true}
+	m.setTheme(dark)
+	m.ta.Focus()
 	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
 	if app.Sessions != nil {
 		if st := app.Agent.Export(); len(st.History) > 0 {
@@ -197,8 +197,32 @@ func New(app *App, dark bool) *Model {
 	return m
 }
 
+// setTheme picks the palette and markdown style for a dark or light
+// background (v2: the terminal's answer arrives as a message; nothing blocks).
+func (m *Model) setTheme(dark bool) {
+	m.dark = dark
+	m.style = "dark"
+	cFaint = lipgloss.Color("#374151")
+	if !dark {
+		m.style = "light"
+		cFaint = lipgloss.Color("#D1D5DB")
+	}
+	sBox = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cFaint).Padding(0, 1)
+	sBoxOn = sBox.BorderForeground(cAccent)
+	st := textarea.DefaultStyles(dark)
+	st.Focused.CursorLine = lipgloss.NewStyle()
+	st.Focused.Placeholder = sDim
+	m.ta.SetStyles(st)
+	if m.w > 0 {
+		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.style), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+	}
+	for _, b := range m.blocks {
+		b.rendered = ""
+	}
+}
+
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{textarea.Blink, tick(), func() tea.Msg {
+	cmds := []tea.Cmd{textarea.Blink, tick(), tea.RequestBackgroundColor, func() tea.Msg {
 		ms, w := m.App.Discover()
 		return discoveredMsg{ms, w}
 	}}
@@ -300,7 +324,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil
 		})
 
-	case tea.KeyMsg:
+	case tea.BackgroundColorMsg:
+		if !m.themeSet && msg.IsDark() != m.dark {
+			m.setTheme(msg.IsDark())
+			m.refresh(true)
+		}
+
+	case tea.KeyPressMsg:
 		if c, handled := m.onKey(msg); handled {
 			return m, c
 		}
@@ -315,7 +345,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *Model) onKey(k tea.KeyMsg) (tea.Cmd, bool) {
+func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
 	}
@@ -787,8 +817,8 @@ func (m *Model) layout() {
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
-	m.vp.Width = m.w
-	m.vp.Height = max(3, m.h-1-inputH-1-permH)
+	m.vp.SetWidth(m.w)
+	m.vp.SetHeight(max(3, m.h-1-inputH-1-permH))
 }
 
 func (m *Model) refresh(force bool) {
@@ -857,7 +887,13 @@ func (m *Model) renderBlock(b *block) string {
 	return b.text
 }
 
-func (m *Model) View() string {
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true // basic key disambiguation (shift+enter) is requested by default
+	return v
+}
+
+func (m *Model) render() string {
 	if !m.ready {
 		return "\n  " + shine("ternly", m.frame)
 	}
@@ -974,8 +1010,8 @@ func (m *Model) welcome() string {
 // ─────────────────────────── helpers ───────────────────────────
 
 func tierBadge(t int) string {
-	c := []lipgloss.Color{"#6B7280", "#22D3EE", "#A78BFA", "#F472B6"}[min(max(t, 0), 3)]
-	return lipgloss.NewStyle().Foreground(c).Render(fmt.Sprintf("T%d", t))
+	c := []string{"#6B7280", "#22D3EE", "#A78BFA", "#F472B6"}[min(max(t, 0), 3)]
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Render(fmt.Sprintf("T%d", t))
 }
 
 func prettyTool(t string) string {

@@ -19,8 +19,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
@@ -410,11 +409,9 @@ func run() int {
 			}
 		}
 		return ms, w
-	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem}
-	dark := darkTerminal()
-	lipgloss.SetHasDarkBackground(dark) // pre-seed: no blocking OSC query for adaptive colours
-	m := tui.New(app, dark)
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
+	}, Notes: notes, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME")}
+	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
+	p := tea.NewProgram(m, tea.WithContext(ctx))
 	emit = func(e agent.Event) { p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
 	background()

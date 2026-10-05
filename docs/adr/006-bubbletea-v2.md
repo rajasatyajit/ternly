@@ -1,6 +1,6 @@
 # ADR 006 — Bubble Tea v2: assessment, not yet migrated
 
-Status: proposed (no migration yet, per the M2 review). The review asked for `004-bubbletea-v2.md`;
+Status: accepted, migrated in M5 (bubbletea v2.0.10, lipgloss v2.0.6, bubbles v2.2.1, glamour v2.0.1). The review asked for `004-bubbletea-v2.md`;
 004 was already taken by sessions, so this is 006.
 
 ## Why look at v2
@@ -61,3 +61,17 @@ terminals that ignore status queries.
 - v2 needs Go 1.26 (already our floor) and changes every TUI file.
 - Keyboard enhancements only help on terminals that support the kitty protocol; others fall back to
   legacy keys.
+
+
+## Outcome (M5)
+Migrated together with the M5 command work, as planned.
+- **Resolved:** alt-screen is a `tea.View` field (`View.AltScreen`) in v2.0.10, verified in the
+  module source. That was the open question above.
+- **Theme:** the background colour is requested with `tea.RequestBackgroundColor`, and a
+  `BackgroundColorMsg` switches the palette unless `TERNLY_THEME` or `/theme` fixed it. Start-up
+  never waits for it.
+- **Keys:** `KeyPressMsg`, matched by `String()` as before. Shift+Enter now inserts a newline on
+  terminals that report it. v2 requests basic key disambiguation by default.
+- **Regression suite:** the pty end-to-end tests passed unchanged.
+- **Start-up in a terminal that ignores status queries: 5.08 s → 81 ms**, the same as a terminal
+  that answers (1000-turn session, best of 3; `TestResumeLargeSessionTimeToInteractive`).

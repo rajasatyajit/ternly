@@ -449,7 +449,7 @@ func TestResumeLargeSessionTimeToInteractive(t *testing.T) {
 	}
 	t.Logf("1000-turn session: interactive with transcript in %v (process start-up alone, -version: %v; best of 3; terminal answers status queries)", best.Round(time.Millisecond), bestVersion.Round(time.Millisecond))
 
-	// A terminal that never answers costs bubbletea v1's init-time query its full timeout.
+	// A terminal that never answers status queries must not delay start-up (v1 waited ~5 s).
 	c := ternly(t, home, "-model", "fake/m1", "-C", ws, "-c")
 	c.Env = append(c.Env, "TERM=xterm-256color", "TERNLY_THEME=dark")
 	scr := &screen{Mute: true}
@@ -459,7 +459,7 @@ func TestResumeLargeSessionTimeToInteractive(t *testing.T) {
 		t.Fatal(err)
 	}
 	scr.waitFor(t, "resumed “Big Session”")
-	t.Logf("same, in a terminal that ignores status queries: %v (termenv OSC timeout in bubbletea v1's init)", time.Since(t0).Round(time.Millisecond))
+	t.Logf("same, in a terminal that ignores status queries: %v (v1 waited 5 s for its init-time OSC query; v2 asks without blocking)", time.Since(t0).Round(time.Millisecond))
 	_, _ = tty.Write([]byte("/exit\r"))
 	_ = c.Wait()
 }

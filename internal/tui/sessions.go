@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/session"
@@ -94,17 +94,17 @@ func (m *Model) openPicker() {
 	m.refresh(true)
 }
 
-func (m *Model) pickerKey(k tea.KeyMsg) tea.Cmd {
+func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 	p := m.picker
 	items := p.items()
-	switch k.Type {
-	case tea.KeyEsc, tea.KeyCtrlC:
+	switch k.String() {
+	case "esc", "ctrl+c":
 		m.picker = nil
-	case tea.KeyUp, tea.KeyCtrlP:
+	case "up", "ctrl+p":
 		p.sel = max(0, p.sel-1)
-	case tea.KeyDown, tea.KeyCtrlN, tea.KeyTab:
+	case "down", "ctrl+n", "tab":
 		p.sel = min(len(items)-1, p.sel+1)
-	case tea.KeyEnter:
+	case "enter":
 		m.picker = nil
 		if p.sel < len(items) {
 			if cur := m.App.Sessions.Current(); cur != nil && items[p.sel].ID == cur.ID {
@@ -114,14 +114,13 @@ func (m *Model) pickerKey(k tea.KeyMsg) tea.Cmd {
 			m.layout()
 			return m.switchTo(items[p.sel].ID)
 		}
-	case tea.KeyBackspace:
+	case "backspace":
 		if r := []rune(p.filter); len(r) > 0 {
 			p.filter, p.sel = string(r[:len(r)-1]), 0
 		}
-	case tea.KeyRunes, tea.KeySpace:
-		p.filter, p.sel = p.filter+string(k.Runes), 0
-		if k.Type == tea.KeySpace {
-			p.filter += " "
+	default:
+		if k.Text != "" && k.Mod&^tea.ModShift == 0 {
+			p.filter, p.sel = p.filter+k.Text, 0
 		}
 	}
 	m.layout()
