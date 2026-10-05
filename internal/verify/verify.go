@@ -78,7 +78,8 @@ func Cover(ctx context.Context, root string, changed []string, run Runner) *Repo
 			by[l] = append(by[l], f)
 		}
 	}
-	c := &checker{root: filepath.ToSlash(root), ws: ws, run: run, r: r}
+	real, _ := filepath.EvalSymlinks(root)
+	c := &checker{root: filepath.ToSlash(root), real: filepath.ToSlash(real), ws: ws, run: run, r: r}
 	for _, l := range []string{"go", "python", "js", "ts", "rust", "java"} {
 		if fs := by[l]; len(fs) > 0 && r.Failed == "" {
 			sort.Strings(fs)
@@ -92,6 +93,7 @@ func Cover(ctx context.Context, root string, changed []string, run Runner) *Repo
 
 type checker struct {
 	root string
+	real string // root with symlinks resolved
 	ws   *rootfs.Dir
 	run  Runner
 	r    *Report
@@ -232,8 +234,10 @@ func (c *checker) golang(ctx context.Context, files []string) {
 // workspace at its own path) to a workspace-relative one.
 func (c *checker) rel(abs string) string {
 	abs = filepath.ToSlash(strings.TrimSpace(abs))
-	if r := strings.TrimSuffix(c.root, "/"); abs == r || strings.HasPrefix(abs, r+"/") {
-		return path.Clean(strings.TrimPrefix(strings.TrimPrefix(abs, r), "/"))
+	for _, r := range []string{c.root, c.real} { // tools print the resolved path (macOS: /var → /private/var)
+		if r = strings.TrimSuffix(r, "/"); r != "" && (abs == r || strings.HasPrefix(abs, r+"/")) {
+			return path.Clean(strings.TrimPrefix(strings.TrimPrefix(abs, r), "/"))
+		}
 	}
 	return abs
 }

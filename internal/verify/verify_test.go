@@ -204,3 +204,18 @@ func TestMissingToolIsAGapNotAPass(t *testing.T) {
 }
 
 func firstLine(s string) string { l, _, _ := strings.Cut(s, "\n"); return l }
+
+// A workspace reached through a symlink (macOS: /var → /private/var): the
+// tools print resolved paths, which must still map back to the workspace.
+func TestLinkedWorkspaceRoot(t *testing.T) {
+	need(t, "go")
+	real := t.TempDir()
+	root := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, root); err != nil {
+		t.Fatal(err)
+	}
+	files(t, root, map[string]string{"go.mod": "module x\n\ngo 1.22\n", "a/a.go": "package a\n"})
+	if r := Cover(context.Background(), root, []string{"a/a.go"}, runner(t, root, nil)); !r.OK() || len(r.Covered) != 1 {
+		t.Fatalf("%+v %s", r, gaps(r))
+	}
+}
