@@ -30,7 +30,10 @@ var (
 // safeCommand reports whether cmd may run without confirmation; mkdir (in
 // the workspace) counts only when writes is set (edits and yolo modes).
 func (p *Policy) safeCommand(cmd string, writes bool) bool {
-	cmd = reHarmlessRedirect.ReplaceAllString(cmd, "") // merging stderr into stdout, or discarding output, writes nothing
+	// Merging stderr into stdout, or discarding output, writes nothing. The
+	// match is replaced by a space: removing it would join the words around
+	// it (`--pre 2>&1 ./x` read as `--pre./x`) and hide them from the checks.
+	cmd = reHarmlessRedirect.ReplaceAllString(cmd, " ")
 	segs, ok := splitChain(cmd)
 	if !ok {
 		return false
@@ -51,10 +54,15 @@ func (p *Policy) safeCommand(cmd string, writes bool) bool {
 			words = words[1:]
 		}
 		for i, w := range words {
-			if strings.HasPrefix(w, "/") {
-				if !p.inRoot(w) {
+			for _, v := range pathsIn(w) {
+				switch {
+				case strings.HasPrefix(v, "~"), v == "..", strings.HasPrefix(v, "../"), strings.Contains(v, "/../"), strings.HasSuffix(v, "/.."):
+					return false
+				case strings.HasPrefix(v, "/") && !p.inRoot(v):
 					return false
 				}
+			}
+			if strings.HasPrefix(w, "/") {
 				words[i] = "./" + w // in the workspace: as safe as a relative path
 			}
 		}
@@ -67,6 +75,19 @@ func (p *Policy) safeCommand(cmd string, writes bool) bool {
 		}
 	}
 	return true
+}
+
+// pathsIn returns what in a word may be a path: the word, the value of
+// --flag=value, and the value attached to a short flag (-f/etc/x).
+func pathsIn(w string) []string {
+	out := []string{w}
+	if _, v, ok := strings.Cut(w, "="); ok {
+		out = append(out, v)
+	}
+	if len(w) > 2 && w[0] == '-' && w[1] != '-' {
+		out = append(out, w[2:])
+	}
+	return out
 }
 
 func (p *Policy) inRoot(path string) bool {

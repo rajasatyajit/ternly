@@ -37,6 +37,19 @@ func TestSafeCommand(t *testing.T) {
 		{"rm -f /work/repo/internal/netguard/go.mod && ls /work/repo/internal/netguard/", true, false}, // destructive: delete_file instead
 		{"rmdir /work/repo/internal/netguard 2>/dev/null; echo \"ready\"", true, false},
 		{"cat x >/dev/null.d", false, false},
+		// Paths inside a word.
+		{"grep --file=/etc/passwd x", false, false},
+		{"grep -f/etc/passwd x", false, false},
+		{"grep --file=../other/x y", false, false},
+		{"grep -r foo internal/../../x", false, false},
+		{"grep --file=/work/repo/pats x", false, true},
+		{"go test -run=TestX ./...", false, true},
+		{"go test -coverprofile=c.out ./...", false, true},
+		// The stripped redirect must not join the words around it.
+		{"rg x --pre 2>&1 ./evil", false, false},
+		{"rg x --pre 2>/dev/null ./evil", false, false},
+		{"go build -toolexec 2>&1 ./x", false, false},
+		{"find . -exec 2>&1 rm {} ;", false, false},
 		{"cd /work/repo && go build ./internal/netguard 2>&1 | head -30", false, true},
 		{"cd internal && ls", false, true},
 		{`cd /work/repo && go build ./internal/netguard 2>&1; echo "EXIT:$?"`, false, false},
