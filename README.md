@@ -194,8 +194,8 @@ Apache-2.0 — see `LICENSE` and `NOTICE`.
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
 `--budget`, `--local-only`, `--no-local`, `--verify`, `--no-net`, `-C dir`, `-c`, `--resume [id]`, `--new` ·
 `ternly --eval --model <m>` (measure a model) · `ternly --models` (tiers and their basis).
-Release builds embed only the code graph's grammars: `go build -tags "$(cat GRAMMAR_TAGS)"`, or see
-`bench/run.sh`. A plain `go build` embeds every grammar (+18 MB).
+The binary embeds the code graph's six grammars; `go build -tags ternly_all_grammars` adds every
+other language gotreesitter has (+18 MB).
 TUI: `/help` for all commands · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn
 scroll · ↑↓ history.
 

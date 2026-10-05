@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // Languages other than Go (ADR 012): Python, TypeScript/TSX, JavaScript,
@@ -98,6 +97,9 @@ func (f *foreign) update(ctx context.Context, workers int) bool {
 			return nil
 		}
 		lang := foreignExt[filepath.Ext(p)]
+		if lang == "" && extraExt != nil && filepath.Ext(p) != ".go" {
+			lang = extraExt(p)
+		}
 		if lang == "" || strings.HasSuffix(p, ".min.js") || strings.HasSuffix(p, ".d.ts") {
 			return nil
 		}
@@ -134,7 +136,7 @@ func (f *foreign) update(ctx context.Context, workers int) bool {
 				taggers := map[string]*gotreesitter.Tagger{} // a tagger owns a parser: one per worker and language
 				for i := range ch {
 					j := jobs[i]
-					b, err := os.ReadFile(filepath.Join(f.root, j.rel))
+					b, err := readSource(f.root, filepath.Join(f.root, j.rel))
 					if err != nil {
 						continue
 					}
@@ -225,12 +227,12 @@ func tagFile(taggers map[string]*gotreesitter.Tagger, lang string, src []byte) *
 	ft := &fileTags{Lang: lang}
 	tg := taggers[lang]
 	if tg == nil {
-		e := grammars.DetectLanguageByName(lang)
-		if e == nil {
+		l, q := language(lang)
+		if l == nil {
 			return ft
 		}
 		var err error
-		if tg, err = gotreesitter.NewTagger(e.Language(), grammars.ResolveTagsQuery(*e), gotreesitter.WithTaggerTimeoutMicros(foreignTimeout)); err != nil {
+		if tg, err = gotreesitter.NewTagger(l, q, gotreesitter.WithTaggerTimeoutMicros(foreignTimeout)); err != nil {
 			return ft
 		}
 		taggers[lang] = tg
@@ -405,7 +407,7 @@ func (f *foreign) packages() []*Package {
 				continue // too many candidates to be a useful edge
 			}
 			for _, to := range targets {
-				p.Refs = append(p.Refs, Ref{From: from, To: to, Pos: Pos{File: rel, Line: c.Line, Col: c.Col}, Call: true, Approx: len(targets) > 1})
+				p.Refs = append(p.Refs, Ref{From: from, To: to, Pos: Pos{File: rel, Line: c.Line, Col: c.Col}, Call: true, ByName: true, Approx: len(targets) > 1})
 			}
 		}
 	}

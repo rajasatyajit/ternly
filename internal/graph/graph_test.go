@@ -169,7 +169,7 @@ func TestToolsOutput(t *testing.T) {
 			t.Errorf("%s %s:\nwant %q in\n%s", tool, c[0], c[1], out)
 		}
 	}
-	if out := byName["references"](`{"symbol":"NewSquare"}`); !strings.Contains(out, "app/main.go:10  in example.com/fix/app.main call  │ sq := shapes.NewSquare(3)") {
+	if out := byName["references"](`{"symbol":"NewSquare"}`); !strings.Contains(out, "app/main.go:10  in example.com/fix/app.main call [typed]  │ sq := shapes.NewSquare(3)") {
 		t.Errorf("reference lines should carry their source line:\n%s", out)
 	}
 	if out := byName["find_symbol"](`{"query":"NewSquare"}`); !strings.Contains(out, "    │ func NewSquare(n float64) *Square { return &Square{Side: n} }") {

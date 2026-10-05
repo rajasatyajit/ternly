@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"github.com/rajasatyajit/ternly/internal/rootfs"
+
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -269,7 +271,7 @@ func (b *builder) check(lp *listPkg) (*Package, *types.Package) {
 	}
 	for _, n := range lp.IgnoredGoFiles {
 		path := filepath.Join(lp.Dir, n)
-		if src, err := os.ReadFile(path); err == nil {
+		if src, err := readSource(b.root, path); err == nil {
 			info := FileInfo{Name: b.rel(path), Hash: hashBytes(src), Ignored: true}
 			if fi, err := os.Stat(path); err == nil {
 				info.Size, info.MTime = fi.Size(), fi.ModTime().UnixNano()
@@ -298,7 +300,7 @@ func (b *builder) parse(p *Package, dir string, names []string) []*ast.File {
 	var files []*ast.File
 	for _, n := range names {
 		path := filepath.Join(dir, n)
-		src, err := os.ReadFile(path)
+		src, err := readSource(b.root, path)
 		if err != nil {
 			continue
 		}
@@ -352,7 +354,7 @@ func syntaxGraph(root string) []*Package {
 		}
 		switch {
 		case d.Name() == "go.mod":
-			if b, err := os.ReadFile(path); err == nil {
+			if b, err := readSource(root, path); err == nil {
 				for _, ln := range strings.Split(string(b), "\n") {
 					if f := strings.Fields(ln); len(f) == 2 && f[0] == "module" {
 						mods[filepath.Dir(path)] = strings.Trim(f[1], `"`)
@@ -474,4 +476,15 @@ func pathName(path string) string {
 	}
 	n = strings.TrimSuffix(strings.TrimPrefix(n, "go-"), "-go")
 	return strings.ReplaceAll(n, "-", "_")
+}
+
+// readSource reads a file the graph parses or hashes, confined to the
+// workspace — or, for a dependency outside it, to its own directory — so a
+// file or directory linked out of the tree is never read as source.
+func readSource(root, path string) ([]byte, error) {
+	base := root
+	if rel, err := filepath.Rel(root, path); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		base = filepath.Dir(path)
+	}
+	return rootfs.ReadFile(base, path)
 }

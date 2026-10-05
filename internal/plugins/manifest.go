@@ -9,6 +9,8 @@
 package plugins
 
 import (
+	"github.com/rajasatyajit/ternly/internal/rootfs"
+
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -116,6 +118,18 @@ type Manifest struct {
 	Dir                        string
 	Components                 []Component
 	Skipped                    []Skip
+
+	fs *rootfs.Dir // what files are read through while loading: confined to Dir
+}
+
+func (m *Manifest) readFile(p string) ([]byte, error) { return m.fs.ReadFile(p) }
+func (m *Manifest) exists(p string) bool              { return m.fs.Exists(p) }
+func (m *Manifest) frontmatter(p string) (front, string, error) {
+	b, err := m.fs.ReadFile(p)
+	if err != nil {
+		return nil, "", err
+	}
+	return parseFrontmatter(p, b)
 }
 
 // Executable components run code: hooks and MCP servers.
@@ -135,9 +149,14 @@ func (m *Manifest) skip(what, why string) { m.Skipped = append(m.Skipped, Skip{w
 // plugin (.claude-plugin/plugin.json or the standard layout), a Gemini CLI
 // extension (gemini-extension.json), or a bare skills/agents/rules tree.
 func Load(dir, fallbackName string) (*Manifest, error) {
-	m := &Manifest{Dir: dir, Name: fallbackName}
+	fs, err := rootfs.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer fs.Close()
+	m := &Manifest{Dir: dir, Name: fallbackName, fs: fs}
 	switch {
-	case exists(filepath.Join(dir, "gemini-extension.json")):
+	case m.exists("gemini-extension.json"):
 		if err := loadGemini(m); err != nil {
 			return nil, err
 		}
@@ -186,13 +205,13 @@ type claudeManifest struct {
 func loadClaude(m *Manifest) error {
 	var pm claudeManifest
 	m.Format = "claude-plugin"
-	if b, err := os.ReadFile(filepath.Join(m.Dir, ".claude-plugin", "plugin.json")); err == nil {
+	if b, err := m.readFile(filepath.Join(m.Dir, ".claude-plugin", "plugin.json")); err == nil {
 		if err := json.Unmarshal(b, &pm); err != nil {
 			return fmt.Errorf("plugin.json: %w", err)
 		}
 		m.Name, m.Version, m.Description, m.Homepage, m.License = orStr(pm.Name, m.Name), pm.Version, pm.Description, pm.Homepage, pm.License
 		m.Author, m.Repo = authorName(pm.Author), jsonString(pm.Repository)
-	} else if !exists(filepath.Join(m.Dir, "skills")) && !exists(filepath.Join(m.Dir, "SKILL.md")) && !exists(filepath.Join(m.Dir, "commands")) && !exists(filepath.Join(m.Dir, "agents")) {
+	} else if !m.exists(filepath.Join(m.Dir, "skills")) && !m.exists(filepath.Join(m.Dir, "SKILL.md")) && !m.exists(filepath.Join(m.Dir, "commands")) && !m.exists(filepath.Join(m.Dir, "agents")) {
 		return fmt.Errorf("%s: no .claude-plugin/plugin.json, gemini-extension.json, skills/, commands/ or agents/", m.Dir)
 	}
 	for _, f := range []struct {
@@ -205,7 +224,7 @@ func loadClaude(m *Manifest) error {
 		}
 	}
 	for _, d := range []string{".lsp.json", "output-styles", "workflows", "themes", "monitors", "bin"} {
-		if exists(filepath.Join(m.Dir, d)) {
+		if m.exists(filepath.Join(m.Dir, d)) {
 			m.skip(d, "no ternly equivalent")
 		}
 	}
@@ -216,7 +235,7 @@ func loadClaude(m *Manifest) error {
 	for _, d := range skillDirs {
 		loadSkills(m, d, "claude")
 	}
-	if !exists(filepath.Join(m.Dir, "skills")) && exists(filepath.Join(m.Dir, "SKILL.md")) {
+	if !m.exists(filepath.Join(m.Dir, "skills")) && m.exists(filepath.Join(m.Dir, "SKILL.md")) {
 		loadSkill(m, filepath.Join(m.Dir, "SKILL.md"), "claude")
 	}
 	// commands: manifest paths replace the default scan
@@ -237,13 +256,13 @@ func loadClaude(m *Manifest) error {
 		loadAgents(m, filepath.Join(m.Dir, "agents"), "claude")
 	}
 	// hooks: hooks/hooks.json merged with the manifest's (path or inline)
-	if b, err := os.ReadFile(filepath.Join(m.Dir, "hooks", "hooks.json")); err == nil {
+	if b, err := m.readFile(filepath.Join(m.Dir, "hooks", "hooks.json")); err == nil {
 		loadHooks(m, b, true, "claude")
 	}
 	if len(pm.Hooks) > 0 && string(pm.Hooks) != "null" {
 		if p := m.paths(pm.Hooks); len(p) > 0 {
 			for _, f := range p {
-				if b, err := os.ReadFile(f); err == nil {
+				if b, err := m.readFile(f); err == nil {
 					loadHooks(m, b, true, "claude")
 				}
 			}
@@ -252,13 +271,13 @@ func loadClaude(m *Manifest) error {
 		}
 	}
 	// MCP: .mcp.json merged with the manifest's
-	if b, err := os.ReadFile(filepath.Join(m.Dir, ".mcp.json")); err == nil {
+	if b, err := m.readFile(filepath.Join(m.Dir, ".mcp.json")); err == nil {
 		loadMCP(m, b, true, "claude", "${CLAUDE_PLUGIN_ROOT}")
 	}
 	if len(pm.MCPServers) > 0 && string(pm.MCPServers) != "null" {
 		if p := m.paths(pm.MCPServers); len(p) > 0 {
 			for _, f := range p {
-				if b, err := os.ReadFile(f); err == nil {
+				if b, err := m.readFile(f); err == nil {
 					loadMCP(m, b, true, "claude", "${CLAUDE_PLUGIN_ROOT}")
 				}
 			}
@@ -298,19 +317,19 @@ func (m *Manifest) paths(raw json.RawMessage) []string {
 }
 
 func loadSkills(m *Manifest, dir, origin string) {
-	entries, err := os.ReadDir(dir)
+	entries, err := m.fs.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	for _, e := range entries {
-		if f := filepath.Join(dir, e.Name(), "SKILL.md"); e.IsDir() && exists(f) {
+		if f := filepath.Join(dir, e.Name(), "SKILL.md"); e.IsDir() && m.exists(f) {
 			loadSkill(m, f, origin)
 		}
 	}
 }
 
 func loadSkill(m *Manifest, path, origin string) {
-	fm, body, err := readFrontmatter(path)
+	fm, body, err := m.frontmatter(path)
 	if err != nil {
 		m.skip(path, err.Error())
 		return
@@ -343,11 +362,11 @@ func loadSkill(m *Manifest, path, origin string) {
 }
 
 func loadCommands(m *Manifest, dir string) {
-	_ = filepath.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
+	_ = m.fs.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
 		if err != nil || e.IsDir() || !strings.HasSuffix(p, ".md") {
 			return nil
 		}
-		fm, body, err := readFrontmatter(p)
+		fm, body, err := m.frontmatter(p)
 		if err != nil {
 			m.skip(p, err.Error())
 			return nil
@@ -365,11 +384,11 @@ func loadCommands(m *Manifest, dir string) {
 
 // loadAgents reads Claude Code / Gemini / OpenCode agent markdown files.
 func loadAgents(m *Manifest, dir, origin string) {
-	_ = filepath.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
+	_ = m.fs.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
 		if err != nil || e.IsDir() || !strings.HasSuffix(p, ".md") {
 			return nil
 		}
-		fm, body, err := readFrontmatter(p)
+		fm, body, err := m.frontmatter(p)
 		if err != nil {
 			m.skip(p, err.Error())
 			return nil
@@ -541,7 +560,7 @@ func loadGemini(m *Manifest) error {
 		Plan            json.RawMessage `json:"plan"`
 		MigratedTo      string          `json:"migratedTo"`
 	}
-	b, err := os.ReadFile(filepath.Join(m.Dir, "gemini-extension.json"))
+	b, err := m.readFile(filepath.Join(m.Dir, "gemini-extension.json"))
 	if err != nil {
 		return err
 	}
@@ -564,34 +583,34 @@ func loadGemini(m *Manifest) error {
 		m.skip("migratedTo", "this extension moved to "+gm.MigratedTo)
 	}
 	ctx := orStr(gm.ContextFileName, "GEMINI.md")
-	if f := filepath.Join(m.Dir, filepath.Clean(ctx)); exists(f) {
+	if f := filepath.Join(m.Dir, filepath.Clean(ctx)); m.exists(f) {
 		m.Components = append(m.Components, Component{Kind: KContext, Name: m.Name + ":context", Description: "context file " + ctx, Path: f, Origin: "gemini", Always: true})
 	}
-	_ = filepath.WalkDir(filepath.Join(m.Dir, "commands"), func(p string, e os.DirEntry, err error) error {
+	_ = m.fs.WalkDir(filepath.Join(m.Dir, "commands"), func(p string, e os.DirEntry, err error) error {
 		if err != nil || e.IsDir() || !strings.HasSuffix(p, ".toml") {
 			return nil
 		}
 		rel, _ := filepath.Rel(filepath.Join(m.Dir, "commands"), p)
 		name := strings.ReplaceAll(strings.TrimSuffix(filepath.ToSlash(rel), ".toml"), "/", ":")
-		m.Components = append(m.Components, Component{Kind: KCommand, Name: m.Name + ":" + name, Description: tomlDescription(p), Path: p, Origin: "gemini"})
+		m.Components = append(m.Components, Component{Kind: KCommand, Name: m.Name + ":" + name, Description: m.tomlDescription(p), Path: p, Origin: "gemini"})
 		return nil
 	})
 	loadSkills(m, filepath.Join(m.Dir, "skills"), "gemini")
 	loadAgents(m, filepath.Join(m.Dir, "agents"), "gemini")
-	if b, err := os.ReadFile(filepath.Join(m.Dir, "hooks", "hooks.json")); err == nil {
+	if b, err := m.readFile(filepath.Join(m.Dir, "hooks", "hooks.json")); err == nil {
 		loadHooks(m, b, true, "gemini")
 	}
 	if len(gm.MCPServers) > 0 && string(gm.MCPServers) != "null" {
 		loadMCP(m, gm.MCPServers, false, "gemini", "${extensionPath}")
 	}
-	if exists(filepath.Join(m.Dir, "policies")) {
+	if m.exists(filepath.Join(m.Dir, "policies")) {
 		m.skip("policies", "Gemini policy files aren't loaded; ternly's permission policy applies")
 	}
 	return nil
 }
 
-func tomlDescription(p string) string {
-	b, err := os.ReadFile(p)
+func (m *Manifest) tomlDescription(p string) string {
+	b, err := m.readFile(p)
 	if err != nil {
 		return ""
 	}
@@ -633,11 +652,21 @@ func (f front) list(k string) []string {
 	return nil
 }
 
-func readFrontmatter(path string) (front, string, error) {
-	b, err := os.ReadFile(path)
+// readFrontmatter reads path confined to base (the directory that owns it;
+// "" = the file's own directory) and parses it.
+func readFrontmatter(base, path string) (front, string, error) {
+	if base == "" {
+		base = filepath.Dir(path)
+	}
+	b, err := rootfs.ReadFile(base, path)
 	if err != nil {
 		return nil, "", err
 	}
+	return parseFrontmatter(path, b)
+}
+
+// parseFrontmatter splits a YAML-subset header from the body.
+func parseFrontmatter(path string, b []byte) (front, string, error) {
 	if len(b) > 1<<20 {
 		return nil, "", fmt.Errorf("%s is over 1 MB", filepath.Base(path))
 	}

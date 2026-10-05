@@ -59,7 +59,7 @@ func readSums(root string, moduleDirs []string) map[string]string {
 		files = append(files, filepath.Join(d, "go.sum"))
 	}
 	for _, f := range files {
-		b, err := os.ReadFile(f)
+		b, err := readSource(root, f)
 		if err != nil {
 			continue
 		}
@@ -99,7 +99,7 @@ func depKeys(root, goVersion string, lps []*listPkg) map[string]depKey {
 			} else { // replaced or local module: hash the package's source
 				var all []byte
 				for _, f := range p.GoFiles {
-					b, _ := os.ReadFile(filepath.Join(p.Dir, f))
+					b, _ := readSource(p.Dir, filepath.Join(p.Dir, f))
 					all = append(append(all, hashBytes(b)...), f...)
 				}
 				k.Hash = hashBytes(all)

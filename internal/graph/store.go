@@ -557,7 +557,7 @@ func (s *Service) scan() (changed, gone []string) {
 		if err != nil || (fi.Size() == k.Size && fi.ModTime().UnixNano() == k.MTime) {
 			return
 		}
-		if b, err := os.ReadFile(filepath.Join(s.Root, rel)); err == nil && hashBytes(b) != k.Hash {
+		if b, err := readSource(s.Root, filepath.Join(s.Root, rel)); err == nil && hashBytes(b) != k.Hash {
 			changed = append(changed, rel)
 		}
 	})
@@ -622,7 +622,7 @@ func (s *Service) trackUnowned(g *Graph, man *manifest, paths []string) {
 			return
 		}
 		full := filepath.Join(s.Root, rel)
-		if b, err := os.ReadFile(full); err == nil {
+		if b, err := readSource(s.Root, full); err == nil {
 			fi := FileInfo{Name: rel, Hash: hashBytes(b)}
 			if st, err := os.Stat(full); err == nil {
 				fi.Size, fi.MTime = st.Size(), st.ModTime().UnixNano()
@@ -664,7 +664,7 @@ func (s *Service) walk(visit func(rel string, d fs.DirEntry)) {
 func (s *Service) check(paths map[string]bool) (changed, gone []string) {
 	known := s.known()
 	for p := range paths {
-		b, err := os.ReadFile(filepath.Join(s.Root, p))
+		b, err := readSource(s.Root, filepath.Join(s.Root, p))
 		k, ok := known[p]
 		switch {
 		case err != nil && ok:

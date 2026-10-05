@@ -89,3 +89,29 @@ func TestWarnings(t *testing.T) {
 		}
 	}
 }
+
+// A repository whose .claude is a link out of the workspace (or whose command
+// file is a link) loads none of those commands: reads are confined to the
+// workspace (rootfs).
+func TestLinkedCommandDirsNotLoaded(t *testing.T) {
+	outside := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(outside, "commands"), 0o755)
+	_ = os.WriteFile(filepath.Join(outside, "commands", "leak.md"), []byte("LINKED-SECRET"), 0o644)
+	_ = os.WriteFile(filepath.Join(outside, "key"), []byte("LINKED-SECRET"), 0o644)
+	root, home := t.TempDir(), t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, ".claude")); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.MkdirAll(filepath.Join(root, ".opencode", "commands"), 0o755)
+	_ = os.Symlink(filepath.Join(outside, "key"), filepath.Join(root, ".opencode", "commands", "k.md"))
+	_ = os.WriteFile(filepath.Join(root, ".opencode", "commands", "ok.md"), []byte("fine"), 0o644)
+	cs, _ := Load(Dirs(root, home), nil)
+	for _, c := range cs {
+		if strings.Contains(c.Template, "LINKED-SECRET") || c.Name == "leak" || c.Name == "k" {
+			t.Fatalf("loaded %s from outside the workspace", c.Name)
+		}
+	}
+	if len(cs) != 1 || cs[0].Name != "ok" {
+		t.Fatalf("commands: %v", cs)
+	}
+}

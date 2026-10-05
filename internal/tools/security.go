@@ -58,8 +58,39 @@ var (
 // PlanDenied is the reason given for a mutation refused in plan mode.
 const PlanDenied = " (plan mode is read-only: investigate and propose the change instead of making it; the user leaves plan mode with /code)"
 
+type restrictKey struct{}
+
+// WithRestriction marks the calls made under ctx as coming from a model
+// that is measured as easily baited by injected instructions (ADR 013): in
+// edits and yolo modes, every edit and every command that isn't read-only
+// needs confirmation, and "always" doesn't apply.
+func WithRestriction(ctx context.Context, why string) context.Context {
+	return context.WithValue(ctx, restrictKey{}, why)
+}
+
+func restriction(ctx context.Context) string { s, _ := ctx.Value(restrictKey{}).(string); return s }
+
 func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool, string) {
 	key, mode := name, p.Mode()
+	if why := restriction(ctx); why != "" && (mode == "edits" || mode == "yolo") && t.Kind != ReadOnly {
+		if t.Kind == Exec {
+			cmd := strings.TrimSpace(summary)
+			if reForbidden.MatchString(cmd) {
+				return false, " (command is on the forbidden list)"
+			}
+			if reSafe.MatchString(cmd) && !reDanger.MatchString(cmd) && !reMeta.MatchString(cmd) && !reUnsafeArg.MatchString(cmd) {
+				return true, ""
+			}
+		}
+		danger := t.Kind == Exec && reDanger.MatchString(summary)
+		if p.Ask == nil {
+			return false, " (non-interactive: " + why + ", so its edits and commands need a person to confirm; rerun with another model, or interactively)"
+		}
+		if p.Ask(ctx, name, summary+"  ["+why+"]", danger) == Deny {
+			return false, " (denied by user)"
+		}
+		return true, ""
+	}
 	if mode == "plan" { // read, search and safe commands only
 		switch t.Kind {
 		case ReadOnly:

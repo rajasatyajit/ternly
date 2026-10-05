@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -51,6 +53,7 @@ type fakeProvider struct {
 	tools []string
 	users []string
 	specs []string // the tool listing of each request, raw JSON
+	raw   []string // every request body
 }
 
 func newProvider(t *testing.T, steps ...step) *fakeProvider {
@@ -60,6 +63,8 @@ func newProvider(t *testing.T, steps ...step) *fakeProvider {
 			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
 			return
 		}
+		rawBody, _ := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(bytes.NewReader(rawBody))
 		var body struct {
 			Messages []struct {
 				Role    string `json:"role"`
@@ -75,6 +80,7 @@ func newProvider(t *testing.T, steps ...step) *fakeProvider {
 		}
 		f.mu.Lock()
 		f.specs = append(f.specs, string(body.Tools))
+		f.raw = append(f.raw, string(rawBody))
 		if last := body.Messages[len(body.Messages)-1]; last.Role == "tool" {
 			f.tools = append(f.tools, last.Content)
 		} else if last.Role == "user" {

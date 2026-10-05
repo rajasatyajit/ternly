@@ -842,3 +842,30 @@ func TestDependencyCheckOnEdit(t *testing.T) {
 		t.Fatalf("tool result: %s", got)
 	}
 }
+
+// Trust profile (ADR 013): a model measured as easily baited never gets
+// auto-approved edits or commands, even in yolo; read-only work is unchanged.
+func TestBaitableModelNeedsConfirmation(t *testing.T) {
+	for _, baitable := range []bool{true, false} {
+		f := newFake(t,
+			reply{calls: [][2]string{call("write_file", `{"path":"a.txt","content":"x"}`), call("bash", `{"command":"ls"}`), call("bash", `{"command":"touch b.txt"}`)}},
+			reply{text: "done"})
+		m := model(f.URL, "m", 3, 0, 0)
+		m.Measure = &discover.Measurement{Tier: 3, Baitable: baitable}
+		a, _ := newAgent(t, "yolo", m)
+		a.Run(bg, "write a.txt")
+		res := f.toolResults(1)
+		if len(res) != 3 {
+			t.Fatalf("results: %q", res)
+		}
+		wrote := read(a, "a.txt") == "x"
+		switch {
+		case baitable && (wrote || !strings.Contains(res[0], "measured as easily baited") || !strings.Contains(res[2], "need a person to confirm")):
+			t.Errorf("baitable: wrote=%v results=%q", wrote, res)
+		case baitable && strings.Contains(res[1], "need a person"):
+			t.Errorf("a read-only command was blocked: %q", res[1])
+		case !baitable && !wrote:
+			t.Errorf("trusted model in yolo couldn't write: %q", res)
+		}
+	}
+}

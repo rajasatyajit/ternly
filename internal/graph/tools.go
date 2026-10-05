@@ -14,7 +14,7 @@ import (
 )
 
 // Guidance is added to the system prompt when the graph tools are available.
-const Guidance = `Code graph (Go, Python, TypeScript/JavaScript, Rust, Java): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with file:line citations, and cost far fewer tokens than grep plus read_file. Use them first; then read_file only the cited lines (offset/limit). Go edges are exact (type-checked); other languages' calls are matched by name, and a use marked "name match" may belong to another symbol of the same name — confirm it in the code. Use grep for text that is not an identifier (strings, comments, config).`
+const Guidance = `Code graph (Go, Python, TypeScript/JavaScript, Rust, Java): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with file:line citations, and cost far fewer tokens than grep plus read_file. Use them first; then read_file only the cited lines (offset/limit). Every edge is tagged: [typed] edges were resolved by the Go type checker; [name match] edges (other languages, and Go before its typed build finishes) were matched by name and may belong to another symbol with the same name. Report name-matched results as candidates ("a call named flush at app/run.py:5, probably Buffer.flush") and confirm them in the code before stating them as fact. Use grep for text that is not an identifier (strings, comments, config).`
 
 // buildWait is how long a graph tool waits for the first build before telling
 // the model to fall back to grep/read.
@@ -216,9 +216,7 @@ func listRefs(rs []*Ref, limit int, empty string, src *source) string {
 		if r.Call {
 			call = " call"
 		}
-		if r.Approx {
-			call += " (name match)"
-		}
+		call += " " + edgeTag(r)
 		fmt.Fprintf(&b, "%s:%d  in %s%s  │ %s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call, src.line(r.Pos.File, int(r.Pos.Line)))
 	}
 	return b.String()
@@ -247,7 +245,7 @@ func listCallees(ws, deps *Graph, rs []*Ref, limit int, empty string, src *sourc
 		} else if s := deps.Symbol(r.To); s != nil {
 			where = fmt.Sprintf("declared in %s %s:%d", s.Pkg, s.Pos.File, s.Pos.Line)
 		}
-		fmt.Fprintf(&b, "%s  called at %s:%d  %s  │ %s\n", r.To, r.Pos.File, r.Pos.Line, where, src.line(r.Pos.File, int(r.Pos.Line)))
+		fmt.Fprintf(&b, "%s  called at %s:%d  %s %s  │ %s\n", r.To, r.Pos.File, r.Pos.Line, where, edgeTag(r), src.line(r.Pos.File, int(r.Pos.Line)))
 	}
 	return b.String()
 }
@@ -318,6 +316,18 @@ func (s *source) line(file string, n int) string {
 		return strings.TrimSpace(ls[0])
 	}
 	return ""
+}
+
+// edgeTag says how an edge was found: [typed] (the type checker resolved it)
+// or [name match] (matched by name: a candidate, to confirm in the code).
+func edgeTag(r *Ref) string {
+	switch {
+	case r.Approx:
+		return "[name match, ambiguous: one of several symbols with this name]"
+	case r.ByName:
+		return "[name match]"
+	}
+	return "[typed]"
 }
 
 func orStr(s, d string) string {

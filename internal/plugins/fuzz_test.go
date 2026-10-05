@@ -106,7 +106,7 @@ func FuzzFrontmatter(f *testing.F) {
 		if err := os.WriteFile(p, b, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		fm, body, err := readFrontmatter(p)
+		fm, body, err := readFrontmatter("", p)
 		if err != nil {
 			return
 		}

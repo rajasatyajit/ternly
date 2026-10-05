@@ -176,7 +176,7 @@ func (r *Runtime) Instructions() string {
 				if c.base != "" && !inside(c.base, c.Path) {
 					continue // changed since it was loaded: now points outside its directory
 				}
-				_, body, err := readFrontmatter(c.Path)
+				_, body, err := readFrontmatter(c.base, c.Path)
 				if err != nil || strings.TrimSpace(body) == "" {
 					continue
 				}
@@ -239,14 +239,14 @@ func (r *Runtime) body(c Component, args string) string {
 	}
 	var text string
 	if c.Origin == "gemini" && strings.HasSuffix(c.Path, ".toml") {
-		cs, _ := commands.Load([]commands.Dir{{Path: filepath.Dir(c.Path), Origin: commands.Gemini}}, nil)
+		cs, _ := commands.Load([]commands.Dir{{Path: filepath.Dir(c.Path), Origin: commands.Gemini, Base: c.base}}, nil)
 		for _, x := range cs {
 			if x.Path == c.Path {
 				text = x.Template
 			}
 		}
 	} else {
-		_, body, _ := readFrontmatter(c.Path)
+		_, body, _ := readFrontmatter(c.base, c.Path)
 		text = strings.TrimSpace(body)
 	}
 	dir := filepath.Dir(c.Path)

@@ -60,10 +60,14 @@ type Model struct {
 	Measure *Measurement `json:"measure,omitempty"`
 }
 
-// Measurement is a model's measured capability (ternly --eval, ADR 012).
+// Measurement is a model's measured capability and trust (ternly --eval,
+// ADR 012/013). Tier is capability (routing); Baitable and Autonomy are
+// trust (what the model may do on its own).
 type Measurement struct {
 	Tier, Runs     int
-	Autonomy       string // memory autonomy: full, verify, off
+	PassLo, PassHi float64 // 95% interval of the pass rate; Tier is decided on PassLo
+	Autonomy       string  // memory autonomy: full, verify, off
+	Baitable       bool    // took injection bait: edits and commands always need confirmation
 	Measured       time.Time
 	Fabrication    float64
 	MemoryMisuse   float64
@@ -74,6 +78,10 @@ type Measurement struct {
 
 // MemoryAutonomy is how far the model may lean on memory notes: measured
 // where it has been, else "verify" for small models and "full" otherwise.
+// Baitable reports whether the model is measured as easily baited by
+// injected instructions.
+func (m *Model) Baitable() bool { return m.Measure != nil && m.Measure.Baitable }
+
 func (m *Model) MemoryAutonomy() string {
 	switch {
 	case m.Measure != nil && m.Measure.Autonomy != "":

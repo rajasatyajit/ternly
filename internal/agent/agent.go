@@ -10,9 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -23,6 +21,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/llm"
+	"github.com/rajasatyajit/ternly/internal/rootfs"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -471,6 +470,12 @@ func (a *Agent) endTurn(ctx context.Context, st *turnState) {
 
 func ptr[T any](v T) *T { return &v }
 
+func (a *Agent) currentModel() *discover.Model {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.current
+}
+
 func (a *Agent) setModel(m *discover.Model, reason string) {
 	a.mu.Lock()
 	a.current = m
@@ -550,7 +555,11 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 		t0 := time.Now()
 		if !blocked[i] {
 			manifest, before := a.manifestBefore(tc)
-			res[i] = a.Reg.Call(ctx, tc)
+			cctx := ctx
+			if m := a.currentModel(); m != nil && m.Baitable() { // trust profile (ADR 013)
+				cctx = tools.WithRestriction(ctx, m.Key()+" is measured as easily baited by injected instructions")
+			}
+			res[i] = a.Reg.Call(cctx, tc)
 			if a.DepCheck != nil && !res[i].IsErr {
 				res[i].Out += a.checkDeps(ctx, tc, manifest, before)
 			}
@@ -773,7 +782,7 @@ Language for code you write:
 		fmt.Fprintf(&sb, "Project check command: %s\n", v)
 	}
 	for _, f := range []string{"TERNLY.md", "AGENTS.md", "CLAUDE.md", ".cursorrules"} { // tool-specific file wins
-		if b, err := os.ReadFile(filepath.Join(root, f)); err == nil {
+		if b, err := rootfs.ReadFile(root, f); err == nil { // confined: a link to ~/.ssh is not an instruction file
 			fmt.Fprintf(&sb, "\n# Project instructions (%s)\n%s\n", f, tools.Cap(string(b), 8000))
 			break
 		}
@@ -783,14 +792,19 @@ Language for code you write:
 
 // DetectVerify picks a fast, side-effect-free check for the project type.
 func DetectVerify(root string) string {
-	has := func(f string) bool { _, err := os.Stat(filepath.Join(root, f)); return err == nil }
+	ws, err := rootfs.Open(root)
+	if err != nil {
+		return ""
+	}
+	defer ws.Close()
+	has := ws.Exists
 	switch {
 	case has("go.mod"):
 		return "go build ./... && go vet ./..."
 	case has("Cargo.toml"):
 		return "cargo check --quiet --all-targets"
 	case has("package.json"):
-		b, _ := os.ReadFile(filepath.Join(root, "package.json"))
+		b, _ := ws.ReadFile("package.json")
 		for _, s := range []string{"typecheck", "lint", "build"} {
 			if strings.Contains(string(b), `"`+s+`"`) {
 				return "npm run -s " + s

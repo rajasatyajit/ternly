@@ -4,11 +4,12 @@
 package commands
 
 import (
+	"github.com/rajasatyajit/ternly/internal/rootfs"
+
 	"bufio"
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -44,6 +45,9 @@ type Dir struct {
 	Path    string
 	Origin  Origin
 	Project bool
+	// Base is the directory the commands are read confined to (the
+	// workspace, or home for personal commands); "" = Path itself.
+	Base string
 }
 
 // Dirs are the command locations for a workspace and home directory, in
@@ -51,15 +55,15 @@ type Dir struct {
 // Claude Code, Gemini CLI, Codex.
 func Dirs(root, home string) []Dir {
 	return []Dir{
-		{filepath.Join(root, ".ternly", "commands"), Ternly, true},
-		{filepath.Join(root, ".opencode", "commands"), OpenCode, true},
-		{filepath.Join(root, ".claude", "commands"), Claude, true},
-		{filepath.Join(root, ".gemini", "commands"), Gemini, true},
-		{filepath.Join(home, ".config", "ternly", "commands"), Ternly, false},
-		{filepath.Join(home, ".config", "opencode", "commands"), OpenCode, false},
-		{filepath.Join(home, ".claude", "commands"), Claude, false},
-		{filepath.Join(home, ".gemini", "commands"), Gemini, false},
-		{filepath.Join(home, ".codex", "prompts"), Codex, false},
+		{filepath.Join(root, ".ternly", "commands"), Ternly, true, root},
+		{filepath.Join(root, ".opencode", "commands"), OpenCode, true, root},
+		{filepath.Join(root, ".claude", "commands"), Claude, true, root},
+		{filepath.Join(root, ".gemini", "commands"), Gemini, true, root},
+		{filepath.Join(home, ".config", "ternly", "commands"), Ternly, false, home},
+		{filepath.Join(home, ".config", "opencode", "commands"), OpenCode, false, home},
+		{filepath.Join(home, ".claude", "commands"), Claude, false, home},
+		{filepath.Join(home, ".gemini", "commands"), Gemini, false, home},
+		{filepath.Join(home, ".codex", "prompts"), Codex, false, home},
 	}
 }
 
@@ -72,7 +76,15 @@ func Load(dirs []Dir, reserved func(string) bool) ([]*Command, []error) {
 	seen := map[string]bool{}
 	for _, d := range dirs {
 		var files []string
-		_ = filepath.WalkDir(d.Path, func(p string, e fs.DirEntry, err error) error {
+		base := d.Base
+		if base == "" {
+			base = d.Path
+		}
+		root, err := rootfs.Open(base) // a linked .claude (or file) can't lead outside
+		if err != nil {
+			continue // a missing directory is normal
+		}
+		_ = root.WalkDir(d.Path, func(p string, e fs.DirEntry, err error) error {
 			if err != nil {
 				return nil // a missing directory is normal
 			}
@@ -105,9 +117,9 @@ func Load(dirs []Dir, reserved func(string) bool) ([]*Command, []error) {
 				errs = append(errs, fmt.Errorf("%s: /%s is a built-in command and can't be redefined", p, name))
 				continue
 			}
-			b, err := os.ReadFile(p)
+			b, err := root.ReadFile(p)
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("%s: %w", p, err))
 				continue
 			}
 			c := &Command{Name: name, Project: d.Project, Origin: d.Origin, Path: p}
@@ -123,6 +135,7 @@ func Load(dirs []Dir, reserved func(string) bool) ([]*Command, []error) {
 			seen[name] = true
 			out = append(out, c)
 		}
+		root.Close()
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, errs

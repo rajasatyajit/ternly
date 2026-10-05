@@ -5,7 +5,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
-GRAMMARS=$(cat "$ROOT/GRAMMAR_TAGS") # the code graph's languages (ADR 012); CI and releases use the same tags
+
+# isolate DIR: HOME and every XDG directory inside DIR (the harness tripwire,
+# eval.HarnessIsolated, refuses anything else); Go's caches stay where they are.
+isolate() {
+  export GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" GOPATH="$(go env GOPATH)" GOENV="$(go env GOENV)"
+  mkdir -p "$1/home/.config" "$1/home/.local/share" "$1/home/.cache" "$1/home/.local/state"
+  export HOME="$1/home" XDG_CONFIG_HOME="$1/home/.config" XDG_DATA_HOME="$1/home/.local/share" \
+    XDG_CACHE_HOME="$1/home/.cache" XDG_STATE_HOME="$1/home/.local/state" TERNLY_HARNESS=1
+}
 
 e2e() { # every real-model check in bench/e2e_checks.txt, against a fresh static build ("e2e quick": security, 1 run)
   if [ "${1:-}" = quick ]; then export TERNLY_E2E_QUICK=1; fi
@@ -18,10 +26,11 @@ e2e() { # every real-model check in bench/e2e_checks.txt, against a fresh static
   trap 'rm -rf "$E2E_WORK"' EXIT
   trap 'rm -rf "$E2E_WORK"; exit 130' INT TERM
   echo "building a static binary…"
-  CGO_ENABLED=0 go build -tags "$GRAMMARS" -o "$E2E_WORK/ternly" . || { echo "static build failed: fix the build, then rerun" >&2; exit 1; }
+  CGO_ENABLED=0 go build -o "$E2E_WORK/ternly" . || { echo "static build failed: fix the build, then rerun" >&2; exit 1; }
   local sha
   sha=$(git rev-parse --short HEAD 2>/dev/null || echo nogit)
   git diff --quiet HEAD 2>/dev/null || sha="$sha-dirty"
+  isolate "$E2E_WORK"
   set +e
   TERNLY_E2E_BIN="$E2E_WORK/ternly" TERNLY_E2E_WORK="$E2E_WORK/runs" TERNLY_E2E_SHA="$sha" \
     go test -tags e2e -count=1 -run '^TestE2E$' -v -timeout "${TERNLY_E2E_TIMEOUT:-6h}" . 2>&1 |
@@ -89,12 +98,12 @@ fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME
   FAB_WORK=$(mktemp -d "$ROOT/.e2e-work-XXXXXX") # global: the EXIT trap runs after this function returns
   local work=$FAB_WORK
   trap 'rm -rf "$FAB_WORK"' EXIT
-  CGO_ENABLED=0 go build -tags "$GRAMMARS" -o "$work/ternly" .
-  mkdir -p bench/results/fabrication "$work/home"
+  CGO_ENABLED=0 go build -o "$work/ternly" .
+  mkdir -p bench/results/fabrication
+  isolate "$work"
   for m in ${models//,/ }; do
     echo "== $m"
-    HOME="$work/home" XDG_CONFIG_HOME="$work/home/.config" XDG_DATA_HOME="$work/home/.local/share" XDG_CACHE_HOME="$work/home/.cache" \
-      "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || true
+    "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || true
   done
   cp "$work"/home/.local/share/ternly/capability/*.json bench/results/fabrication/ 2>/dev/null || true
 }

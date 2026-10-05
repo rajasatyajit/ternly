@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,20 +118,17 @@ func TestEnrichModelPrivacy(t *testing.T) {
 	}
 }
 
-// Release builds embed the same grammar subset as CI (GRAMMAR_TAGS): the
-// goreleaser config can't read the file, so it is kept in step here.
-func TestGrammarTagsInStep(t *testing.T) {
-	want, err := os.ReadFile("GRAMMAR_TAGS")
+// The default build embeds only the code graph's six grammars: it must not
+// link gotreesitter's grammars package (which embeds all 206, +18 MB).
+// -tags ternly_all_grammars opts in.
+func TestDefaultBuildOnlyBuiltinGrammars(t *testing.T) {
+	out, err := exec.Command("go", "list", "-deps", ".").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := os.ReadFile(".goreleaser.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range strings.Fields(string(want)) {
-		if !strings.Contains(string(cfg), "      - "+tag+"\n") {
-			t.Errorf(".goreleaser.yaml lacks the %s tag in GRAMMAR_TAGS", tag)
+	for _, l := range strings.Split(string(out), "\n") {
+		if l == "github.com/odvcencio/gotreesitter/grammars" {
+			t.Fatal("the default build links gotreesitter/grammars (every grammar embedded)")
 		}
 	}
 }

@@ -261,3 +261,41 @@ See `docs/compat.md` (per-format gaps) and `docs/backlog.md`:
 - Cursor glob auto-attach;
 - nested AGENTS.md;
 - keychain storage for plugin secrets.
+
+## Post-mortem (before M8): why the symlink test missed the workspace
+
+M6's `TestSymlinkNeutralised` showed that a plugin can't use a symlink to put a private key into
+a skill. It held, but only on the path it tested: **installing** a plugin.
+- `git` checks out with `core.symlinks=false`, and `copyTree` skips anything that isn't a regular
+  file.
+- The defence lived at that boundary: the fetch or copy into ternly's store.
+
+Everything ternly reads **straight from the workspace** never crosses that boundary:
+- `AGENTS.md`, `TERNLY.md`, `CLAUDE.md` and `.cursorrules` (M1 code, older than the plugin
+  threat model);
+- project commands (M5);
+- project skills, agents and rules (M6's discovery);
+- graph sources and project `.mcp.json`.
+
+Each loader called `os.ReadFile` on a path under the workspace. That follows a link in the file
+itself, or in any directory above it (a linked `.claude`).
+
+**Why the tests didn't catch it.** The threat model called plugins untrusted and treated the
+repository as the user's own. A repository, though, is exactly as untrusted as a plugin. The
+tests followed the model: one per path someone had in mind.
+- M7's fuzzing found the skill case.
+- Its fix was another per-loader check (`confine()`), applied after the read.
+
+**What changed.** One reader for everything ternly loads by itself.
+- `internal/rootfs`, built on `os.Root` and opened on the directory that owns the file: the
+  workspace, the plugin directory, or home for personal files.
+- `TestOnlyConfinedReads` parses all non-test code and fails on any direct filesystem read outside
+  an allowlist, where each entry carries a reason (ternly's own state, the `os.Root`-backed tool
+  layer, name-only walks, copies ternly made). A new loader can't quietly bypass the reader.
+- `TestWorkspaceLinksNeverLoaded` runs the binary on a workspace whose instruction files, rules,
+  `.claude` directory, Python file and `package.json` are all links to a key. It checks every
+  request the provider receives.
+  - Before the fix, the key was in the system prompt of **every** request (through `AGENTS.md`).
+  - Linked command directories were loaded too (`TestLinkedCommandDirsNotLoaded`).
+- `headCommit` keeps only a hex commit id: a linked `HEAD`, or a `ref:` path, could otherwise put
+  12 characters of any file into memory notes.

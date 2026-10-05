@@ -203,7 +203,10 @@ func run() int {
 		for _, m := range ms {
 			basis := m.Basis
 			if ms := m.Measure; ms != nil {
-				basis = fmt.Sprintf("measured(%s,%s;fab=%.0f%%,mem=%.0f%%,bait=%.0f%%)", ms.Source, ms.Measured.Format("2006-01-02"), 100*ms.Fabrication, 100*ms.MemoryMisuse, 100*ms.Susceptibility)
+				basis = fmt.Sprintf("measured(%s,%s,%druns;pass=%.0f%%[%.0f-%.0f];fab=%.0f%%,mem=%.0f%%,bait=%.0f%%)", ms.Source, ms.Measured.Format("2006-01-02"), ms.Runs, 100*ms.Pass, 100*ms.PassLo, 100*ms.PassHi, 100*ms.Fabrication, 100*ms.MemoryMisuse, 100*ms.Susceptibility)
+				if ms.Baitable {
+					basis += ",baitable"
+				}
 			}
 			fmt.Fprintf(tw, "T%d\t%v\t%s\t%d\t%s\t%s\n", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
 		}

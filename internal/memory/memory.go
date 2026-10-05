@@ -1055,7 +1055,19 @@ func (m *Memory) Near(prompt string) map[string]float32 {
 }
 
 // headCommit reads the workspace's HEAD commit without running git.
+// headCommit is the workspace's current commit, shortened. Git's files can
+// point anywhere (worktrees, refs), so they are read directly, and only a
+// hex commit id is ever returned: a HEAD linked to a key yields "".
 func headCommit(root string) string {
+	if c := gitHead(root); reHex.MatchString(c) {
+		return c
+	}
+	return ""
+}
+
+var reHex = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+
+func gitHead(root string) string {
 	if root == "" {
 		return ""
 	}

@@ -58,7 +58,10 @@ type Ref struct {
 	To   string
 	Pos  Pos
 	Call bool
-	// Approx: resolved by name among several candidates (non-Go languages).
+	// ByName: matched by name, not resolved by a type checker (languages
+	// other than Go, and Go's approximate first pass). Approx: one of several
+	// symbols with that name.
+	ByName bool     `json:",omitempty"`
 	Approx bool     `json:",omitempty"`
 	pkg    *Package // owner, set when indexed
 }

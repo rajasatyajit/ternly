@@ -1,8 +1,10 @@
 package graph
 
 import (
+	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -162,5 +164,25 @@ func TestForeignBench(t *testing.T) {
 		t.Logf("%s: %d files, %d symbols, %d call edges (%.0f%% name-ambiguous); full %v + index %v; reload %v; one edit %v; cache %d KB",
 			filepath.Base(root), len(f.files), syms, refs, 100*float64(approx)/float64(max(refs, 1)), full.Round(time.Millisecond), index.Round(time.Millisecond),
 			reload.Round(time.Millisecond), edit.Round(time.Millisecond), fi.Size()>>10)
+	}
+}
+
+// The embedded grammar blobs are the pinned module's, byte for byte (a
+// gotreesitter upgrade must recopy them: see grammars/NOTICE).
+func TestGrammarBlobsMatchModule(t *testing.T) {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/odvcencio/gotreesitter").Output()
+	dir := strings.TrimSpace(string(out))
+	if err != nil || dir == "" {
+		t.Skip("module source not available")
+	}
+	for name := range builtinLangs {
+		want, err := os.ReadFile(filepath.Join(dir, "grammars", "grammar_blobs", name+".bin"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, _ := grammarFiles.ReadFile("grammars/" + name + ".bin")
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s.bin differs from gotreesitter's: recopy it", name)
+		}
 	}
 }

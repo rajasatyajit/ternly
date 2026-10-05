@@ -1,0 +1,27 @@
+These files are taken unchanged from github.com/odvcencio/gotreesitter v0.55.1
+(MIT, Copyright (c) 2026 Oscar Villavicencio):
+
+- *.bin: gotreesitter's parse tables (grammar blobs) for the grammars below, from
+  grammars/grammar_blobs/.
+- *.scm: the tags queries gotreesitter infers for them (grammars.ResolveTagsQuery).
+
+The grammar blobs are derived from these tree-sitter grammars, all MIT-licensed:
+
+| blob | grammar | ref | copyright |
+|---|---|---|---|
+| python.bin | https://github.com/tree-sitter/tree-sitter-python | 26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64 | Copyright (c) 2016 Max Brunsfeld |
+| typescript.bin, tsx.bin | https://github.com/tree-sitter/tree-sitter-typescript | 75b3874edb2dc714fb1fd77a32013d0f8699989f | Copyright (c) 2017 Max Brunsfeld |
+| javascript.bin | https://github.com/tree-sitter/tree-sitter-javascript | 58404d8cf191d69f2674a8fd507bd5776f46cb11 | Copyright (c) 2014 Max Brunsfeld |
+| rust.bin | https://github.com/tree-sitter/tree-sitter-rust | 77a3747266f4d621d0757825e6b11edcbf991ca5 | Copyright (c) 2017 Maxim Sokolov |
+| java.bin | https://github.com/tree-sitter/tree-sitter-java | e10607b45ff745f5f876bfa3e94fbcc6b44bdc11 | Copyright (c) 2017 Ayman Nadeem |
+
+MIT License: Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions: The above copyright notice
+and this permission notice shall be included in all copies or substantial portions of the
+Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+TestGrammarBlobsMatchModule keeps these in step with the pinned module version; when bumping
+gotreesitter, recopy them (see that test).

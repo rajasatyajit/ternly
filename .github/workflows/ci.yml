@@ -35,13 +35,14 @@ jobs:
           GOOS=darwin go vet ./...
           go vet -tags e2e . # the real-model suite (bench/run.sh e2e) must keep compiling
           go test -tags e2e -run '^TestManifestMatchesChecks$' . # …and its manifest must match its checks
+          go vet -tags ternly_all_grammars ./internal/graph # the opt-in build keeps compiling
       - name: go test -race
         env:
           TERNLY_REQUIRE_SANDBOX: "1" # sandbox/security tests fail instead of skipping
         run: go test -race ./...
       - name: static build
         run: |
-          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -tags "$(cat GRAMMAR_TAGS)" -o ternly .
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ternly .
           file ternly | grep -q 'statically linked'
       - name: goreleaser check
         uses: goreleaser/goreleaser-action@v7

@@ -17,14 +17,6 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -trimpath
-    tags: # only the grammars the code graph uses (docs/adr/012); without them every grammar is embedded (+18 MB)
-      - grammar_subset
-      - grammar_subset_python
-      - grammar_subset_typescript
-      - grammar_subset_tsx
-      - grammar_subset_javascript
-      - grammar_subset_rust
-      - grammar_subset_java
     ldflags:
       - -s -w -X main.version={{ .Version }}
     goos: [linux, darwin]

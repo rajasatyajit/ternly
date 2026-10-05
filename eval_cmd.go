@@ -27,6 +27,12 @@ import (
 // what a user's session gives it), judged afterwards. The result is saved as
 // the model's measured capability (<data>/capability), which routing uses.
 func runEval(dataDir, model string, pass []string, runs int, only string) int {
+	if os.Getenv("TERNLY_HARNESS") == "1" { // bench/run.sh: never against the real HOME
+		if err := eval.HarnessIsolated(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+	}
 	var re *regexp.Regexp
 	if only != "" {
 		var err error
@@ -75,18 +81,30 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 	}
 	rec := eval.Summarise(key, runs, outs)
 	path := "not saved: --eval-only measures a subset"
-	if re == nil { // only a full run is a measurement routing may use
-		if path, err = rec.Save(filepath.Join(dataDir, "capability")); err != nil {
+	if re == nil { // only a full run is a measurement routing may use; it adds to earlier ones
+		dir := filepath.Join(dataDir, "capability")
+		if prev, ok := eval.Load(dir)[key]; ok {
+			rec = prev.Merge(rec)
+		}
+		if path, err = rec.Save(dir); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 	}
-	fmt.Printf("\n%s (eval v%s, %d run(s), %s)\n", key, eval.Version, runs, time.Since(t0).Round(time.Second))
-	if runs < 3 {
-		fmt.Println("  one or two runs: rates near a tier boundary can move between runs — --eval-runs 3 for a firmer tier")
+	fmt.Printf("\n%s (eval v%s; this batch %d run(s), %s; %d run(s) in all)\n", key, eval.Version, runs, time.Since(t0).Round(time.Second), rec.Runs)
+	ci := func(c eval.Counts) string {
+		lo, hi := c.Wilson()
+		return fmt.Sprintf("%d/%d = %.0f%% [%.0f–%.0f%%]", c.Bad, c.N, 100*c.Rate(), 100*lo, 100*hi)
 	}
-	fmt.Printf("  fabrication %.0f%%  memory misuse %.0f%%  susceptibility %.0f%%  pass %.0f%%\n", 100*rec.Fabrication, 100*rec.MemoryMisuse, 100*rec.Susceptibility, 100*rec.Pass)
-	fmt.Printf("  measured tier T%d, memory autonomy %s — %s\n", rec.Tier(), rec.Autonomy(), path)
-	fmt.Printf("E2E-METRIC eval_version=%s fabrication=%.3f memory_misuse=%.3f susceptibility=%.3f pass=%.3f tier=%d\n", eval.Version, rec.Fabrication, rec.MemoryMisuse, rec.Susceptibility, rec.Pass, rec.Tier())
+	plo, phi := rec.PassInterval()
+	fmt.Printf("  fabrication %s · memory misuse %s · took bait %s (95%% intervals)\n", ci(rec.Fab), ci(rec.Mem), ci(rec.Inj))
+	fmt.Printf("  capability: pass %.0f%% [%.0f–%.0f%%] → T%d (decided on the lower bound; T3 ≥ 80%%, T2 ≥ 60%%)\n", 100*rec.Pass, 100*plo, 100*phi, rec.Tier())
+	trust := "edits and commands follow the mode"
+	if rec.Baitable() {
+		trust = "easily baited: every edit and command needs confirmation, whatever the mode"
+	}
+	fmt.Printf("  trust: %s; memory notes %s — %s\n", trust, rec.Autonomy(), path)
+	this := eval.Summarise(key, runs, outs) // the batch alone, for the e2e check
+	fmt.Printf("E2E-METRIC eval_version=%s fabrication=%.3f memory_misuse=%.3f susceptibility=%.3f pass=%.3f tier=%d baitable=%v\n", eval.Version, this.Fabrication, this.MemoryMisuse, this.Susceptibility, this.Pass, rec.Tier(), rec.Baitable())
 	return 0
 }
 
@@ -96,8 +114,9 @@ func measurements(dir string) map[string]discover.Measurement {
 	out := map[string]discover.Measurement{}
 	add := func(rs map[string]eval.Record, src string) {
 		for k, r := range rs {
-			out[k] = discover.Measurement{Tier: r.Tier(), Runs: r.Runs, Autonomy: r.Autonomy(), Measured: r.Measured,
-				Fabrication: r.Fabrication, MemoryMisuse: r.MemoryMisuse, Susceptibility: r.Susceptibility, Pass: r.Pass, Source: src}
+			lo, hi := r.PassInterval()
+			out[k] = discover.Measurement{Tier: r.Tier(), Runs: r.Runs, Autonomy: r.Autonomy(), Baitable: r.Baitable(), Measured: r.Measured,
+				Fabrication: r.Fabrication, MemoryMisuse: r.MemoryMisuse, Susceptibility: r.Susceptibility, Pass: r.Pass, PassLo: lo, PassHi: hi, Source: src}
 		}
 	}
 	add(eval.Defaults(), "ternly")

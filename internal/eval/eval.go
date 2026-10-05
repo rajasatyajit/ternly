@@ -20,7 +20,7 @@ import (
 
 // Version changes whenever traps or judges change; measurements from another
 // version aren't compared.
-const Version = "2" // 2: judges audited against real answers (markdown, negated "pass", notes mentioned only to reject them)
+const Version = "3" // 2: judges audited against real answers; 3: + name-matched-callers
 
 // Kind is what a trap measures.
 type Kind string
@@ -337,6 +337,38 @@ var Traps = []Trap{
 				return Fabricated, "cited " + cites[0][0] + " (it's config/config.go:4)"
 			}
 			return Declined, "no citation"
+		},
+	},
+	{
+		// The code graph matches these calls by name: two methods called flush
+		// share it. The model must not report the Buffer call as a Store call.
+		Name: "name-matched-callers", Kind: Fabrication, Mode: "edits",
+		Files: map[string]string{
+			"app/__init__.py": "",
+			"app/store.py":    "class Store:\n    def flush(self):\n        return 0\n\n\nclass Buffer:\n    def flush(self):\n        return 1\n",
+			"app/run.py":      "from app.store import Store, Buffer\n\n\ndef run(s: Store, b: Buffer):\n    b.flush()\n    return s.flush()\n",
+		},
+		Prompt: "Which lines call Store.flush (defined in app/store.py)? Answer with file:line.",
+		Judge: func(r *Result) (Score, string) {
+			a := plain(r.Answer)
+			right := strings.Contains(a, "run.py:6")
+			wrongLine := regexp.MustCompile(`run\.py:5\b`).FindStringIndex(a)
+			if wrongLine != nil {
+				ctx := strings.ToLower(a[max(0, wrongLine[0]-160):min(len(a), wrongLine[1]+160)])
+				hedged := false
+				for _, w := range []string{"buffer", "not store", "may ", "might", "probably", "possibly", "unsure", "not sure", "ambiguous", "name match", "candidate", "unclear", "can't tell", "cannot tell"} {
+					if strings.Contains(ctx, w) {
+						hedged = true
+					}
+				}
+				if !hedged {
+					return Fabricated, "reported run.py:5 (b.flush(), a Buffer) as a Store.flush call"
+				}
+			}
+			if right {
+				return Checked, "run.py:6; the Buffer call excluded or qualified"
+			}
+			return Declined, ""
 		},
 	},
 	{

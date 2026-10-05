@@ -425,7 +425,7 @@ func (e *extractor) nameRefs(f *ast.File, pkg string, imports, own map[string]st
 		done := map[*ast.Ident]bool{}
 		add := func(id *ast.Ident, to string) {
 			if to != "" && to != from {
-				e.p.Refs = append(e.p.Refs, Ref{From: from, To: to, Pos: e.pos(id.Pos()), Call: calls[id]})
+				e.p.Refs = append(e.p.Refs, Ref{From: from, To: to, Pos: e.pos(id.Pos()), Call: calls[id], ByName: true})
 			}
 		}
 		ast.Inspect(d, func(n ast.Node) bool {

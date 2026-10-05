@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"github.com/rajasatyajit/ternly/internal/rootfs"
+
 	"bufio"
 	"os"
 	"path/filepath"
@@ -14,7 +16,14 @@ import (
 // workspace). Only prompt text is taken from them (skills, agents, rules):
 // executable parts never start from these locations.
 func Local(root, home string) []*Manifest {
-	user := &Manifest{Name: "user", Format: "local", Dir: home}
+	uf, uerr := rootfs.Open(home) // personal files: links may lead anywhere inside home
+	pf, perr := rootfs.Open(root) // repository files: nothing may lead outside the workspace
+	if uerr != nil || perr != nil {
+		return nil
+	}
+	defer uf.Close()
+	defer pf.Close()
+	user := &Manifest{Name: "user", Format: "local", Dir: home, fs: uf}
 	for _, d := range []string{".claude/skills", ".agents/skills", ".config/opencode/skills"} {
 		loadSkills(user, filepath.Join(home, d), "claude")
 	}
@@ -25,7 +34,7 @@ func Local(root, home string) []*Manifest {
 	}
 	loadRules(user, filepath.Join(home, ".cursor/rules"))
 
-	proj := &Manifest{Name: "project", Format: "local", Dir: root}
+	proj := &Manifest{Name: "project", Format: "local", Dir: root, fs: pf}
 	for _, d := range []string{".claude/skills", ".agents/skills", ".opencode/skills"} {
 		loadSkills(proj, filepath.Join(root, d), "claude")
 	}
@@ -35,16 +44,17 @@ func Local(root, home string) []*Manifest {
 		loadAgents(proj, filepath.Join(root, d), "opencode")
 	}
 	loadRules(proj, filepath.Join(root, ".cursor/rules"))
-	if b, err := os.ReadFile(filepath.Join(root, ".cursorrules")); err == nil && len(strings.TrimSpace(string(b))) > 0 {
+	if b, err := proj.readFile(".cursorrules"); err == nil && len(strings.TrimSpace(string(b))) > 0 {
 		proj.Components = append(proj.Components, Component{Kind: KRule, Name: "project:cursorrules", Description: "legacy .cursorrules", Path: filepath.Join(root, ".cursorrules"), Origin: "cursor", Always: true})
 	}
 	for _, f := range []string{".claude/settings.json", ".gemini/settings.json"} {
-		if b, err := os.ReadFile(filepath.Join(root, f)); err == nil && strings.Contains(string(b), `"hooks"`) {
+		if b, err := proj.readFile(f); err == nil && strings.Contains(string(b), `"hooks"`) {
 			proj.skip(f+" hooks", "repository hooks never run automatically; package them as a plugin and /plugin add it to review and approve them")
 		}
 	}
 
-	proj.confine() // repository files: a skill linked to ~/.ssh stays out (your own files under home may link anywhere)
+	user.confine() // records each file's base, so bodies are read back confined
+	proj.confine() // repository files: a skill linked to ~/.ssh stays out
 	var out []*Manifest
 	for _, m := range []*Manifest{user, proj} {
 		for i := range m.Components { // personal and project items keep their bare names, as in Claude Code
@@ -62,11 +72,11 @@ func Local(root, home string) []*Manifest {
 // join the instructions; others are offered to the model by description
 // (globs are shown as what the rule is about).
 func loadRules(m *Manifest, dir string) {
-	_ = filepath.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
+	_ = m.fs.WalkDir(dir, func(p string, e os.DirEntry, err error) error {
 		if err != nil || e.IsDir() || !strings.HasSuffix(p, ".mdc") {
 			return nil
 		}
-		fm, body, err := readFrontmatter(p)
+		fm, body, err := m.frontmatter(p)
 		if err != nil || strings.TrimSpace(body) == "" {
 			return nil
 		}

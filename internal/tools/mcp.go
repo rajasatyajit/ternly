@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"github.com/rajasatyajit/ternly/internal/rootfs"
+
 	"bufio"
 	"context"
 	"encoding/json"
@@ -9,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -61,7 +64,7 @@ func LoadMCP(ctx context.Context, reg *Registry, paths []string) ([]*MCPServer, 
 		Trusted bool              `json:"trusted"`
 	}{}
 	for _, p := range paths {
-		b, err := os.ReadFile(p)
+		b, err := rootfs.ReadFile(filepath.Dir(p), p) // a .mcp.json linked out of its directory isn't config
 		if err != nil {
 			continue
 		}

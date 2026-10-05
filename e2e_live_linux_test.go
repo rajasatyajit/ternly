@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/eval"
 	"github.com/rajasatyajit/ternly/internal/logstore"
 )
 
@@ -35,6 +36,9 @@ func TestE2E(t *testing.T) {
 	model := os.Getenv("TERNLY_E2E_MODEL")
 	if model == "" {
 		t.Fatal("set TERNLY_E2E_MODEL to the model to test, e.g. TERNLY_E2E_MODEL=qwen3.6 bench/run.sh e2e")
+	}
+	if err := eval.HarnessIsolated(); err != nil { // tripwire: never against the user's real HOME
+		t.Fatal(err)
 	}
 	root, _ := os.Getwd()
 	specs, err := loadManifest(filepath.Join(root, "bench", "e2e_checks.txt"))
