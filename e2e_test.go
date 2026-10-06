@@ -9,11 +9,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/rajasatyajit/ternly/internal/session"
 )
@@ -34,7 +38,92 @@ func TestMain(m *testing.M) {
 		os.Args = append([]string{"ternly"}, args...)
 		os.Exit(run())
 	}
+	sweepHomes()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() { // a killed run (Ctrl+C, timeout) removes its homes first
+		<-sig
+		stopping.Store(true) // no new homes from tests still running
+		stopChildren()
+		removeOurHomes()
+		os.Exit(2)
+	}()
 	os.Exit(m.Run())
+}
+
+const homePrefix = "ternly-e2e-home-"
+
+var stopping atomic.Bool // set by the signal handler
+
+// stopChildren ends this process's children (the ternly runs): SIGTERM first
+// (ternly then cancels its background git and exits), SIGKILL after 5 s.
+// They're found with pgrep -P, not from the tests' exec.Cmds (which other
+// goroutines are still starting).
+func stopChildren() {
+	kids := func() []int {
+		out, _ := exec.Command("pgrep", "-P", strconv.Itoa(os.Getpid())).Output()
+		var pids []int
+		for _, f := range strings.Fields(string(out)) {
+			if n, err := strconv.Atoi(f); err == nil {
+				pids = append(pids, n)
+			}
+		}
+		return pids
+	}
+	for _, pid := range kids() {
+		_ = syscall.Kill(pid, syscall.SIGTERM)
+	}
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline) && len(kids()) > 0; {
+		time.Sleep(50 * time.Millisecond)
+	}
+	for _, pid := range kids() {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+}
+
+// removeOurHomes removes every home named for this process, including any
+// created while the handler ran.
+func removeOurHomes() {
+	ents, _ := os.ReadDir(homeRoot())
+	for _, e := range ents {
+		if strings.HasPrefix(e.Name(), fmt.Sprintf("%s%d-", homePrefix, os.Getpid())) {
+			_ = os.RemoveAll(filepath.Join(homeRoot(), e.Name()))
+		}
+	}
+}
+
+// homeRoot is where test homes go: $TERNLY_TEST_TMP, else /var/tmp (the OS
+// temp dir the sandbox doesn't replace), else os.TempDir().
+func homeRoot() string {
+	if d := os.Getenv("TERNLY_TEST_TMP"); d != "" {
+		return d
+	}
+	if fi, err := os.Stat("/var/tmp"); err == nil && fi.IsDir() {
+		if f, err := os.CreateTemp("/var/tmp", ".ternly-probe-"); err == nil {
+			f.Close()
+			os.Remove(f.Name())
+			return "/var/tmp"
+		}
+	}
+	return os.TempDir()
+}
+
+// sweepHomes removes test homes whose test process is gone (killed with
+// SIGKILL, which no handler sees).
+func sweepHomes() {
+	ents, _ := os.ReadDir(homeRoot())
+	for _, e := range ents {
+		rest, ok := strings.CutPrefix(e.Name(), homePrefix)
+		if !ok {
+			continue
+		}
+		pidStr, _, _ := strings.Cut(rest, "-")
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil || pid == os.Getpid() || syscall.Kill(pid, 0) == nil {
+			continue // alive (or ours)
+		}
+		_ = os.RemoveAll(filepath.Join(homeRoot(), e.Name()))
+	}
 }
 
 type step struct {
@@ -116,17 +205,26 @@ func (f *fakeProvider) seen() (tools, users []string) {
 	return append([]string(nil), f.tools...), append([]string(nil), f.users...)
 }
 
-// testHome makes a HOME with ternly config pointing at the fake provider. It
-// lives outside /tmp: the sandbox mounts a fresh /tmp, which would hide
-// anything there and make masking tests pass for the wrong reason.
+// testHome makes a HOME with ternly config pointing at the fake provider.
+// It lives in the OS's /var/tmp, not /tmp: the sandbox mounts a fresh /tmp,
+// which would hide anything there and make masking tests pass for the wrong
+// reason. Homes are named for the test process, removed on cleanup, on
+// SIGINT/SIGTERM, and — if the process was killed outright — by the next
+// run (sweepHomes).
 func testHome(t *testing.T, provider string) string {
 	t.Helper()
-	wd, _ := os.Getwd()
-	home, err := os.MkdirTemp(wd, ".e2e-home-")
+	if stopping.Load() {
+		t.Skip("the run is being stopped")
+	}
+	home, err := os.MkdirTemp(homeRoot(), fmt.Sprintf("%s%d-", homePrefix, os.Getpid()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(home) })
+	if stopping.Load() { // the handler may have swept already
+		_ = os.RemoveAll(home)
+		t.Skip("the run is being stopped")
+	}
 	cfg := filepath.Join(home, ".config", "ternly")
 	cache := filepath.Join(home, ".cache", "ternly")
 	data := filepath.Join(home, ".local", "share", "ternly")
@@ -154,6 +252,9 @@ func childEnv(home string, extra ...string) []string {
 }
 
 func ternly(t *testing.T, home string, args ...string) *exec.Cmd {
+	if stopping.Load() {
+		t.Skip("the run is being stopped")
+	}
 	b, _ := json.Marshal(args)
 	c := exec.Command(os.Args[0])
 	c.Env = childEnv(home, "TERNLY_TEST_ARGS="+string(b))

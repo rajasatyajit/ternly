@@ -414,12 +414,20 @@ func (s *Store) ignored(ctx context.Context, paths []string, byUs bool) ([]strin
 
 func (r *Repo) cmd(ctx context.Context, index string, args ...string) *exec.Cmd {
 	cfg := []string{"-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false",
-		"-c", "core.quotePath=false", "-c", "advice.addEmbeddedRepo=false"}
+		"-c", "core.quotePath=false", "-c", "advice.addEmbeddedRepo=false",
+		// ternly collects explicitly (GC); git must never start a detached gc of its own
+		"-c", "gc.auto=0", "-c", "gc.autoDetach=false"}
 	if r.excludes != "" {
 		cfg = append(cfg, "-c", "core.excludesFile="+r.excludes)
 	}
 	c := exec.CommandContext(ctx, r.git, append(cfg, args...)...)
 	c.Dir = r.root
+	// Its own process group, killed whole on cancel: `git gc` runs `git repack`
+	// and `git pack-objects`, which outlived a killed gc and kept writing into
+	// the repository after ternly exited (they left test homes behind).
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
+	c.WaitDelay = 5 * time.Second
 	// User/system config can define filters (git-lfs) or fsmonitor hooks; checkpoints must not run them.
 	c.Env = append(os.Environ(), "GIT_DIR="+r.gitDir, "GIT_WORK_TREE="+r.root, "GIT_INDEX_FILE="+index,
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")

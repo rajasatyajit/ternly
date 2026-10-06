@@ -542,8 +542,24 @@ func run() int {
 	}
 	// Started once events can be shown: drift since the session paused (or a
 	// baseline snapshot so the first edit doesn't wait), then checkpoint GC and the disk cap.
+	// The background work (drift check, snapshot, gc) is cancelled and waited
+	// for when ternly exits, so no git process outlives it.
+	bgCtx, bgCancel := context.WithCancel(ctx)
+	var bgWG sync.WaitGroup
+	defer func() {
+		bgCancel()
+		done := make(chan struct{})
+		go func() { bgWG.Wait(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+		}
+	}()
 	background := func() {
+		bgWG.Add(1)
 		go func() {
+			defer bgWG.Done()
+			ctx := bgCtx
 			if cs := mgr.Drift(ctx, st); len(cs) > 0 {
 				ag.Emit(agent.Event{Kind: agent.EvStatus, Text: fmt.Sprintf("%d file(s) changed outside this session since it paused; the model is told on your next prompt", len(cs))})
 			} else if ag.CP != nil {
