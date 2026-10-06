@@ -104,15 +104,53 @@ against the PR's base.
   were reported "new", and everything shared was within budget.
 - **In CI:** see "Gate proof" below, filled in from the PR's runs.
 
-## Gate proof (CI)
-To be filled in from the CI runs on this PR:
-- the A/A false-alarm check: the gate run against itself;
-- the deliberate regression: a throwaway PR stacked on this branch that slows a gated path,
-  shown failing, then closed.
+## Gate proof (CI, GitHub-hosted ubuntu-latest, 4 vCPU Xeon 8573C)
+A throwaway PR (#6), stacked on this branch, received three commits in turn and was then closed:
+
+| Commit | Change | perf job | Verdict |
+|---|---|---|---|
+| A/A | none | ✅ pass ([run 37460070461](https://github.com/rajasatyajit/ternly/actions/runs/37460070461)) | 41 of 42 rows not significant; one "significant" +2.0% (Search10k allocs 49→50), under budget |
+| blunt | a redundant `json.Valid` scan in `session.Record` | ❌ fail ([run 37460801269](https://github.com/rajasatyajit/ternly/actions/runs/37460801269)) | Record sec/op **+133.6%** |
+| subtle | one extra copy (one allocation) in `session.Record` | ❌ fail ([run 37461619134](https://github.com/rajasatyajit/ternly/actions/runs/37461619134)) | Record sec/op **+11.2%**, B/op **+47.5%**, allocs/op **5→6 (+20%)** |
+
+`check` and `macos` stayed green in all three runs: only the gate caught the regressions. The
+perf job takes about 6 minutes, in parallel with `check`.
+
+**A flake found on the way.** The first CI run failed in round 3 on the *base* side:
+`BenchmarkSearch10k` was refused with "it contains a bearer token".
+- **Cause:** `corpusWords` sorted words by frequency without a tie-break, over a map. The
+  synthetic memory items therefore changed every run, and occasionally put "Bearer" next to a
+  token-like word, which the secret guard rightly refuses.
+- **Fixes:**
+  - the corpus is sorted deterministically;
+  - the benchmark skips items the guard refuses, as `TestScale` already does;
+  - `perfrun` retries a failing suite twice, so a flaky benchmark at the base can't decide the
+    gate, while one that always fails still does.
+
+## Baseline highlights (bench/baseline.json, this machine: Ryzen 7 6800H, 16 threads)
+
+| Path | Number |
+|---|---|
+| start-up (`--version`) | 34 ms, 34 MB peak RSS |
+| one headless turn (fake provider) | 54 ms, 41 MB peak RSS |
+| resume a 1,000-turn session to interactive (pty) | 82 ms; 82 ms with 100k memory items |
+| event append (`Record`) | 5.5 µs, 6 allocs |
+| resume 1,000 turns (open + replay + attach) | 19.9 ms |
+| memory search, 10k items | 127 µs; at 100k, BM25 ranked p50 1.6 ms, p99 4.9 ms |
+| graph, `testdata/fix` | build 54 ms, load 0.44 ms, incremental 11.6 ms |
+| graph, kubernetes | full build 29.8 s, load 1.0 s, leaf edit 133 ms, API change 8.2 s (349 packages) |
+| grep, 200 files | 8.9 ms |
+| keystroke → frame (1,000-turn transcript) | 1.06 ms |
+| redraw at 10k lines | **33.0 ms** (Phase F target: < 16 ms) |
+| binary (static, stripped) | 31.8 MB |
+
+**Not measured:** `TestIncrementalPrecision` (kubernetes) times out in the harness's 1-minute
+wait. It builds without the sandbox, so its export cache is separate and cold. This is
+pre-existing and not a baseline metric.
 
 ## Not done here
 - `staticcheck` and `govulncheck` in CI (non-negotiable 6) are a separate small PR, so that this
   one stays about performance.
 - TUI performance targets (16 ms keystroke-to-render, idle CPU, 10k-line smoothness) are Phase F.
-  The baseline already shows the first gap: **`BenchmarkRedraw10k` takes ~33 ms**, because
+  The baseline already shows the first gap: **`BenchmarkRedraw10k` takes 33 ms**, because
   `refresh` rebuilds the whole transcript string on every redraw.
