@@ -21,6 +21,8 @@ type EffortRule struct {
 var builtinEffort = []EffortRule{
 	{Match: `(?i)glm-5`, Map: map[string]string{"low": "low", "medium": "high", "high": "high"},
 		Why: "ADR 015: on glm-5.3 through Ollama, medium ≈ the default and high reasons less than medium; low and high finished 3 of 4 netguard runs, off and medium 0 of 4"},
+	{Match: `(?i)qwen3`, Map: map[string]string{"low": ""},
+		Why: "ADR 016: on qwen3.6, low lost precision on the name-matched-callers check (3/9 runs passed vs 6/9 with no budget, not significant at n=9) without saving time; routine turns send none"},
 	{Match: `(?i)(^|/)(o[1-9]([-.]|$)|o[1-9]-mini|gpt-5|gpt-oss)`, Verified: true, Why: "OpenAI documents low/medium/high for its reasoning models"},
 	{Match: `(?i)gemini-(2\.5|3)`, Verified: true, Why: "Gemini maps reasoning_effort onto thinking budgets"},
 }

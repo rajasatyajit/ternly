@@ -11,7 +11,7 @@ func TestEffortLabel(t *testing.T) {
 	m := func(id string, p *Provider, reasoning bool) *Model {
 		return &Model{ID: id, Provider: p, Reasoning: reasoning}
 	}
-	user := []EffortRule{{Match: `^qwen3`, Verified: true}, {Match: `kimi`, Map: map[string]string{"medium": "low"}, Why: "my measurement"}}
+	user := []EffortRule{{Match: `^qwen3\.6`, Verified: true}, {Match: `kimi`, Map: map[string]string{"medium": "low"}, Why: "my measurement"}}
 	for _, c := range []struct {
 		m           *Model
 		want, label string
@@ -27,6 +27,9 @@ func TestEffortLabel(t *testing.T) {
 		{m("deepseek-v4.1-flash:cloud", ollama, true), "medium", "high", true}, // unverified: never medium
 		{m("deepseek-v4.1-flash:cloud", ollama, true), "low", "low", false},
 		{m("qwen3.6:latest", ollama, true), "medium", "medium", false}, // the user verified it
+		{m("qwen3.6:latest", ollama, true), "low", "low", false},       // …and their rule wins over the built-in one
+		{m("qwen3-coder:30b", ollama, true), "low", "", true},          // built-in (ADR 016): no budget on routine turns
+		{m("qwen3-coder:30b", ollama, true), "medium", "high", true},   // unverified: never medium
 		{m("kimi-k2.7-code:cloud", ollama, true), "medium", "low", true},
 		{m("llama3.1:8b", ollama, false), "medium", "", false}, // doesn't reason: nothing sent
 	} {
