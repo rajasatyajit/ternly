@@ -170,3 +170,7 @@ that was the suspect.
   name-matched Python callers reliably) or a gate calibrated on too few runs. Recalibrating the
   threshold, improving the Python graph guidance, or accepting it as a known limitation of
   qwen3.6 is a decision for review, not something to change quietly before a release.
+- **Decided in review:** v0.1.0 ships with the check red and the limitation documented; the
+  threshold stays. v0.1.1 keeps name-matched callers apart from verified ones and re-measures
+  ([#1](https://github.com/rajasatyajit/ternly/issues/1)). The watchdog's units move from stream
+  chunks to tokens or seconds ([#2](https://github.com/rajasatyajit/ternly/issues/2)).
