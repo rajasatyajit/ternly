@@ -108,3 +108,4 @@ to set and runs nothing.
 | `TERNLY_E2E_ALLOW_REMOTE`, `TERNLY_E2E_BUDGET` | off, $1 | remote models |
 | `TERNLY_E2E_ONLY` | | regexp of checks (partial run, reported as FAIL) |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | |
+<!-- perf gate proof (throwaway PR, ADR 017) -->
