@@ -30,6 +30,9 @@ archives:
       - README.md
       - LICENSE
       - NOTICE
+      - THIRD_PARTY_LICENSES
+      - CHANGELOG.md
+      - SECURITY.md
 
 checksum:
   name_template: checksums.txt

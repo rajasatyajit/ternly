@@ -3,3 +3,5 @@ dist/
 bench/results/
 .e2e-work-*/
 bench/dogfood/
+/simple.json
+/ternly

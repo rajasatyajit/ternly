@@ -1,0 +1,8 @@
+name: Feature request
+description: Something ternly should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes: {label: The need, description: "What you're trying to do, and what's in the way today"}
+    validations: {required: true}

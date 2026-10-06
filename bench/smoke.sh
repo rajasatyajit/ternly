@@ -7,7 +7,7 @@
 set -euo pipefail
 read -ra bin <<<"$1"
 read -ra fake <<<"$2"
-work=$(mktemp -d); trap 'kill "${pid:-0}" 2>/dev/null || true; rm -rf "$work"' EXIT
+work=$(mktemp -d); trap '{ kill "${pid:-0}" && wait "${pid:-0}"; } 2>/dev/null; rm -rf "$work"' EXIT
 "${bin[@]}" --version
 mkdir -p "$work/home/.config/ternly" "$work/home/.cache/ternly" "$work/ws"
 "${fake[@]}" SMOKE-OK > "$work/url" & pid=$!

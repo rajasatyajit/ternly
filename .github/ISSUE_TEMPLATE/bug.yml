@@ -1,0 +1,15 @@
+name: Bug report
+description: Something ternly did that it shouldn't have (security issues → SECURITY.md)
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: {label: Version, description: "`ternly --version`, OS, and mode (ask/edits/yolo/plan)"}
+    validations: {required: true}
+  - type: input
+    id: model
+    attributes: {label: Model, description: "The model line ternly printed (◆ …), if a model was involved"}
+  - type: textarea
+    id: what
+    attributes: {label: What happened, description: "Commands or prompt, what you saw, what you expected. `/doctor` output helps."}
+    validations: {required: true}
