@@ -42,14 +42,16 @@ import (
 var version = "0.1.0"
 
 type fileConfig struct {
-	Mode      string         `json:"mode"`
-	Budget    float64        `json:"budget"`
-	Verify    *string        `json:"verify"`
-	Reasoning string         `json:"reasoning"` // auto (default), off, low, medium, high (ADR 015)
-	NoLocal   bool           `json:"no_local"`
-	Model     string         `json:"model"`
-	Tiers     map[string]int `json:"tiers"`
-	Limits    struct {
+	Mode              string                `json:"mode"`
+	Budget            float64               `json:"budget"`
+	Verify            *string               `json:"verify"`
+	Reasoning         string                `json:"reasoning"`          // auto (default), off, low, medium, high (ADR 015)
+	ReasoningLevels   []discover.EffortRule `json:"reasoning_levels"`   // per-model level map, ahead of the built-in one (ADR 016)
+	ReasoningWatchdog *int                  `json:"reasoning_watchdog"` // reasoning chunks before a step is interrupted (0: default, -1: off)
+	NoLocal           bool                  `json:"no_local"`
+	Model             string                `json:"model"`
+	Tiers             map[string]int        `json:"tiers"`
+	Limits            struct {
 		Steps       *int     `json:"steps"`
 		TurnMinutes *float64 `json:"turn_minutes"`
 		TurnUSD     *float64 `json:"turn_usd"`
@@ -283,6 +285,10 @@ func run() int {
 	ag.SetVerify(vcmd) // "off" disables it; "" leaves the coverage checks (ADR 015)
 	ag.Budget = fc.Budget
 	ag.Reasoning = orStr(*reasoning, fc.Reasoning)
+	ag.EffortRules = fc.ReasoningLevels
+	if v := fc.ReasoningWatchdog; v != nil {
+		ag.WatchdogChunks = *v
+	}
 	switch ag.Reasoning {
 	case "", "auto", "off", "low", "medium", "high":
 	default:

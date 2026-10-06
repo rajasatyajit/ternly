@@ -30,6 +30,7 @@ type Stats struct {
 	FactChecks  int // answers sent back because citations or symbols didn't check out
 	Unsupported int // references still unsupported after that
 	Checkpoints int // workspace checkpoints taken
+	Watchdog    int // steps the reasoning watchdog interrupted
 }
 
 const (
@@ -66,6 +67,8 @@ type turnState struct {
 	shellRan    bool            // a shell command ran since the last verification
 	gapsTold    bool            // the model was told about coverage gaps once
 	effort      string          // reasoning budget for this turn's steps (ADR 015)
+	forceLabel  string          // the watchdog's retry label, sent as is
+	watchdogged bool            // the watchdog interrupted a step this turn
 	Verdict     string          // the last verification's verdict ("" if none ran)
 }
 
@@ -145,9 +148,45 @@ func (a *Agent) escalated(cur string) string {
 // SetNextEffort sets the next turn's reasoning budget (/architect: high).
 func (a *Agent) SetNextEffort(e string) { a.mu.Lock(); a.nextEffort = e; a.mu.Unlock() }
 
-func effortNote(m *discover.Model, effort string) string {
+func (a *Agent) effortNote(m *discover.Model, effort string) string {
 	if m == nil || !m.Reasoning || effort == "" {
 		return ""
 	}
+	label, note := m.EffortLabel(effort, a.EffortRules)
+	if note != "" {
+		return " · reasoning " + orNone(label) + " — " + note
+	}
 	return " · reasoning " + effort
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "none"
+	}
+	return s
+}
+
+// defaultWatchdog is the reasoning chunks (≈ tokens) one step may produce
+// before any text or tool call; past it the step is interrupted and retried
+// once at another level (ADR 016). The finished glm runs of ADR 015 used
+// 7–29 k output tokens over whole turns; the runaway ones 96–140 k.
+const defaultWatchdog = 6000
+
+// runaway is a step interrupted by the reasoning watchdog.
+type runaway struct {
+	chunks int
+	label  string
+}
+
+func (r *runaway) Error() string {
+	return fmt.Sprintf("reasoning ran past %d chunks with no text or tool call", r.chunks)
+}
+
+// otherLevel is the label to retry with after a runaway step: low, unless
+// low is what ran away.
+func otherLevel(label string) string {
+	if label == "low" {
+		return "high"
+	}
+	return "low"
 }

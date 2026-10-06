@@ -89,8 +89,11 @@ type Event struct {
 	Call  ToolCall
 	Usage Usage
 	Raw   json.RawMessage
-	Stop  string
-	Err   error
+	// Reasoning marks an EvProgress chunk as reasoning (thinking), not tool
+	// arguments: what the reasoning watchdog counts (ADR 016).
+	Reasoning bool
+	Stop      string
+	Err       error
 }
 
 // Endpoint describes where and how to talk to a provider.

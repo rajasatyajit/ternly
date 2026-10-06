@@ -77,6 +77,12 @@ type Agent struct {
 	// DepCheck looks up dependencies the model adds (manifest edits, install
 	// commands) in their registries. nil: not checked (--no-net).
 	DepCheck *deps.Checker
+	// EffortRules map reasoning levels per model family (config
+	// "reasoning_levels"; ahead of the built-in table, ADR 016).
+	EffortRules []discover.EffortRule
+	// WatchdogChunks: reasoning chunks a step may produce before any text or
+	// tool call (0: the default; negative: no watchdog).
+	WatchdogChunks int
 	// Reasoning is the reasoning-budget policy (ADR 015): "auto" (or "")
 	// lets routing decide — low for routine turns, medium for hard ones,
 	// high for /architect plans and after an escalation; "off" sends no
@@ -297,7 +303,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		a.Emit(Event{Kind: EvError, Text: "No usable model found. Set an API key (e.g. ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY) or start Ollama / LM Studio, then /refresh."})
 		return
 	}
-	a.setModel(model, reason+effortNote(model, st.effort))
+	a.setModel(model, reason+a.effortNote(model, st.effort))
 
 	verifyTries := 0
 	for step := 0; ; step++ {
@@ -314,7 +320,14 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		}
 		a.maybeCompact(tctx, model)
 
-		msg, calls, stop, err := a.step(tctx, model, st.effort)
+		msg, calls, stop, err := a.step(tctx, model, st)
+		var ra *runaway
+		if errors.As(err, &ra) {
+			st.watchdogged, st.forceLabel = true, otherLevel(ra.label)
+			a.count(func(s *Stats) { s.Watchdog++ })
+			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s (reasoning %s) — interrupted; retrying once at %s", ra.Error(), orNone(ra.label), st.forceLabel)})
+			continue
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -370,7 +383,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 					if failures >= 2 { // cascade: only pay for a stronger model when the cheap one demonstrably failed
 						if up, ok := a.Router.Escalate(model, need); ok {
 							model, st.effort = up, a.escalated(st.effort)
-							a.setModel(model, "escalated after repeated verification failure"+effortNote(model, st.effort))
+							a.setModel(model, "escalated after repeated verification failure"+a.effortNote(model, st.effort))
 						}
 					}
 					framed, _ := a.Reg.Frame.Wrap("verify", out)
@@ -413,7 +426,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			a.Emit(Event{Kind: EvStatus, Text: "no progress detected — redirecting the model"})
 			if up, ok := a.Router.Escalate(model, need); ok { // a stuck model is a failed model
 				model, st.effort = up, a.escalated(st.effort)
-				a.setModel(model, "escalated: previous model stopped making progress"+effortNote(model, st.effort))
+				a.setModel(model, "escalated: previous model stopped making progress"+a.effortNote(model, st.effort))
 			}
 			a.appendUser(msgLoop)
 		}
@@ -509,27 +522,51 @@ func (a *Agent) setModel(m *discover.Model, reason string) {
 	a.Emit(Event{Kind: EvModel, Model: m, Reason: reason})
 }
 
-func (a *Agent) step(ctx context.Context, m *discover.Model, effort string) (llm.Message, []llm.ToolCall, string, error) {
+func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm.Message, []llm.ToolCall, string, error) {
 	a.mu.Lock()
 	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.state.History...), Tools: a.Reg.Specs()}
-	if m.Reasoning {
-		req.Effort = effort
+	req.Effort, _ = m.EffortLabel(st.effort, a.EffortRules)
+	if st.forceLabel != "" && m.Reasoning {
+		req.Effort = st.forceLabel
 	}
 	a.mu.Unlock()
+	limit := a.WatchdogChunks
+	if limit == 0 {
+		limit = defaultWatchdog
+	}
+	if st.watchdogged { // one interruption per turn
+		limit = -1
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	cl := llm.New(m.Provider.Endpoint())
 	var text strings.Builder
 	var calls []llm.ToolCall
 	var thinking []json.RawMessage
 	var stop string
 	chunks, lastProgress := 0, time.Now()
-	for ev := range cl.Stream(ctx, req) {
+	thought, acted := 0, false // reasoning chunks before any text or tool call
+	stream := cl.Stream(ctx, req)
+	for ev := range stream {
 		switch ev.Kind {
 		case llm.EvProgress:
 			if chunks++; time.Since(lastProgress) >= 5*time.Second {
 				lastProgress = time.Now()
 				a.Emit(Event{Kind: EvProgress, N: chunks})
 			}
+			if !ev.Reasoning {
+				acted = true // tool arguments are streaming
+			} else if thought++; !acted && limit > 0 && thought > limit {
+				cancel()
+				go func() { // the client stops on the cancelled context; drain what it sent meanwhile
+					for range stream {
+					}
+				}()
+				a.account(m, llm.Usage{In: estTokens(req.System, req.Messages), Out: thought}) // an estimate: no usage arrives
+				return llm.Message{}, nil, "", &runaway{chunks: thought, label: req.Effort}
+			}
 		case llm.EvText:
+			acted = true
 			text.WriteString(ev.Text)
 			a.Emit(Event{Kind: EvText, Text: ev.Text})
 		case llm.EvThinking:

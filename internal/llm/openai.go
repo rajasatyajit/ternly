@@ -67,8 +67,10 @@ func (c *openAI) body(r Request, usage bool) map[string]any {
 type oaChunk struct {
 	Choices []struct {
 		Delta struct {
-			Content   string `json:"content"`
-			ToolCalls []struct {
+			Content          string `json:"content"`
+			Reasoning        string `json:"reasoning"`         // Ollama
+			ReasoningContent string `json:"reasoning_content"` // DeepSeek, vLLM, …
+			ToolCalls        []struct {
 				Index    int    `json:"index"`
 				ID       string `json:"id"`
 				Function oaFn   `json:"function"`
@@ -130,9 +132,12 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 				return true
 			}
 			for _, chc := range ck.Choices {
-				if chc.Delta.Content != "" {
+				switch {
+				case chc.Delta.Content != "":
 					ch <- Event{Kind: EvText, Text: chc.Delta.Content}
-				} else {
+				case chc.Delta.Reasoning != "" || chc.Delta.ReasoningContent != "":
+					ch <- Event{Kind: EvProgress, Reasoning: true}
+				default:
 					ch <- Event{Kind: EvProgress}
 				}
 				for _, tc := range chc.Delta.ToolCalls {

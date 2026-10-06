@@ -23,9 +23,10 @@ import (
 
 // reply is one scripted model response.
 type reply struct {
-	text  string
-	calls [][2]string // name, raw JSON args
-	stop  string      // finish_reason override
+	text      string
+	calls     [][2]string // name, raw JSON args
+	stop      string      // finish_reason override
+	reasoning int         // reasoning chunks streamed first (Ollama's delta.reasoning)
 }
 
 func call(name, args string) [2]string { return [2]string{name, args} }
@@ -58,6 +59,12 @@ func newFake(t *testing.T, replies ...reply) *fakeLLM {
 		time.Sleep(f.delay)
 		w.Header().Set("Content-Type", "text/event-stream")
 		send := func(v any) { b, _ := json.Marshal(v); fmt.Fprintf(w, "data: %s\n\n", b) }
+		for i := 0; i < rp.reasoning; i++ {
+			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "", "reasoning": "hmm "}}}})
+			if r.Context().Err() != nil {
+				return // the client hung up (watchdog)
+			}
+		}
 		if rp.text != "" {
 			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": rp.text}}}})
 		}
@@ -969,12 +976,13 @@ func TestVerifyGapIsUnverified(t *testing.T) {
 }
 
 // Routing sets the reasoning budget (ADR 015): low for a routine turn,
-// medium for a hard one, high after an escalation; nothing for a model that
-// doesn't reason, or with --reasoning off.
+// medium for a hard one (on a model whose levels are documented), high after
+// an escalation; nothing for a model that doesn't reason, or with
+// --reasoning off.
 func TestReasoningEffortRouting(t *testing.T) {
 	run := func(policy string, reasoning bool, prompt string, replies ...reply) []string {
 		f := newFake(t, replies...)
-		m := model(f.URL, "m", 3, 1, 5)
+		m := model(f.URL, "gpt-oss:120b", 3, 1, 5) // documented levels (ADR 016)
 		m.Reasoning = reasoning
 		a, _ := newAgent(t, "yolo", m)
 		a.Reasoning = policy
@@ -1034,5 +1042,53 @@ func TestUnsandboxedVerifyNotRun(t *testing.T) {
 	}
 	if !strings.Contains(text, "(project check `make test`)") || !strings.Contains(text, "wasn't approved") {
 		t.Fatalf("verify said: %s", text)
+	}
+}
+
+// The reasoning watchdog (ADR 016): a step that reasons past the limit with
+// no text or tool call is interrupted and retried once at another level; a
+// second runaway in the same turn is let through.
+func TestReasoningWatchdog(t *testing.T) {
+	f := newFake(t,
+		reply{reasoning: 500, text: "never seen"},
+		reply{reasoning: 10, text: "done after the retry"},
+	)
+	m := model(f.URL, "glm-5.3:cloud", 3, 1, 5)
+	m.Reasoning = true
+	a, rec := newAgent(t, "yolo", m)
+	a.WatchdogChunks = 100
+	a.Run(bg, "redesign the scheduler's concurrency model")
+	f.mu.Lock()
+	efforts := append([]string(nil), f.efforts...)
+	f.mu.Unlock()
+	// hard → medium, sent as high for glm (ADR 015); the retry goes low.
+	if strings.Join(efforts, ",") != "high,low" {
+		t.Fatalf("efforts %q", efforts)
+	}
+	if !strings.Contains(rec.text(EvStatus), "interrupted; retrying once at low") || a.Stats().Watchdog != 1 {
+		t.Fatalf("status %q stats %+v", rec.text(EvStatus), a.Stats())
+	}
+	if !strings.Contains(rec.text(EvText), "done after the retry") || strings.Contains(rec.text(EvText), "never seen") {
+		t.Fatalf("text %q", rec.text(EvText))
+	}
+	var reasons []string
+	for _, e := range rec.events {
+		if e.Kind == EvModel {
+			reasons = append(reasons, e.Reason)
+		}
+	}
+	if !strings.Contains(strings.Join(reasons, " | "), "asked medium, sent high") {
+		t.Fatalf("model note %q", reasons)
+	}
+
+	// Once per turn: a second runaway runs to the end.
+	g := newFake(t, reply{reasoning: 300, text: "a"}, reply{reasoning: 300, text: "long but finished"})
+	m2 := model(g.URL, "glm-5.3:cloud", 3, 1, 5)
+	m2.Reasoning = true
+	b, rec2 := newAgent(t, "yolo", m2)
+	b.WatchdogChunks = 100
+	b.Run(bg, "redesign the scheduler's concurrency model")
+	if !strings.Contains(rec2.text(EvText), "long but finished") || b.Stats().Watchdog != 1 {
+		t.Fatalf("second runaway: %q %+v", rec2.text(EvText), b.Stats())
 	}
 }
