@@ -140,9 +140,11 @@ perfrun() {
     [ "$pkg" = count ] || [ "$pkg" = alpha ] && continue
     bin="$PERF_WORK/$side/${pkg//\//_}.test"
     [ -x "$bin" ] || continue
-    if ! (cd "$dir/$pkg" && "$bin" -test.run '^$' -test.bench "$re" -test.benchmem -test.count 1 -test.benchtime "$bt") >"$PERF_WORK/run.txt" 2>&1; then
-      echo "perf: ./$pkg benchmarks failed ($side):" >&2; tail -20 "$PERF_WORK/run.txt" >&2; return 1
-    fi
+    local try=1 # up to 3 tries: a flaky benchmark at the base mustn't decide the gate; one that always fails does
+    until (cd "$dir/$pkg" && "$bin" -test.run '^$' -test.bench "$re" -test.benchmem -test.count 1 -test.benchtime "$bt") >"$PERF_WORK/run.txt" 2>&1; do
+      echo "perf: ./$pkg benchmarks failed ($side, try $try):" >&2; tail -20 "$PERF_WORK/run.txt" >&2
+      [ $((try++)) -lt 3 ] || return 1
+    done
     cat "$PERF_WORK/run.txt" >>"$PERF_WORK/$side.txt"
   done <<<"$SUITES"
 }

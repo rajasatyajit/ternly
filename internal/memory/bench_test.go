@@ -41,7 +41,12 @@ func corpusWords(t testing.TB) ([]string, []string) {
 	for w := range freq {
 		words = append(words, w)
 	}
-	sort.Slice(words, func(i, j int) bool { return freq[words[i]] > freq[words[j]] })
+	sort.Slice(words, func(i, j int) bool { // ties by word: the same corpus every run
+		if freq[words[i]] != freq[words[j]] {
+			return freq[words[i]] > freq[words[j]]
+		}
+		return words[i] < words[j]
+	})
 	if len(words) < 1000 {
 		t.Fatalf("vocabulary too small: %d", len(words))
 	}
@@ -210,6 +215,9 @@ func BenchmarkSearch10k(b *testing.B) {
 	var items []Item
 	for i := range 10000 {
 		it := synthItem(r, words, files, i)
+		if SecretReason(it.Text) != "" { // random words can pair up as "Bearer <token>"; the guard is tested elsewhere
+			continue
+		}
 		items = append(items, it)
 		if _, err := m.Add(it); err != nil {
 			b.Fatal(err)
