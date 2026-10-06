@@ -49,6 +49,8 @@ demonstrably fails. A single static binary for linux/darwin × amd64/arm64.
 - **Reasoning level semantics** are verified only for documented families (OpenAI reasoning models,
   Gemini 2.5/3, Anthropic budgets) and measured for glm-5. Other models never get "medium", and a
   watchdog interrupts runaway reasoning. Measure your own with `reasoning_levels` in the config.
+- **qwen3.6** qualifies name-matched Python callers only about half the time (the
+  `graph-callsites-python` e2e check, 10/21 runs).
 - **The injection flagger is advisory**; the permission policy is the barrier. See
   `docs/threat-model.md`.
 - **Model quality varies.** Small local models make mistakes the guards catch but don't fix.

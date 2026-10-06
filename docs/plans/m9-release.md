@@ -1,6 +1,6 @@
 # M9 — release readiness (v0.1.0): proposed plan
 
-Status: proposed, 2026-10-06. Nothing here has been started; it is for review.
+Status: approved 2026-10-06 with decisions; executed in M9 — see docs/adr/016-m9-release.md.
 
 ## What exists already
 - `.goreleaser.yaml`: static linux/darwin × amd64/arm64 builds, `-trimpath -s -w`, the version
