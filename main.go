@@ -542,8 +542,8 @@ func run() int {
 	}
 	// Started once events can be shown: drift since the session paused (or a
 	// baseline snapshot so the first edit doesn't wait), then checkpoint GC and the disk cap.
-	// The background work (drift check, snapshot, gc) is cancelled and waited
-	// for when ternly exits, so no git process outlives it.
+	// The background work is waited for when ternly exits, so no git process
+	// outlives it: the drift check and snapshot finish; gc is cancelled.
 	bgCtx, bgCancel := context.WithCancel(ctx)
 	var bgWG sync.WaitGroup
 	defer func() {
@@ -559,7 +559,6 @@ func run() int {
 		bgWG.Add(1)
 		go func() {
 			defer bgWG.Done()
-			ctx := bgCtx
 			if cs := mgr.Drift(ctx, st); len(cs) > 0 {
 				ag.Emit(agent.Event{Kind: agent.EvStatus, Text: fmt.Sprintf("%d file(s) changed outside this session since it paused; the model is told on your next prompt", len(cs))})
 			} else if ag.CP != nil {
@@ -568,8 +567,11 @@ func run() int {
 			if repo == nil {
 				return
 			}
-			_ = repo.GC(ctx, project.Saved)
-			if msg, err := repo.EnforceCap(ctx, int64(capMB)<<20, pruneOrder(project, sess.ID)); msg != "" && err == nil {
+			if bgCtx.Err() != nil {
+				return
+			}
+			_ = repo.GC(bgCtx, project.Saved) // cancelled at exit: only collection is interrupted
+			if msg, err := repo.EnforceCap(bgCtx, int64(capMB)<<20, pruneOrder(project, sess.ID)); msg != "" && err == nil {
 				ag.Emit(agent.Event{Kind: agent.EvStatus, Text: msg})
 			}
 		}()

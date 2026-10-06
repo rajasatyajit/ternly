@@ -422,11 +422,14 @@ func (r *Repo) cmd(ctx context.Context, index string, args ...string) *exec.Cmd 
 	}
 	c := exec.CommandContext(ctx, r.git, append(cfg, args...)...)
 	c.Dir = r.root
-	// Its own process group, killed whole on cancel: `git gc` runs `git repack`
-	// and `git pack-objects`, which outlived a killed gc and kept writing into
-	// the repository after ternly exited (they left test homes behind).
+	// Its own process group, stopped whole on cancel: `git gc` runs `git
+	// repack` and `git pack-objects`, which outlived a killed gc and kept
+	// writing into the repository after ternly exited (they left test homes
+	// behind). SIGTERM, so git removes its lock files (a SIGKILLed `git add`
+	// leaves index.lock, and the next snapshot fails); SIGKILL only if it
+	// hasn't exited after WaitDelay.
 	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
+	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGTERM) }
 	c.WaitDelay = 5 * time.Second
 	// User/system config can define filters (git-lfs) or fsmonitor hooks; checkpoints must not run them.
 	c.Env = append(os.Environ(), "GIT_DIR="+r.gitDir, "GIT_WORK_TREE="+r.root, "GIT_INDEX_FILE="+index,
