@@ -48,9 +48,11 @@ demonstrably fails. A single static binary for linux/darwin × amd64/arm64.
   The old HTTP+SSE transport isn't supported.
 - **Reasoning level semantics** are verified only for documented families (OpenAI reasoning models,
   Gemini 2.5/3, Anthropic budgets) and measured for glm-5. Other models never get "medium", and a
-  watchdog interrupts runaway reasoning. Measure your own with `reasoning_levels` in the config.
+  watchdog interrupts runaway reasoning. Its threshold counts stream chunks; v0.1.1 moves it to
+  tokens or seconds ([#2](https://github.com/rajasatyajit/ternly/issues/2)). Measure your own with `reasoning_levels` in the config.
 - **qwen3.6** qualifies name-matched Python callers only about half the time (the
-  `graph-callsites-python` e2e check, 10/21 runs).
+  `graph-callsites-python` e2e check, 10/21 runs; it stays red). v0.1.1 separates unverified
+  callers in the graph output ([#1](https://github.com/rajasatyajit/ternly/issues/1)).
 - **The injection flagger is advisory**; the permission policy is the barrier. See
   `docs/threat-model.md`.
 - **Model quality varies.** Small local models make mistakes the guards catch but don't fix.
