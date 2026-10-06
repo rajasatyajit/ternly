@@ -1,0 +1,118 @@
+name: release
+
+# v* tag → gate (ci.yml) → draft release (goreleaser: archives, SBOMs,
+# cosign keyless signature of checksums.txt) + build-provenance attestations
+# → smoke tests of the archives on linux/amd64, linux/arm64 (qemu) and
+# darwin/arm64 → the release is published. Nothing is public before the
+# smoke tests pass.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: # a dry run on a branch: snapshot archives, SBOMs and the smoke matrix;
+    # no signature, attestation or release (keyless signing writes a permanent public log entry)
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # the draft release
+      id-token: write     # cosign keyless and attestations (GitHub OIDC)
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: "~> v2"
+          args: ${{ github.ref_type == 'tag' && 'release --clean' || 'release --snapshot --clean --skip=sign,publish' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: github.ref_type == 'tag'
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/checksums.txt
+      - name: keep the archives for the smoke tests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: |
+            dist/*.tar.gz
+            dist/checksums.txt
+            dist/checksums.txt.sigstore.json
+          if-no-files-found: ignore # the dry run has no signature
+          retention-days: 7
+
+  smoke:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, arch: amd64, run: native }
+          - { os: ubuntu-latest, arch: arm64, run: qemu }
+          - { os: macos-latest, arch: arm64, run: native }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - name: checksums
+        run: cd dist && (sha256sum -c --ignore-missing checksums.txt || shasum -a 256 -c --ignore-missing checksums.txt)
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: github.ref_type == 'tag'
+      - name: signature
+        if: github.ref_type == 'tag'
+        run: |
+          cosign verify-blob dist/checksums.txt --bundle dist/checksums.txt.sigstore.json \
+            --certificate-identity-regexp '^https://github.com/rajasatyajit/ternly/\.github/workflows/release\.yml@refs/tags/v' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: smoke test the archive
+        shell: bash
+        run: |
+          os=$(go env GOOS)
+          tar -xzf dist/ternly_*_${os}_${{ matrix.arch }}.tar.gz -C dist ternly
+          if [ "${{ matrix.run }}" = qemu ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static
+            GOARCH=arm64 CGO_ENABLED=0 go build -o dist/fakeprovider ./bench/fakeprovider
+            qemu-aarch64-static dist/ternly --version
+            # the fake provider and the turn run under qemu too
+            bench/smoke.sh "qemu-aarch64-static dist/ternly" "qemu-aarch64-static dist/fakeprovider"
+          else
+            go build -o dist/fakeprovider ./bench/fakeprovider
+            bench/smoke.sh dist/ternly dist/fakeprovider
+          fi
+
+  publish:
+    needs: smoke
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

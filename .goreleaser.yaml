@@ -41,3 +41,35 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+# An SPDX SBOM per archive (syft).
+sboms:
+  - artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.spdx.json"
+
+# checksums.txt is signed keyless with cosign: the certificate binds it to
+# this repository's release workflow run (GitHub OIDC). Verify with
+#   cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/rajasatyajit/ternly/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+    output: true
+
+release:
+  # Published only after the archives pass the smoke tests (release.yml).
+  draft: true
+  footer: |
+    ## Verify
+    ```
+    sha256sum -c --ignore-missing checksums.txt
+    cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+      --certificate-identity-regexp '^https://github.com/rajasatyajit/ternly/\.github/workflows/release\.yml@refs/tags/v' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com
+    gh attestation verify ternly_{{ .Version }}_linux_amd64.tar.gz --repo rajasatyajit/ternly
+    ```
+    Known limitations: see CHANGELOG.md. macOS is experimental (no sandbox yet).
