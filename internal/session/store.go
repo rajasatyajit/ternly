@@ -201,10 +201,7 @@ func lockFile(p string) (*os.File, error) {
 func (s *Session) Record(r agent.Record) {
 	s.observe(r)
 	b, _ := json.Marshal(r)
-	if !json.Valid(b) { // deliberate regression (ADR 017 gate proof): a redundant scan
-		return
-	}
-	s.log.Append(b)
+	s.log.Append(append([]byte(nil), b...)) // deliberate regression (ADR 017 gate proof): one extra copy, one extra allocation
 }
 
 // Sync implements agent.Journal: fsync in the background and refresh the listing cache.
