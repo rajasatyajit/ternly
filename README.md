@@ -7,6 +7,11 @@ One terminal coding agent for **every model you can reach** — paid APIs, free 
 servers, auto-discovered — routing each task to the **cheapest model that can do it well** and
 only paying for a stronger one when the cheap one demonstrably fails.
 
+![ternly fixing a failing test with a local model, verifying it, then /doctor and /mcp](docs/demo/demo.gif)
+
+*A real, unedited session (local qwen3.6 through Ollama, sandboxed with bubblewrap), replayed at 2×.
+Recorded with `docs/demo/record.sh`.*
+
 ```
 git clone https://github.com/rajasatyajit/ternly && cd ternly && make install   # → ~/.local/bin/ternly
 cd your-project && ternly

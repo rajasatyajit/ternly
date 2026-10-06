@@ -63,7 +63,7 @@ type Status struct {
 	Name, URL, Era string
 	Tools          int
 	Hosts          []string // granted, the server's own first
-	Auth           string   // "none", "logged in", "needs login"
+	Auth           string   // "no login needed", "logged in", "needs login"
 	Err            string
 	Pending        []string
 }
@@ -219,7 +219,7 @@ func (m *Manager) Statuses() []Status {
 	var out []Status
 	for name, st := range m.servers {
 		u, _ := url.Parse(st.cfg.URL)
-		s := Status{Name: name, URL: st.cfg.URL, Hosts: append([]string{u.Host}, m.grantLocked(name).Hosts...), Auth: "none", Pending: st.pending}
+		s := Status{Name: name, URL: st.cfg.URL, Hosts: append([]string{u.Host}, m.grantLocked(name).Hosts...), Auth: "no login needed", Pending: st.pending}
 		if st.srv != nil {
 			s.Era, s.Tools = st.srv.Era(), st.srv.Tools
 		}
