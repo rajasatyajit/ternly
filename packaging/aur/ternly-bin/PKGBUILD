@@ -1,4 +1,4 @@
-# Maintainer: Satyajit Rajaraman <satyajit.rajaraman@gmail.com>
+# Maintainer: Satyajit Rajaraman <maintainer at ternly dot sh>
 #
 # Prebuilt static binaries from the GoReleaser archives (see .goreleaser.yaml).
 # Release steps: bump pkgver, then `updpkgsums && makepkg --printsrcinfo > .SRCINFO`
