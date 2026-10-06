@@ -215,11 +215,12 @@ func BenchmarkSearch10k(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() { // setup runs once (b.N ramp-up re-ran the 10k inserts)
 		src := items[i%len(items)]
 		ws := strings.Fields(src.Text)
 		m.search(Query{Text: ws[1] + " " + ws[3] + " " + ws[5], Near: map[string]float32{src.Keys[0]: 1}}, nil, 0)
+		i++
 	}
 }
 

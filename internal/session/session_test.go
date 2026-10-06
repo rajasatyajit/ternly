@@ -302,3 +302,21 @@ func TestOpenRepairsInterruptedToolCall(t *testing.T) {
 		_ = s2.Close("")
 	}
 }
+
+// BenchmarkResume1000 is TestResume1000Turns as a benchmark (perf gate, ADR 017).
+func BenchmarkResume1000(b *testing.B) {
+	p := project(b)
+	id := writeSession(b, p, 1000)
+	m := newManager(b, p)
+	b.ReportAllocs()
+	for b.Loop() {
+		s, st, err := p.Open(id)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err := m.Attach(s, st, true); err != nil {
+			b.Fatal(err)
+		}
+		_ = m.Close("paused")
+	}
+}

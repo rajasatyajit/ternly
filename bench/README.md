@@ -12,6 +12,8 @@ record where theirs ran (16 threads, NVMe, local Ollama on a GPU).
 | `memory` | memory at 100k items; resume time with a 100k-item store | 009 | Go |
 | `eval` | retrieval quality: embedding models × enrichment | 009 | Ollama with the models pulled |
 | `e2e` | every real-model end-to-end check (below) | 001, 004, 007–011 | a model (`TERNLY_E2E_MODEL`), bubblewrap, Go |
+| `perf [base]` | the CI performance gate: `bench/perf.json` suites at BASE (default `origin/main`) and the working tree, interleaved, compared by benchstat; profiles of the head | 017 | Go, git; ~4 min |
+| `baseline` | micro + macro numbers for `bench/baseline.json` (written to `bench/baseline.json.new`) | 017 | Go, jq; ~2 min |
 
 - **kubernetes** is pinned to `a35a8c1a36c8ec8c61256fb7fb7aef0b70806938` (master, 2026-10-04) and
   fetched shallowly (~420 MB) into `$TERNLY_BENCH_DIR` (default `~/.cache/ternly-bench`). `TMPDIR`
