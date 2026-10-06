@@ -33,8 +33,13 @@ type Policy struct {
 	Ask     Asker
 	Trusted map[string]bool // MCP servers trusted in config
 	Root    string          // the workspace (set by NewRegistry): absolute paths in it are as safe as relative ones
-	mu      sync.Mutex
-	always  map[string]bool
+	// Unsandboxed: commands run without a sandbox (macOS before v0.2, Linux
+	// without bubblewrap, --no-sandbox). A build or test command then runs
+	// the repository's code with the user's full privileges, so no shell
+	// command is approved automatically — not even in yolo or plan mode.
+	Unsandboxed bool
+	mu          sync.Mutex
+	always      map[string]bool
 }
 
 func NewPolicy(mode string, ask Asker) *Policy {
@@ -78,7 +83,7 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			if reForbidden.MatchString(cmd) {
 				return false, " (command is on the forbidden list)"
 			}
-			if p.safeCommand(cmd, false) {
+			if p.safeCommand(cmd, false) && !p.Unsandboxed {
 				return true, ""
 			}
 		}
@@ -97,8 +102,11 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			return true, ""
 		case Exec:
 			cmd := strings.TrimSpace(summary)
-			if p.safeCommand(cmd, false) {
+			if p.safeCommand(cmd, false) && !p.Unsandboxed {
 				return true, ""
+			}
+			if p.Unsandboxed && p.safeCommand(cmd, false) {
+				return p.ask(ctx, name, summary, false, "bash:"+cmd)
 			}
 		}
 		return false, PlanDenied
@@ -112,10 +120,10 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 			return false, " (command is on the forbidden list)"
 		}
 		danger := reDanger.MatchString(cmd)
-		if !danger && p.safeCommand(cmd, mode == "edits" || mode == "yolo") {
+		if !danger && !p.Unsandboxed && p.safeCommand(cmd, mode == "edits" || mode == "yolo") {
 			return true, ""
 		}
-		if mode == "yolo" && !danger {
+		if mode == "yolo" && !danger && !p.Unsandboxed {
 			return true, ""
 		}
 		f := strings.Fields(cmd)
@@ -153,6 +161,16 @@ func (p *Policy) Always() []string {
 	return out
 }
 
+// Confirm asks the user to allow a command ternly itself wants to run (a
+// verification step); headless, it is refused.
+func (p *Policy) Confirm(ctx context.Context, what, cmd string) bool {
+	if p.isAlways("bash:" + cmd) {
+		return true
+	}
+	ok, _ := p.ask(ctx, what, cmd, false, "bash:"+cmd)
+	return ok
+}
+
 func (p *Policy) isAlways(k string) bool { p.mu.Lock(); defer p.mu.Unlock(); return p.always[k] }
 
 func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key string) (bool, string) {
@@ -160,6 +178,8 @@ func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key
 		switch {
 		case danger:
 			return false, " (non-interactive: potentially destructive commands always need a person to confirm)"
+		case strings.HasPrefix(key, "bash:") && p.Unsandboxed:
+			return false, " (non-interactive, and shell commands run unsandboxed on this system, so every command needs a person to confirm; see /doctor)"
 		case strings.HasPrefix(key, "bash:"):
 			return false, " (non-interactive, mode " + p.Mode() + ": only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs)"
 		}

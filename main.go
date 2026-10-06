@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -231,8 +232,9 @@ func run() int {
 			}
 		}
 	}
-	if !*noSandbox && sb.Bwrap == "" {
-		notes = append(notes, "bubblewrap not found — shell commands run unsandboxed (sudo pacman -S bubblewrap)")
+	if sb.Bwrap == "" { // ADR 016: no sandbox → every command asks, plugin code off
+		pol.Unsandboxed = true
+		notes = append(notes, unsandboxedNote(*noSandbox))
 	}
 	reg, err := tools.NewRegistry(*dir, pol, sb, tools.NewRedactor(keys))
 	if err != nil {
@@ -424,7 +426,7 @@ func run() int {
 		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
 			notes = append(notes, "plugins off: "+err.Error())
 		} else {
-			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.Subagent,
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.Subagent, NoCode: noCodeReason(pol),
 				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
 				SessionID: func() string {
 					if s := mgr.Current(); s != nil {
@@ -919,4 +921,26 @@ func mcpLoginCLI(ctx context.Context, m *mcpremote.Manager, remotes []tools.Remo
 		}
 	}
 	return 0
+}
+
+// unsandboxedNote is the start-up warning when commands can't be sandboxed.
+func unsandboxedNote(optedOut bool) string {
+	const what = "every shell command asks first (nothing is auto-approved, not even in yolo), and plugin hooks and MCP servers are disabled"
+	switch {
+	case optedOut:
+		return "--no-sandbox: shell commands run unsandboxed, so " + what
+	case runtime.GOOS == "darwin":
+		return "macOS support is experimental: there is no sandbox yet (v0.2 adds one), so " + what
+	}
+	return "bubblewrap not found — shell commands would run unsandboxed, so " + what + " (install bubblewrap: e.g. sudo pacman -S bubblewrap, apt install bubblewrap)"
+}
+
+func noCodeReason(p *tools.Policy) string {
+	if !p.Unsandboxed {
+		return ""
+	}
+	if runtime.GOOS == "darwin" {
+		return "there is no sandbox on macOS yet (experimental; v0.2)"
+	}
+	return "shell commands run unsandboxed (bubblewrap missing or --no-sandbox)"
 }

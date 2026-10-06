@@ -1,9 +1,11 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -164,5 +166,37 @@ func TestDeleteFile(t *testing.T) {
 		if res := call(p); !res.IsErr && !res.Rejected {
 			t.Errorf("%s: %s", p, res.Out)
 		}
+	}
+}
+
+// Without a sandbox nothing runs on its own (ADR 016): a safe-listed build
+// still runs the repository's code with the user's privileges.
+func TestUnsandboxedEveryCommandAsks(t *testing.T) {
+	bash := &Tool{Kind: Exec}
+	for _, mode := range []string{"ask", "edits", "yolo", "plan"} {
+		var asked []string
+		p := NewPolicy(mode, func(_ context.Context, _, summary string, _ bool) Decision {
+			asked = append(asked, summary)
+			return Allow
+		})
+		p.Root, p.Unsandboxed = "/work/repo", true
+		for _, cmd := range []string{"ls -la", "go test ./...", "cat go.mod | head"} {
+			if ok, _ := p.Check(context.Background(), bash, "bash", cmd); !ok {
+				t.Errorf("%s: %q refused after the user allowed it", mode, cmd)
+			}
+		}
+		if len(asked) != 3 {
+			t.Errorf("%s: asked %d times, want 3: %q", mode, len(asked), asked)
+		}
+		headless := NewPolicy(mode, nil)
+		headless.Unsandboxed = true
+		if ok, why := headless.Check(context.Background(), bash, "bash", "ls"); ok || !strings.Contains(why, "unsandboxed") && mode != "plan" {
+			t.Errorf("%s headless: ok=%v why=%q", mode, ok, why)
+		}
+	}
+	// Sandboxed, the same commands run without asking in edits mode.
+	p := NewPolicy("edits", func(context.Context, string, string, bool) Decision { t.Error("asked"); return Deny })
+	if ok, _ := p.Check(context.Background(), bash, "bash", "go test ./..."); !ok {
+		t.Error("sandboxed safe command refused")
 	}
 }

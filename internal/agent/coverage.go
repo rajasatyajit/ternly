@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -70,11 +71,21 @@ func (a *Agent) verifyTurn(ctx context.Context, st *turnState) (verdict, text, l
 		a.Emit(Event{Kind: EvToolEnd, ToolID: "verify", Tool: "verify", OK: v == VerdictVerified, Verdict: v, Text: text, Elapsed: time.Since(t0)})
 		return v, a.Reg.Redact.Apply(text), label, true
 	}
-	run := func(ctx context.Context, cmd string) (string, int, error) {
+	pol := a.Reg.Policy
+	run := func(ctx context.Context, cmd string, repoCode bool) (string, int, error) {
+		// Unsandboxed, a command that runs the repository's code is the user's call.
+		if repoCode && pol.Unsandboxed && !pol.Confirm(ctx, "verify", cmd) {
+			return "", 0, fmt.Errorf("%w: shell commands run unsandboxed here, and this check (it runs the repository's code) wasn't approved", verify.ErrNotRun)
+		}
 		return a.Reg.Sandbox.Run(ctx, a.Reg.Root, cmd, 600)
 	}
+	var declined []verify.Gap
 	if st.verify != "" {
-		out, code, err := run(ctx, st.verify)
+		out, code, err := run(ctx, st.verify, !safeCheck[st.verify])
+		if errors.Is(err, verify.ErrNotRun) {
+			declined = append(declined, verify.Gap{File: "(project check `" + st.verify + "`)", Why: strings.TrimPrefix(err.Error(), verify.ErrNotRun.Error()+": ")})
+			err, code = nil, 0
+		}
 		if err != nil || code != 0 {
 			if err != nil {
 				out += "\n" + err.Error()
@@ -86,6 +97,7 @@ func (a *Agent) verifyTurn(ctx context.Context, st *turnState) (verdict, text, l
 	if rep.Failed != "" {
 		return end(VerdictFailed, rep.Failed)
 	}
+	rep.Gaps = append(declined, rep.Gaps...)
 	if blind {
 		rep.Gaps = append(rep.Gaps, verify.Gap{File: "(shell changes)", Why: "files changed by shell commands can't be listed without checkpoints"})
 	}
@@ -108,6 +120,10 @@ func (a *Agent) verifyTurn(ctx context.Context, st *turnState) (verdict, text, l
 	fmt.Fprintf(&b, "%s · %d changed source file(s) covered", strings.Join(parts, " · "), len(rep.Covered))
 	return end(VerdictVerified, b.String())
 }
+
+// safeCheck are the auto-detected checks that run none of the repository's
+// own code (DetectVerify): they run unsandboxed without asking.
+var safeCheck = map[string]bool{"go build ./... && go vet ./...": true, "python3 -m compileall -q .": true, "ruff check . && python3 -m compileall -q .": true}
 
 // trackPath records the file an edit tool touched (for changedSources when
 // checkpoints are off).

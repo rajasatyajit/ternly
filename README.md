@@ -17,6 +17,18 @@ Also: `go install github.com/rajasatyajit/ternly@latest`, prebuilt static binari
 `~/.cache/vane` are moved to their ternly paths on first run (never overwriting existing ones).
 Recommended on Linux: `sudo pacman -S bubblewrap ripgrep` (sandbox + fast search).
 
+> [!WARNING]
+> **macOS support is experimental in v0.1.** There is no sandbox on macOS yet (v0.2 adds one), so
+> ternly runs there in a restricted mode:
+> - **every shell command asks first**: nothing is auto-approved, not even read-only commands, in
+>   `yolo` or in plan mode; headless (`-p`) runs refuse commands;
+> - **plugin code is disabled**: hooks and plugin MCP servers don't run (skills, commands and agents
+>   still load);
+> - verification steps that would run the repository's own code (cargo, npm scripts, Maven/Gradle,
+>   the project's tsc) ask too; if declined, the turn ends *unverified*.
+>
+> The same applies on Linux without bubblewrap, or with `--no-sandbox`. `/doctor` shows the state.
+
 ## What it discovers
 Keys from env or `~/.config/ternly/keys.env` (0600): Anthropic, OpenAI, OpenRouter, Gemini, DeepSeek,
 Groq, Mistral, xAI, Together, Fireworks, Cerebras, Moonshot, Qwen/DashScope, Z.ai — plus any

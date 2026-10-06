@@ -11,6 +11,7 @@ package verify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -24,8 +25,14 @@ import (
 )
 
 // Runner runs a shell command in the workspace root (the sandbox), returning
-// its combined output and exit code.
-type Runner func(ctx context.Context, cmd string) (out string, code int, err error)
+// its combined output and exit code. repoCode says the command executes the
+// repository's own code (its tsc, cargo's build scripts, Maven/Gradle
+// plugins); a runner may decline it with an error wrapping ErrNotRun, which
+// makes the files a gap, not a failure.
+type Runner func(ctx context.Context, cmd string, repoCode bool) (out string, code int, err error)
+
+// ErrNotRun: the runner declined the command (unsandboxed and not approved).
+var ErrNotRun = errors.New("not run")
 
 // Gap is a changed source file no check covered, and why.
 type Gap struct{ File, Why string }
@@ -92,6 +99,7 @@ func Cover(ctx context.Context, root string, changed []string, run Runner) *Repo
 }
 
 type checker struct {
+	why  string // why the last exec didn't run (declined), for gaps
 	root string
 	real string // root with symlinks resolved
 	ws   *rootfs.Dir
@@ -99,10 +107,17 @@ type checker struct {
 	r    *Report
 }
 
-// exec runs cmd; a failure is recorded and reported false.
-func (c *checker) exec(ctx context.Context, cmd string) (string, bool) {
+// exec runs cmd; a failure is recorded and reported false. A declined
+// command (ErrNotRun) or a missing tool (127) is not a failure: c.why says
+// why, for the gap.
+func (c *checker) exec(ctx context.Context, cmd string, repoCode bool) (string, bool) {
+	c.why = ""
+	out, code, err := c.run(ctx, cmd, repoCode)
+	if errors.Is(err, ErrNotRun) {
+		c.why = err.Error()
+		return "", false
+	}
 	c.r.Ran = append(c.r.Ran, cmd)
-	out, code, err := c.run(ctx, cmd)
 	if err != nil || code != 0 {
 		if err != nil {
 			out += "\n" + err.Error()
@@ -116,6 +131,14 @@ func (c *checker) exec(ctx context.Context, cmd string) (string, bool) {
 		return out, false
 	}
 	return out, true
+}
+
+// whyOr is the reason the last command didn't run, or def (a missing tool).
+func (c *checker) whyOr(def string) string {
+	if c.why != "" {
+		return c.why
+	}
+	return def
 }
 
 func (c *checker) gaps(files []string, why string) {
@@ -180,7 +203,7 @@ func (c *checker) golang(ctx context.Context, files []string) {
 			args = append(args, quote(goPkgArg(d)))
 		}
 		const sep = "\x1f"
-		out, ok := c.exec(ctx, "cd "+quote(mod)+" && go list -e -f '{{.Dir}}"+sep+"{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}} {{join .TestGoFiles \" \"}} {{join .XTestGoFiles \" \"}}"+sep+"{{join .IgnoredGoFiles \" \"}}"+sep+"{{if .Error}}{{.Error}}{{end}}' "+strings.Join(args, " "))
+		out, ok := c.exec(ctx, "cd "+quote(mod)+" && go list -e -f '{{.Dir}}"+sep+"{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}} {{join .TestGoFiles \" \"}} {{join .XTestGoFiles \" \"}}"+sep+"{{join .IgnoredGoFiles \" \"}}"+sep+"{{if .Error}}{{.Error}}{{end}}' "+strings.Join(args, " "), false)
 		if !ok {
 			c.gaps(mods[mod], "`go list` failed in module "+mod)
 			continue
@@ -216,9 +239,9 @@ func (c *checker) golang(ctx context.Context, files []string) {
 				}
 			}
 		}
-		if _, ok := c.exec(ctx, "cd "+quote(mod)+" && go build -o /dev/null "+strings.Join(args, " ")+" && go vet "+strings.Join(args, " ")); !ok {
+		if _, ok := c.exec(ctx, "cd "+quote(mod)+" && go build -o /dev/null "+strings.Join(args, " ")+" && go vet "+strings.Join(args, " "), false); !ok {
 			if c.r.Failed == "" { // go missing
-				c.gaps(covered, "the go command isn't available")
+				c.gaps(covered, c.whyOr("the go command isn't available"))
 			}
 			return
 		}
@@ -248,9 +271,9 @@ func (c *checker) python(ctx context.Context, files []string) {
 	args := quoteAll(files)
 	if _, ok := c.exec(ctx, `python3 -c 'import sys
 for f in sys.argv[1:]:
-    compile(open(f, "rb").read(), f, "exec", dont_inherit=True)' `+args); !ok {
+    compile(open(f, "rb").read(), f, "exec", dont_inherit=True)' `+args, false); !ok {
 		if c.r.Failed == "" {
-			c.gaps(files, "python3 isn't available")
+			c.gaps(files, c.whyOr("python3 isn't available"))
 		}
 		return
 	}
@@ -260,9 +283,9 @@ for f in sys.argv[1:]:
 
 // JavaScript: node --check on each file.
 func (c *checker) js(ctx context.Context, files []string) {
-	if _, ok := c.exec(ctx, `for f in `+quoteAll(files)+`; do node --check "$f" || exit 1; done`); !ok {
+	if _, ok := c.exec(ctx, `for f in `+quoteAll(files)+`; do node --check "$f" || exit 1; done`, false); !ok {
 		if c.r.Failed == "" {
-			c.gaps(files, "node isn't available")
+			c.gaps(files, c.whyOr("node isn't available"))
 		}
 		return
 	}
@@ -289,9 +312,9 @@ func (c *checker) ts(ctx context.Context, files []string) {
 			c.gaps(projs[p], "no TypeScript compiler installed in the project (node_modules/.bin/tsc)")
 			continue
 		}
-		list, ok := c.exec(ctx, quote("./"+bin)+" --listFilesOnly -p "+quote(p))
+		list, ok := c.exec(ctx, quote("./"+bin)+" --listFilesOnly -p "+quote(p), true)
 		if !ok {
-			c.gaps(projs[p], "tsc --listFilesOnly failed")
+			c.gaps(projs[p], c.whyOr("tsc --listFilesOnly failed"))
 			continue
 		}
 		in := map[string]bool{}
@@ -306,7 +329,11 @@ func (c *checker) ts(ctx context.Context, files []string) {
 				c.gaps([]string{f}, "not included by "+path.Join(p, "tsconfig.json"))
 			}
 		}
-		if _, ok := c.exec(ctx, quote("./"+bin)+" --noEmit -p "+quote(p)); !ok {
+		if _, ok := c.exec(ctx, quote("./"+bin)+" --noEmit -p "+quote(p), true); !ok {
+			if c.r.Failed == "" {
+				c.gaps(covered, c.whyOr("tsc didn't run"))
+				continue
+			}
 			return
 		}
 		c.r.Covered = append(c.r.Covered, covered...)
@@ -320,7 +347,7 @@ func (c *checker) ts(ctx context.Context, files []string) {
 func (c *checker) rust(ctx context.Context, files []string) {
 	pkgs, _ := c.group(files, "no Cargo.toml above it", "Cargo.toml")
 	for _, p := range sortedKeys(pkgs) {
-		meta, ok := c.exec(ctx, "cd "+quote(p)+" && cargo metadata --format-version 1 --no-deps --offline")
+		meta, ok := c.exec(ctx, "cd "+quote(p)+" && cargo metadata --format-version 1 --no-deps --offline", false)
 		target := ""
 		if ok {
 			if m := regexp.MustCompile(`"target_directory":"([^"]+)"`).FindStringSubmatch(meta); m != nil {
@@ -331,9 +358,9 @@ func (c *checker) rust(ctx context.Context, files []string) {
 			c.gaps(pkgs[p], "cargo's target directory is outside the workspace or unknown")
 			continue
 		}
-		if _, ok := c.exec(ctx, "cd "+quote(p)+" && cargo check --quiet --all-targets"); !ok {
+		if _, ok := c.exec(ctx, "cd "+quote(p)+" && cargo check --quiet --all-targets", true); !ok {
 			if c.r.Failed == "" {
-				c.gaps(pkgs[p], "cargo isn't available")
+				c.gaps(pkgs[p], c.whyOr("cargo isn't available"))
 			}
 			return
 		}
@@ -393,9 +420,9 @@ func (c *checker) java(ctx context.Context, files []string) {
 			}
 			cmd, mainOut, testOut = gradle+" -q compileJava compileTestJava", "build/classes/java/main", "build/classes/java/test"
 		}
-		if _, ok := c.exec(ctx, "cd "+quote(p)+" && "+cmd); !ok {
+		if _, ok := c.exec(ctx, "cd "+quote(p)+" && "+cmd, true); !ok {
 			if c.r.Failed == "" {
-				c.gaps(projs[p], "the build tool isn't available")
+				c.gaps(projs[p], c.whyOr("the build tool isn't available"))
 			}
 			return
 		}

@@ -2,6 +2,7 @@ package verify
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +20,7 @@ func runner(t *testing.T, root string, fake map[string]string) Runner {
 			t.Fatal(err)
 		}
 	}
-	return func(ctx context.Context, cmd string) (string, int, error) {
+	return func(ctx context.Context, cmd string, _ bool) (string, int, error) {
 		c := exec.CommandContext(ctx, "bash", "-c", cmd)
 		c.Dir = root
 		c.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "GOFLAGS=-mod=mod", "CARGO_TERM_COLOR=never")
@@ -69,7 +70,7 @@ func TestGoNestedModuleIsNotSkipped(t *testing.T) {
 		"internal/netguard/netguard.go": "package netguard\n\nfunc broken( {\n",
 	})
 	run := runner(t, root, nil)
-	if out, code, _ := run(context.Background(), "go build ./..."); code != 0 {
+	if out, code, _ := run(context.Background(), "go build ./...", false); code != 0 {
 		t.Fatalf("setup: the root build should pass (that's the trap): %s", out)
 	}
 	r := Cover(context.Background(), root, []string{"internal/netguard/go.mod", "internal/netguard/netguard.go"}, run)
@@ -188,7 +189,7 @@ func TestJavaClassFreshness(t *testing.T) {
 }
 
 func TestUnknownLanguageIsAGap(t *testing.T) {
-	r := Cover(context.Background(), t.TempDir(), []string{"x.rb", "notes.txt", "c.yaml"}, func(context.Context, string) (string, int, error) { return "", 0, nil })
+	r := Cover(context.Background(), t.TempDir(), []string{"x.rb", "notes.txt", "c.yaml"}, func(context.Context, string, bool) (string, int, error) { return "", 0, nil })
 	if len(r.Gaps) != 1 || r.Skipped != 2 || r.OK() {
 		t.Fatalf("%+v", r)
 	}
@@ -197,7 +198,7 @@ func TestUnknownLanguageIsAGap(t *testing.T) {
 func TestMissingToolIsAGapNotAPass(t *testing.T) {
 	root := t.TempDir()
 	files(t, root, map[string]string{"go.mod": "module x\n", "a.go": "package x\n"})
-	r := Cover(context.Background(), root, []string{"a.go"}, func(context.Context, string) (string, int, error) { return "go: not found", 127, nil })
+	r := Cover(context.Background(), root, []string{"a.go"}, func(context.Context, string, bool) (string, int, error) { return "go: not found", 127, nil })
 	if r.OK() || len(r.Gaps) != 1 || r.Failed != "" {
 		t.Fatalf("%+v", r)
 	}
@@ -217,5 +218,29 @@ func TestLinkedWorkspaceRoot(t *testing.T) {
 	files(t, root, map[string]string{"go.mod": "module x\n\ngo 1.22\n", "a/a.go": "package a\n"})
 	if r := Cover(context.Background(), root, []string{"a/a.go"}, runner(t, root, nil)); !r.OK() || len(r.Covered) != 1 {
 		t.Fatalf("%+v %s", r, gaps(r))
+	}
+}
+
+// Unsandboxed, a runner declines commands that run the repository's code;
+// their files become gaps that say so — never a pass, never a failure.
+func TestDeclinedCommandIsAGap(t *testing.T) {
+	need(t, "cargo", "python3")
+	root := t.TempDir()
+	files(t, root, map[string]string{"Cargo.toml": "[package]\nname = \"x\"\nversion = \"0.1.0\"\nedition = \"2021\"\n", "src/lib.rs": "pub fn f() {}\n", "a.py": "x = 1\n"})
+	inner := runner(t, root, nil)
+	var asked []string
+	run := func(ctx context.Context, cmd string, repoCode bool) (string, int, error) {
+		if repoCode {
+			asked = append(asked, cmd)
+			return "", 0, fmt.Errorf("%w: unsandboxed, and running the repository's code wasn't approved", ErrNotRun)
+		}
+		return inner(ctx, cmd, repoCode)
+	}
+	r := Cover(context.Background(), root, []string{"src/lib.rs", "a.py"}, run)
+	if r.Failed != "" || strings.Join(r.Covered, " ") != "a.py" || len(r.Gaps) != 1 || !strings.Contains(r.Gaps[0].Why, "wasn't approved") {
+		t.Fatalf("%+v %s", r, gaps(r))
+	}
+	if len(asked) != 1 || !strings.Contains(asked[0], "cargo check") {
+		t.Fatalf("asked %q", asked)
 	}
 }

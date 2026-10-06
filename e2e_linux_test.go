@@ -26,8 +26,9 @@ func bwrapUsable() bool {
 }
 
 // M1.1(a): a model-driven shell command cannot read ternly's keys/config,
-// cache (checkpoint repositories) or session data. The --no-sandbox control
-// shows the data is really there to be read.
+// cache (checkpoint repositories) or session data. The control shows the
+// data is really there to be read: the probe, run on the host, sees it —
+// and ternly with --no-sandbox refuses to run it unasked at all (ADR 016).
 func TestSandboxedCommandsCannotReadPrivateData(t *testing.T) {
 	testutil.Require(t, "bubblewrap", bwrapUsable())
 	testutil.Require(t, "git", testutil.Have("git"))
@@ -54,8 +55,16 @@ func TestSandboxedCommandsCannotReadPrivateData(t *testing.T) {
 		if sandboxed && (len(leaked) > 0 || !strings.Contains(res, "inside=1")) {
 			t.Fatalf("sandboxed command read private data %v:\n%s", leaked, res)
 		}
-		if !sandboxed && len(leaked) != 4 {
-			t.Fatalf("control run should see all 4 markers, saw %v:\n%s", leaked, res)
+		if !sandboxed {
+			if !strings.HasPrefix(res, "permission denied by policy") || !strings.Contains(res, "unsandboxed") {
+				t.Fatalf("unsandboxed, the command ran unasked:\n%s", res)
+			}
+			host := exec.Command("bash", "-c", probe)
+			host.Env = append(os.Environ(), "HOME="+home, "TERNLY=")
+			hout, _ := host.CombinedOutput()
+			if n := len(regexp.MustCompile(`CFG-MARKER|CACHE-MARKER|SESSION-MARKER|written by ternly`).FindAllString(string(hout), -1)); n != 4 {
+				t.Fatalf("control: on the host the probe should see all 4 markers, saw %d:\n%s", n, hout)
+			}
 		}
 		// the session (and its checkpoint store) persists, owner-only
 		logs, _ := filepath.Glob(filepath.Join(home, ".local", "share", "ternly", "projects", "*", "sessions", "*", "events.log"))

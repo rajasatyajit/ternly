@@ -466,7 +466,7 @@ func (m *Model) cmdPermissions(string) tea.Cmd {
 	p := m.App.Reg.Policy
 	lines := []string{
 		"mode     " + p.Mode() + sDim.Render("  (ask: confirm edits and unsafe commands · edits: auto-allow edits · yolo: also commands · plan: read-only)"),
-		"sandbox  " + m.App.Reg.Sandbox.Mode(),
+		"sandbox  " + m.App.Reg.Sandbox.Mode() + map[bool]string{true: sWarn.Render("  — no sandbox: every shell command asks, plugin code is off (/doctor)")}[p.Unsandboxed],
 		"always   " + orStr(strings.Join(p.Always(), ", "), "nothing yet (answer [a] to a prompt)"),
 	}
 	var trusted []string
@@ -489,10 +489,13 @@ func (m *Model) cmdDoctor(string) tea.Cmd {
 		line := func(mark, what, detail string) {
 			b.WriteString(fmt.Sprintf("  %s %-12s %s\n", mark, what, sDim.Render(detail)))
 		}
-		if sm := m.App.Reg.Sandbox.Mode(); strings.Contains(sm, "bwrap") || strings.Contains(sm, "sandbox") {
+		switch sm := m.App.Reg.Sandbox.Mode(); {
+		case !m.App.Reg.Policy.Unsandboxed:
 			line(ok, "sandbox", sm)
-		} else {
-			line(warn, "sandbox", sm+" — install bubblewrap to sandbox shell commands")
+		case runtime.GOOS == "darwin":
+			line(bad, "sandbox", "none — macOS support is EXPERIMENTAL (a sandbox comes in v0.2): every shell command asks first, and plugin hooks and MCP servers are disabled")
+		default:
+			line(bad, "sandbox", "none — every shell command asks first and plugin hooks and MCP servers are disabled; install bubblewrap (or drop --no-sandbox)")
 		}
 		for _, t := range []struct{ bin, why string }{{"git", "checkpoints, /diff, /commit"}, {"rg", "fast grep (falls back to Go)"}, {"go", "the Go code graph"}} {
 			if p, err := exec.LookPath(t.bin); err == nil {

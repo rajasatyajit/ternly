@@ -272,3 +272,33 @@ func TestFingerprintIgnoresTouches(t *testing.T) {
 		t.Fatal("an edit wasn't seen")
 	}
 }
+
+// Without a sandbox (macOS before v0.2), plugin code doesn't run: the hook
+// is not registered and the MCP server never starts, while the plugin's
+// skills still load; the user is told why.
+func TestNoCodeWithoutSandbox(t *testing.T) {
+	rt, reg, home := runtimeFor(t, "yolo")
+	rt.NoCode = "shell commands can't be sandboxed on this system"
+	marker := filepath.Join(home, "server-ran")
+	install(t, rt.Store, map[string]string{
+		".claude-plugin/plugin.json": `{"name":"coder"}`,
+		"hooks/hooks.json":           `{"hooks":{"PreToolUse":[{"matcher":"*","hooks":[{"type":"command","command":"exit 2"}]}]}}`,
+		".mcp.json":                  `{"mcpServers":{"srv":{"command":"sh","args":["-c","touch ` + marker + `"]}}}`,
+		"skills/s/SKILL.md":          "---\nname: s\ndescription: A skill\n---\nbody",
+	})
+	w := rt.Apply(context.Background())
+	reg.Commit()
+	if len(w) != 1 || !strings.Contains(w[0], "plugin coder: hooks and MCP servers disabled — shell commands can't be sandboxed") {
+		t.Fatalf("warnings %q", w)
+	}
+	if res := reg.Call(context.Background(), toolCall("read_file", `{"path":"."}`)); strings.Contains(res.Out, "blocked by a plugin hook") {
+		t.Fatal("the hook ran")
+	}
+	time.Sleep(200 * time.Millisecond)
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("the MCP server started")
+	}
+	if reg.Get("use_skill") == nil {
+		t.Fatal("the plugin's skill didn't load")
+	}
+}

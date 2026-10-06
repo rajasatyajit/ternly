@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -36,6 +38,10 @@ type Runtime struct {
 	SessionID, Mode func() string
 	// Changed is called after a reload (the UI refreshes its commands).
 	Changed func()
+	// NoCode, when set, says why plugin code (hooks, MCP servers) doesn't
+	// run: there is no sandbox to confine it (macOS before v0.2). Skills,
+	// commands, agents and rules — prompt text — still load.
+	NoCode string
 
 	mu       sync.Mutex
 	sums     map[string]fileSum // fingerprint's cache (Watch's goroutine only)
@@ -123,6 +129,7 @@ func (r *Runtime) apply(ctx context.Context) ([]string, func() []string) {
 		r.always = map[string]bool{}
 	}
 	var newAlways []string
+	noCode := map[string]bool{}
 	for _, m := range active {
 		for _, c := range m.Components {
 			r.byName[c.Name] = c
@@ -145,12 +152,15 @@ func (r *Runtime) apply(ctx context.Context) ([]string, func() []string) {
 				r.cmds = append(r.cmds, r.command(c))
 			case KAgent:
 				agents = append(agents, c)
-			case KHook:
-				if p, ok := approved[m.Name]; ok { // only approved plugins run code
+			case KHook, KMCP:
+				p, ok := approved[m.Name] // only approved plugins run code
+				switch {
+				case !ok:
+				case r.NoCode != "":
+					noCode[m.Name] = true
+				case c.Kind == KHook:
 					r.hooks = append(r.hooks, hookEntry{plugin: m.Name, dir: m.Dir, scope: p.Hooks, h: *c.Hook})
-				}
-			case KMCP:
-				if _, ok := approved[m.Name]; ok {
+				default:
 					wantMCP[c.Name] = c
 				}
 			}
@@ -162,6 +172,9 @@ func (r *Runtime) apply(ctx context.Context) ([]string, func() []string) {
 		r.Note("[ternly: these always-on rules now apply — " + strings.Join(newAlways, ", ") + "; their full text is in the instructions from the next session, or ask use_skill for it]")
 	}
 	r.started = true
+	for _, name := range slices.Sorted(maps.Keys(noCode)) {
+		r.warnings = append(r.warnings, fmt.Sprintf("plugin %s: hooks and MCP servers disabled — %s (its skills, commands and agents still load)", name, r.NoCode))
+	}
 	ws := r.warnings
 	return ws, func() []string { return r.syncMCP(wantMCP, approved) }
 }

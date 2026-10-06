@@ -1008,3 +1008,31 @@ func TestReasoningEffortRouting(t *testing.T) {
 		t.Error("escalation overrode a fixed budget")
 	}
 }
+
+// Unsandboxed and headless, a project check that runs the repository's code
+// isn't run: the turn ends unverified, saying why — never ✓ (ADR 016).
+func TestUnsandboxedVerifyNotRun(t *testing.T) {
+	testutil.Require(t, "go", testutil.Have("go"))
+	f := newFake(t,
+		reply{calls: [][2]string{call("write_file", `{"path":"x.go","content":"package x\n\nfunc X() {}\n"}`)}},
+		reply{text: "done"},
+		reply{text: "x.go is unverified: the project check needs approval here."},
+	)
+	a, rec := newAgent(t, "edits", model(f.URL, "m", 3, 1, 5))
+	a.Reg.Policy.Unsandboxed = true
+	write(t, a, "go.mod", "module example.com/x\n\ngo 1.22\n")
+	a.SetVerify("make test")
+	a.Run(bg, "add X")
+	if got := strings.Join(rec.verdicts(), " "); got != "unverified unverified" {
+		t.Fatalf("verdicts %q", got)
+	}
+	var text string
+	for _, e := range rec.events {
+		if e.Kind == EvToolEnd && e.Tool == "verify" {
+			text = e.Text
+		}
+	}
+	if !strings.Contains(text, "(project check `make test`)") || !strings.Contains(text, "wasn't approved") {
+		t.Fatalf("verify said: %s", text)
+	}
+}
