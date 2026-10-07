@@ -15,7 +15,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -267,9 +266,28 @@ func retryAfter(h string, now time.Time) time.Duration {
 	return 0
 }
 
-// reQuota is an error message about a usage limit (the providers' wording
-// varies, and Ollama documents none for running out of credits).
-var reQuota = regexp.MustCompile(`(?i)usage limit|quota|out of credits|credits? (exhausted|exceeded|remaining)|insufficient (balance|credits?|funds)|rate.?limit|too many requests|weekly limit|session limit`)
+// quotaPhrases mark an error message about a usage limit (the providers'
+// wording varies, and Ollama documents none for running out of credits).
+// Plain substrings, not a regexp: linking one here measurably slowed the
+// injection flagger's string matching (BenchmarkFrame +6–9%, PR #14).
+var quotaPhrases = []string{
+	"usage limit", "quota", "out of credits",
+	"credit exhausted", "credits exhausted", "credit exceeded", "credits exceeded", "credit remaining", "credits remaining",
+	"insufficient balance", "insufficient credit", "insufficient funds",
+	"ratelimit", "rate limit", "rate-limit", "rate_limit",
+	"too many requests", "weekly limit", "session limit",
+}
+
+// quotaMessage reports whether s reads as a usage-limit message.
+func quotaMessage(s string) bool {
+	low := strings.ToLower(s)
+	for _, p := range quotaPhrases {
+		if strings.Contains(low, p) {
+			return true
+		}
+	}
+	return false
+}
 
 // QuotaHit reports whether err says a usage limit or rate limit was hit (a
 // 429, or such a message, also inside a stream), and how long the provider
@@ -279,5 +297,5 @@ func QuotaHit(err error) (bool, time.Duration) {
 	if !errors.As(err, &ae) {
 		return false, 0
 	}
-	return ae.Status == 429 || reQuota.MatchString(ae.Body), ae.RetryAfter
+	return ae.Status == 429 || quotaMessage(ae.Body), ae.RetryAfter
 }

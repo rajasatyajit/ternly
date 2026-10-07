@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -97,5 +98,25 @@ func TestLongRetryAfterReturnsAtOnce(t *testing.T) {
 		t.Fatalf("503: %v", err)
 	} else if hit, _ := QuotaHit(err); hit {
 		t.Fatalf("a 503 read as a quota: %v", err)
+	}
+}
+
+// quotaMessage replaced a regexp (PR #14, for BenchmarkFrame): on these
+// messages it must agree with it exactly.
+func TestQuotaMessageMatchesOldRegexp(t *testing.T) {
+	old := regexp.MustCompile(`(?i)usage limit|quota|out of credits|credits? (exhausted|exceeded|remaining)|insufficient (balance|credits?|funds)|rate.?limit|too many requests|weekly limit|session limit`)
+	msgs := []string{
+		"you have reached your usage limit, please try again later", "You have reached your weekly usage limit",
+		"Quota exceeded for this project", "out of credits", "Credits exhausted", "credit exceeded", "0 credits remaining",
+		"Insufficient balance", "insufficient credits on account", "INSUFFICIENT FUNDS",
+		"rate limit reached", "Rate-limit hit", "ratelimit", "rate_limit_error", "429 Too Many Requests",
+		"weekly limit reached", "session limit reached",
+		"model not found", "context length exceeded", "internal server error", "overloaded", "bad gateway",
+		"invalid api key", "the server is busy", "", "credits", "limit", "rate", "insufficient permissions",
+	}
+	for _, m := range msgs {
+		if got, want := quotaMessage(m), old.MatchString(m); got != want {
+			t.Errorf("%q: quotaMessage %v, the old regexp %v", m, got, want)
+		}
 	}
 }

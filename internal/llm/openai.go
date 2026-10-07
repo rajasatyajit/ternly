@@ -232,7 +232,7 @@ func streamError(raw json.RawMessage) error {
 		}
 	}
 	status := 0
-	if reQuota.MatchString(msg) {
+	if quotaMessage(msg) {
 		status = 429
 	}
 	return &APIError{Status: status, Body: msg, Retryable: true, InStream: true}
