@@ -50,8 +50,10 @@ func (r *routingConfig) UnmarshalJSON(b []byte) error {
 // (ADR 018: 10–60 k tokens).
 const modelsCtx = 20000
 
-// defaultRouting is the router a config without "routing" gets.
-const defaultRouting = "v1"
+// defaultRouting is the router a config without "routing" gets: v2 from
+// v0.1.1 (ADR 018: proven on the e2e suite, the baseline and the replay
+// test); "v1" stays as an escape hatch for one release.
+const defaultRouting = "v2"
 
 // costModel builds routing v2's cost model, or nil for v1. flag overrides
 // the config's version.

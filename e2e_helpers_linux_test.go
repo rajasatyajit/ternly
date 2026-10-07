@@ -140,7 +140,8 @@ func childEnv(home string, extra ...string) []string {
 		}
 		env = append(env, kv)
 	}
-	return append(append(env, "HOME="+home, "FAKE_KEY=k"), extra...)
+	// TERNLY_BACKGROUND_EVAL=1: a TUI left idle never starts evaluating the fake models (ADR 018)
+	return append(append(env, "HOME="+home, "FAKE_KEY=k", "TERNLY_BACKGROUND_EVAL=1"), extra...)
 }
 
 func ternly(t *testing.T, home string, args ...string) *exec.Cmd {
