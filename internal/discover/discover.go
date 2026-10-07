@@ -61,6 +61,15 @@ type Model struct {
 	// Reasoning: the model takes a reasoning budget (Ollama's "thinking"
 	// capability, or a known reasoning family). Only then is one sent.
 	Reasoning bool `json:"reasoning,omitempty"`
+	// Size is a local model's size on disk in bytes (Ollama /api/tags; 0 = unknown).
+	Size int64 `json:"size,omitempty"`
+	// GPU is the fraction of a local model on the GPU, 0..1 (-1: unknown or
+	// not local), measured from Ollama's /api/ps when the model is loaded
+	// ("loaded"), else estimated from Size and the VRAM ("estimated"). ADR 018.
+	GPU      float64 `json:"gpu,omitempty"`
+	GPUBasis string  `json:"gpu_basis,omitempty"`
+	// NoFit: a local model larger than VRAM + available RAM; never routed to.
+	NoFit bool `json:"no_fit,omitempty"`
 }
 
 // reReasoning names model families known to take a reasoning budget
@@ -190,6 +199,7 @@ type Options struct {
 	LocalOnly bool
 	Overrides map[string]int         // model key → tier
 	Measured  map[string]Measurement // model key → measured capability (beats the name table)
+	Hardware  *Hardware              // nil: detect (tests replay a recorded machine)
 }
 
 var skipModel = regexp.MustCompile(`(?i)embed|whisper|tts|dall-?e|image|moderation|rerank|audio|realtime|transcri|guard|speech|vision-preview|search-preview|omni-moderation|sora|veo|imagen|lyria|aqa`)
@@ -272,6 +282,7 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 		out = append(out, m)
 	}
 	SetReasoning(out)
+	placeAll(ctx, out, o.Hardware)
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Tier != out[j].Tier {
 			return out[i].Tier > out[j].Tier
@@ -357,6 +368,7 @@ func ollamaCloud(ctx context.Context, p *Provider, ms []*Model) {
 			Name        string `json:"name"`
 			RemoteModel string `json:"remote_model"`
 			RemoteHost  string `json:"remote_host"`
+			Size        int64  `json:"size"`
 			Details     struct {
 				ParameterSize string `json:"parameter_size"`
 			} `json:"details"`
@@ -367,17 +379,22 @@ func ollamaCloud(ctx context.Context, p *Provider, ms []*Model) {
 	}
 	remote := map[string]string{}
 	size := map[string]float64{}
+	bytes := map[string]int64{}
 	for _, m := range d.Models {
 		if m.RemoteHost != "" {
 			remote[m.Name] = m.RemoteModel
 		}
 		size[m.Name] = parseSize(m.Details.ParameterSize)
+		bytes[m.Name] = m.Size
 	}
 	for _, m := range ms {
 		if base, ok := remote[m.ID]; ok {
 			m.Cloud, m.Base = true, base
 		}
 		m.Params = size[m.ID]
+		if !m.Cloud {
+			m.Size = bytes[m.ID]
+		}
 	}
 }
 
@@ -655,4 +672,29 @@ func trim(f float64) string {
 		return strconv.FormatFloat(f, 'f', 0, 64)
 	}
 	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+// placeAll sets every local model's GPU placement and whether it fits
+// (ADR 018 §3): Ollama's /api/ps for loaded models, the hardware otherwise.
+func placeAll(ctx context.Context, ms []*Model, fixed *Hardware) {
+	var hw Hardware
+	detected := false
+	if fixed != nil {
+		hw, detected = *fixed, true
+	}
+	ps := map[*Provider]map[string]loaded{}
+	for _, m := range ms {
+		m.GPU = -1
+		if !m.Local() {
+			continue
+		}
+		if !detected {
+			hw, detected = DetectHardware(ctx), true
+		}
+		if _, ok := ps[m.Provider]; !ok && m.ProvID == "ollama" {
+			ps[m.Provider] = ollamaPS(ctx, strings.TrimSuffix(strings.TrimRight(m.Provider.BaseURL, "/"), "/v1"))
+		}
+		Place(m, hw, ps[m.Provider])
+		m.NoFit = !Fits(m, hw)
+	}
 }

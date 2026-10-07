@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "completion",
+    "tools",
+    "thinking"
+  ],
+  "model_info": {
+    "deepseek4.context_length": 1048576
+  }
+}

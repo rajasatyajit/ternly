@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "completion",
+    "tools",
+    "vision"
+  ],
+  "model_info": {
+    "mistral3.context_length": 262144
+  }
+}

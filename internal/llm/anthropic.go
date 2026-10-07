@@ -216,7 +216,7 @@ func (c *anthropic) Stream(ctx context.Context, r Request) <-chan Event {
 						t.Thinking += ev.Delta.Thinking
 						t.Signature += ev.Delta.Signature
 					}
-					ch <- Event{Kind: EvProgress, Reasoning: true}
+					ch <- Event{Kind: EvProgress, Reasoning: true, N: len(ev.Delta.Thinking)}
 				default:
 					ch <- Event{Kind: EvProgress}
 				}

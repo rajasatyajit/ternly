@@ -1,0 +1,9 @@
+{
+  "capabilities": [
+    "completion",
+    "vision"
+  ],
+  "model_info": {
+    "deepseekocr.context_length": 8192
+  }
+}

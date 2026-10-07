@@ -80,9 +80,9 @@ type Agent struct {
 	// EffortRules map reasoning levels per model family (config
 	// "reasoning_levels"; ahead of the built-in table, ADR 016).
 	EffortRules []discover.EffortRule
-	// WatchdogChunks: reasoning chunks a step may produce before any text or
-	// tool call (0: the default; negative: no watchdog).
-	WatchdogChunks int
+	// Watchdog bounds one step's reasoning before any text or tool call, in
+	// tokens and in seconds (issue #2; zero values: the defaults, -1: off).
+	Watchdog Watchdog
 	// Reasoning is the reasoning-budget policy (ADR 015): "auto" (or "")
 	// lets routing decide — low for routine turns, medium for hard ones,
 	// high for /architect plans and after an escalation; "off" sends no
@@ -236,6 +236,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		if j != nil {
 			j.Sync() // turn boundary: make the turn durable
 		}
+		_ = a.Router.SaveSpeeds() // measured model speeds (ADR 018)
 		a.Emit(Event{Kind: EvDone, Ledger: a.Ledger()})
 	}()
 	select {
@@ -258,9 +259,13 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	changed := capabilityNote(a.Reg.Commit())
 	// The model is picked first: how much it may lean on memory notes follows
 	// its measured memory-misuse rate (ADR 012).
+	// Routing v2 re-ranks every turn on the context as it is now (prefill
+	// grows with it), keeping the previous turn's model unless another is
+	// clearly better (ADR 018).
 	diff := discover.Classify(prompt, 0)
-	need := estTokens(a.system, a.Export().History) + 16000
-	model, reason := a.Router.Pick(diff, need)
+	ctxTok := estTokens(a.system, a.Export().History)
+	need := ctxTok + 16000
+	model, reason := a.Router.PickFor(diff, ctxTok, need, a.currentModel())
 	autonomy := "full"
 	if model != nil {
 		autonomy = model.MemoryAutonomy()
@@ -283,6 +288,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	st := newTurnState(a.state.Ledger.Cost)
 	st.lim, st.budget, st.verify, st.prompt = a.Limits, a.Budget, a.verify, prompt
 	st.effort = a.effortFor(diff, a.nextEffort)
+	st.diff, st.ctx = diff, ctxTok
 	a.nextEffort = ""
 	a.turnCost0 = st.cost0
 	a.subs.Store(0)
@@ -304,6 +310,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		return
 	}
 	a.setModel(model, reason+a.effortNote(model, st.effort))
+	st.tried[model.Key()] = true
 
 	verifyTries := 0
 	for step := 0; ; step++ {
@@ -323,8 +330,15 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		msg, calls, stop, err := a.step(tctx, model, st)
 		var ra *runaway
 		if errors.As(err, &ra) {
-			st.watchdogged, st.forceLabel = true, otherLevel(ra.label)
+			st.watchdogged = true
 			a.count(func(s *Stats) { s.Watchdog++ })
+			if ra.slow() && a.Router.V2() { // a slow step is a failed step: another model, if there is one (ADR 018)
+				if up := a.escalate(model, need, st, "escalated: "+ra.Error()); up != model {
+					model = up
+					continue
+				}
+			}
+			st.forceLabel = otherLevel(ra.label)
 			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s (reasoning %s) — interrupted; retrying once at %s", ra.Error(), orNone(ra.label), st.forceLabel)})
 			continue
 		}
@@ -336,9 +350,14 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				a.stop(ctx, st, step, fmt.Sprintf("time limit (%s) reached", st.lim.Time))
 				return
 			}
-			if alt, ok := a.Router.Failover(model, need); ok && llm.IsRetryable(err) {
+			var ae *llm.APIError
+			if errors.As(err, &ae) && ae.Status == 429 && model.Cloud { // a subscription's quota or rate limit
+				a.Router.MarkExhausted(model.Key(), time.Now().Add(quotaCooldown))
+			}
+			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && llm.IsRetryable(err) {
 				a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s failed (%v) — failing over", model.Key(), short(err))})
 				model = alt
+				st.tried[model.Key()] = true
 				a.setModel(model, "failover")
 				continue
 			}
@@ -381,10 +400,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 					}
 					failures++
 					if failures >= 2 { // cascade: only pay for a stronger model when the cheap one demonstrably failed
-						if up, ok := a.Router.Escalate(model, need); ok {
-							model, st.effort = up, a.escalated(st.effort)
-							a.setModel(model, "escalated after repeated verification failure"+a.effortNote(model, st.effort))
-						}
+						model = a.escalate(model, need, st, "escalated after repeated verification failure")
 					}
 					framed, _ := a.Reg.Frame.Wrap("verify", out)
 					a.appendUser("Automatic verification (" + label + ") failed:\n" + framed + "\nFix the root cause, then stop.")
@@ -424,13 +440,31 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				return
 			}
 			a.Emit(Event{Kind: EvStatus, Text: "no progress detected — redirecting the model"})
-			if up, ok := a.Router.Escalate(model, need); ok { // a stuck model is a failed model
-				model, st.effort = up, a.escalated(st.effort)
-				a.setModel(model, "escalated: previous model stopped making progress"+a.effortNote(model, st.effort))
-			}
+			model = a.escalate(model, need, st, "escalated: previous model stopped making progress") // a stuck model is a failed model
 			a.appendUser(msgLoop)
 		}
 	}
+}
+
+// quotaCooldown: how long a rate-limited subscription model stays out of
+// routing (Ollama Cloud documents no reset time; unverified, ADR 018).
+const quotaCooldown = time.Hour
+
+// escalate moves the turn to a stronger model when the router has one. When
+// it has nowhere to go, the user is told once what would help (ADR 018).
+func (a *Agent) escalate(model *discover.Model, need int, st *turnState, why string) *discover.Model {
+	up, ok, hint := a.Router.EscalateFor(model, st.diff, st.ctx, need, st.tried)
+	if ok {
+		st.effort = a.escalated(st.effort)
+		st.tried[up.Key()] = true
+		a.setModel(up, why+a.effortNote(up, st.effort))
+		return up
+	}
+	if hint != "" && !st.toldNowhere {
+		st.toldNowhere = true
+		a.Emit(Event{Kind: EvStatus, Text: hint})
+	}
+	return model
 }
 
 func (a *Agent) limitHit(tctx context.Context, st *turnState, step int) string {
@@ -530,12 +564,12 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 		req.Effort = st.forceLabel
 	}
 	a.mu.Unlock()
-	limit := a.WatchdogChunks
-	if limit == 0 {
-		limit = defaultWatchdog
-	}
+	wd := a.Watchdog.resolved()
 	if st.watchdogged { // one interruption per turn
-		limit = -1
+		wd = Watchdog{Tokens: -1, Idle: -1}
+	}
+	if exp := a.Router.StepSeconds(m, st.diff, st.ctx); wd.Idle > 0 && 3*exp > wd.Idle.Seconds() {
+		wd.Idle = time.Duration(3 * exp * float64(time.Second)) // routing v2 expects a slow model to be slow (ADR 018)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -545,9 +579,45 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 	var thinking []json.RawMessage
 	var stop string
 	chunks, lastProgress := 0, time.Now()
-	thought, acted := 0, false // reasoning chunks before any text or tool call
+	reasoned, acted := 0, false // reasoning bytes before any text or tool call
+	t0 := time.Now()
+	var first, last time.Time // first and last output: speed measurement (ADR 018)
+	var usage llm.Usage
+	gotUsage := false
 	stream := cl.Stream(ctx, req)
-	for ev := range stream {
+	interrupt := func(r *runaway) error {
+		cancel()
+		go func() { // the client stops on the cancelled context; drain what it sent meanwhile
+			for range stream {
+			}
+		}()
+		a.account(m, llm.Usage{In: estTokens(req.System, req.Messages), Out: reasoned / bytesPerToken}) // an estimate: no usage arrives
+		return r
+	}
+	tick := time.NewTicker(time.Second) // the seconds limit holds even when nothing arrives (a long prefill)
+	defer tick.Stop()
+recv:
+	for {
+		var ev llm.Event
+		select {
+		case e, ok := <-stream:
+			if !ok {
+				break recv
+			}
+			ev = e
+		case <-tick.C:
+			if el := time.Since(t0); !acted && wd.Idle > 0 && el > wd.Idle {
+				return llm.Message{}, nil, "", interrupt(&runaway{elapsed: el, label: req.Effort})
+			}
+			continue
+		}
+		switch ev.Kind {
+		case llm.EvText, llm.EvProgress, llm.EvToolCall, llm.EvThinking:
+			if first.IsZero() {
+				first = time.Now()
+			}
+			last = time.Now()
+		}
 		switch ev.Kind {
 		case llm.EvProgress:
 			if chunks++; time.Since(lastProgress) >= 5*time.Second {
@@ -556,14 +626,8 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 			}
 			if !ev.Reasoning {
 				acted = true // tool arguments are streaming
-			} else if thought++; !acted && limit > 0 && thought > limit {
-				cancel()
-				go func() { // the client stops on the cancelled context; drain what it sent meanwhile
-					for range stream {
-					}
-				}()
-				a.account(m, llm.Usage{In: estTokens(req.System, req.Messages), Out: thought}) // an estimate: no usage arrives
-				return llm.Message{}, nil, "", &runaway{chunks: thought, label: req.Effort}
+			} else if reasoned += ev.N; !acted && wd.Tokens > 0 && reasoned/bytesPerToken > wd.Tokens {
+				return llm.Message{}, nil, "", interrupt(&runaway{tokens: reasoned / bytesPerToken, label: req.Effort})
 			}
 		case llm.EvText:
 			acted = true
@@ -575,10 +639,18 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 			calls = append(calls, ev.Call)
 		case llm.EvUsage:
 			a.account(m, ev.Usage)
+			usage.Add(ev.Usage)
+			gotUsage = true
 		case llm.EvDone:
 			stop = ev.Stop
 		case llm.EvError:
 			return llm.Message{}, nil, "", ev.Err
+		}
+	}
+	if gotUsage && !first.IsZero() {
+		a.Router.Observe(m, usage.In, usage.Out, first.Sub(t0), last.Sub(first))
+		if m.Local() {
+			a.Router.RefreshPlacement(ctx, m) // a load may have changed where it runs
 		}
 	}
 	return llm.Message{Role: "assistant", Content: text.String(), ToolCalls: calls, Thinking: thinking}, calls, stop, nil
@@ -947,7 +1019,8 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		}
-		m, _ = a.Router.Pick(discover.Classify(question, 0), estTokens(a.system, h)+4000)
+		ctxTok := estTokens(a.system, h)
+		m, _ = a.Router.PickFor(discover.Classify(question, 0), ctxTok, ctxTok+4000, nil)
 	}
 	if m == nil {
 		return "", errors.New("no usable model")

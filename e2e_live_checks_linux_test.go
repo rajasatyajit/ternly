@@ -219,18 +219,7 @@ func checkGraphCallsites(r *liveRun) error {
 	if _, err := r.headless("edits", "List every call site of the method Store.Flush (package store) in this repository, as file:line, one per line. Don't include calls to other Flush methods."); err != nil {
 		return err
 	}
-	answer := r.answer
-	var missing, extra []string
-	for _, w := range want {
-		if !strings.Contains(answer, w) {
-			missing = append(missing, w)
-		}
-	}
-	for _, w := range wrong {
-		if regexp.MustCompile(regexp.QuoteMeta(w) + `\b`).MatchString(answer) {
-			extra = append(extra, w)
-		}
-	}
+	missing, extra := callsiteVerdict(r.answer, want, wrong)
 	if len(missing)+len(extra) > 0 {
 		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
 	}
@@ -307,17 +296,7 @@ func checkGraphCallsitesPython(r *liveRun) error {
 	if _, err := r.headless("edits", "List every call site of the method Store.flush (in app/store.py) in this repository, as file:line, one per line. Don't include calls to Buffer.flush."); err != nil {
 		return err
 	}
-	var missing, extra []string
-	for _, w := range want {
-		if !strings.Contains(r.answer, w) {
-			missing = append(missing, w)
-		}
-	}
-	for _, w := range wrong {
-		if regexp.MustCompile(regexp.QuoteMeta(w) + `\b`).MatchString(r.answer) {
-			extra = append(extra, w)
-		}
-	}
+	missing, extra := callsiteVerdict(r.answer, want, wrong)
 	if len(missing)+len(extra) > 0 {
 		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
 	}

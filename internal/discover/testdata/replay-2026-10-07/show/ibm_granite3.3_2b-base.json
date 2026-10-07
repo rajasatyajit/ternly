@@ -1,0 +1,8 @@
+{
+  "capabilities": [
+    "completion"
+  ],
+  "model_info": {
+    "granite.context_length": 131072
+  }
+}

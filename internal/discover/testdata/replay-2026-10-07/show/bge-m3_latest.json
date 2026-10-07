@@ -1,0 +1,8 @@
+{
+  "capabilities": [
+    "embedding"
+  ],
+  "model_info": {
+    "bert.context_length": 8192
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "completion",
+    "tools",
+    "thinking"
+  ],
+  "model_info": {
+    "gptoss.context_length": 131072
+  }
+}

@@ -5,6 +5,12 @@
   "no_local": false,
   "model": "",
   "limits": { "steps": 60, "turn_minutes": 30, "turn_usd": 2.00 },
+  "routing": {
+    "version": "v2",
+    "time_value_usd_per_hour": 20,
+    "background_eval": { "enabled": true, "per_model_minutes": 20, "runs_per_week": 3, "paid_usd_per_week": 0 }
+  },
+  "reasoning_watchdog": { "tokens": 6000, "seconds": 300 },
   "checkpoints": true,
   "checkpoint_cap_mb": 2048,
   "auto_resume": true,

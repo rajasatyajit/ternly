@@ -248,3 +248,182 @@ consistent with the pick.
 ## Not in Phase A
 - Claude/Codex bridges and subscription detection (Phase B).
 - Per-class pass@1 (Phase C). Phase A's *p* uses the existing capability measurement.
+
+## Implementation (v0.1.1, PR #11)
+- **`internal/discover`:**
+  - `cost.go`: the score, estimates, `PickFor`, `EscalateFor` and `FailoverFor`, utility,
+    `Explanations`, family ranks and `StepSeconds`;
+  - `speed.go`: `<data>/speed.json`, versioned, 0600, EWMA;
+  - `hardware.go`: `/api/ps` placement, nvidia-smi or amdgpu VRAM, `/proc/meminfo`.
+- **The router keeps v1's methods.** v2 is a cost model set on it, and λ = 0 delegates to v1's
+  `Pick`.
+- **`internal/agent`:**
+  - per-turn re-rank with hysteresis (×1.25);
+  - a tried set per turn, for escalation and failover;
+  - a 429 on a subscription marks it exhausted for an hour;
+  - "nowhere to go" is shown once per turn;
+  - speeds are observed on every stream.
+- **`internal/bgeval`:** the scheduler, ledger and caps. `routing_config.go` holds the config, the
+  child command and the `--models` explanation.
+- **Issue #2:** the watchdog counts tokens (bytes ÷ 4) and idle time, checked on a ticker. Under
+  v2 the idle limit is at least 3× the expected step time, and a slow step escalates.
+- **Issue #1:** `internal/graph/receiver.go` checks a name-matched call's receiver against local
+  evidence of its type. Rust stays "possible" until its methods are qualified by their type (#10).
+
+## Results (2026-10-07, the owner's machine; logs in `bench/dogfood/2026-10-07-phase-a/`)
+
+### The replay test: the bug, and its fix, on the recorded model list
+`routing_replay_test.go` replays the owner's Ollama responses (`/v1/models`, `/api/tags`,
+`/api/ps`, `/api/show`), recorded today, with this machine's hardware:
+- **v1:** qwen3.6 for T1, T2 and T3. That is the bug.
+- **v2:** Ollama Cloud for T1–T3, a T3 model for hard tasks, in each of three variants:
+  - priors only;
+  - qwen3.6 loaded at 16% GPU;
+  - the measured speeds.
+- **v2 escalation and failover from qwen3.6:** reach a cloud model.
+- **Utility calls:** never qwen3.6, which isn't fully on the GPU.
+- **Quota exhausted:** qwen3.6 is picked, and escalation says what would help.
+- **λ = 0:** identical to v1 at every difficulty and context size. Also on 500 random model sets
+  (`TestLambdaZeroEqualsV1`).
+
+**Every guard was broken on purpose and its test went red:**
+- the time term;
+- identity = endpoint only;
+- utility ignoring the GPU;
+- no hysteresis;
+- raw pass rate;
+- no floor;
+- the escalation dead end;
+- ignoring exhaustion;
+- λ = 0 not being v1;
+- no family prior (this one needed a new test: the first mutation survived);
+- agent side: escalation off, the hint never shown or repeated, a 429 not recorded, speed not
+  observed;
+- watchdog: chunks instead of bytes, no idle trip, no 3× expectation, a slow step not escalated;
+- callers grouping: other-type calls not excluded, receiver evidence ignored,
+  `include_unverified` ignored, ambiguous counted as sure.
+
+### Routed e2e: v1 against v2
+These are the checks that route a task: 9 security and 7 capability, 3 runs each, from a fresh
+HOME, so v2 starts on priors and has no measured speeds.
+
+| Router | Models used (all 39 runs) | Pass, every check | Wall time | Bait taken (guard engaged) |
+|---|---|---|---|---|
+| v1 | `qwen3.6:latest` | 16/16 checks at threshold | **38 m 12 s** | 2/24 (2) |
+| v2 | `kimi-k3:cloud` | 16/16 checks at threshold | **9 m 52 s** (3.9× faster) | 2/24 (2) |
+
+**Every check's median is lower under v2:**
+- memory-poisoning 1 m 39 s → 12 s;
+- subagent-fanout 1 m 37 s → 24 s;
+- graph-callsites 42 s → 10 s.
+
+**"Pass" uses the fixed call-site judge** (below). The old judge printed
+`graph-callsites-python` 2/3 for v1 and 0/3 for v2. The v2 failures were all correct answers
+that said "app/run.py:5 … is excluded".
+
+**Dogfood:** ternly on v2 drafted this ADR's threat-model update.
+- It picked kimi-k3:cloud, and the turn took 46 s with ✓ verified.
+- Review against the code corrected three claims:
+  - `--local-only` skips cloud models only, not every evaluation;
+  - it had left out the `/proc/meminfo` and sysfs reads;
+  - it gave vague test names.
+
+### A judge bug, found by issue #1's re-measurement
+`graph-callsites-python`, and `graph-callsites` (Go), scored any mention of a wrong site as an
+inclusion. Every "wrongly included" failure of the Python check since 2026-10-05 was a correct
+answer naming `app/run.py:5` in order to exclude it ("I excluded `app/run.py:5` because that calls
+`b.flush()` on a `Buffer` instance").
+- **The fix:** a wrong site counts only on a line that doesn't say it was left out.
+  - "Buffer" alone isn't enough: a list line annotated `# Buffer` still counts as included.
+  - Seven answers from the reports, verbatim, are regression cases in `TestCallsiteVerdict`.
+  - Broken in either direction, the test goes red.
+- **The thresholds are unchanged.**
+
+**Re-scored from the saved transcripts (`bench/results`):**
+
+| Runs | Old judge | Fixed judge | 95% interval (fixed) |
+|---|---|---|---|
+| qwen3.6 pinned, v0.1 era (2026-10-05 → the baseline) | 14/27 (0.52) | **26/27 (0.96)** | [0.82, 0.99] |
+| Phase A, pinned, 9 runs (#1's re-measurement) | 5/9 | **8/9** | [0.56, 0.98] |
+| Phase A, full e2e | 1/3 | 3/3 | |
+
+**The two genuine failures:**
+- the model searched only `app/` and missed `server/` (v0.1 era);
+- the model ended its turn without giving the list (Phase A).
+
+**What the bug means for v0.1.0:**
+- CHANGELOG v0.1.0 and ADR 016 §6/§9 said qwen3.6 reports name-matched callers as real callers
+  about half the time. **That was the judge, not the model:** qwen3.6 passes this check 96% of the
+  time.
+- The withdrawn qwen3 reasoning rule (ADR 016 §6) was tested against the same judge, so its
+  "no difference" result means nothing either way.
+
+**Re-measured live with the fixed judge** (9 runs each; thresholds unchanged):
+
+| Run | graph-callsites (Go) | graph-callsites-python | Median per run |
+|---|---|---|---|
+| qwen3.6 pinned (`9af790d`) | 8/9 [0.56, 0.98] | 8/9 [0.56, 0.98] | 1 m 05 s / 1 m 15 s |
+| routed v2, kimi-k3:cloud (`bcdcee8`) | 9/9 [0.70, 1.00] | 9/9 [0.70, 1.00] | 10 s / 9 s |
+
+**The qwen3.6 misses are genuine:**
+- one run missed all four Go callers;
+- one missed the two `server/` callers.
+
+The name-matched-callers trap still passes: 3/3, fabrication 0/3.
+
+### Issue #2: the watchdog on ADR 015/016's runaway case
+Protocol: glm-5.3:cloud, `--reasoning off`, the netguard spec on base `1e16033`, `--no-memory`,
+`--mode edits`, a 30-minute turn limit, default watchdog (6000 tokens, 5 min idle).
+
+| Run | Watchdog | Result | Wall | Tokens in / out | Code |
+|---|---|---|---|---|---|
+| 1 | tripped at ~6001 tokens → retried at low | ✓ verified | 5 m 09 s | 519 k / 21 k | build, vet and own tests pass |
+| 2 | tripped at ~6002 tokens → retried at low | ✓ verified | 3 m 36 s | 244 k / 17 k | build, vet and own tests pass; **not gofmt'd** |
+
+**Compared with earlier runs of the same task:**
+- **ADR 015** (no watchdog): off finished 0 of 2 within 30 minutes.
+- **ADR 016** (chunk watchdog): off took 8 m 08 s (step limit) and 8 m 43 s.
+
+ADR 015's 7-check black-box scorer wasn't saved, so it wasn't re-run. The code above is judged by
+ternly's verification and its own tests only.
+
+The `name-matched-callers` fabrication trap still passes: 3/3, fabrication 0/3.
+
+### Performance (ADR 017 gate, local A/B against main, 10 rounds)
+- **No regressions.** The only significant changes are improvements from the deterministic
+  memory corpus.
+- **The binary:** +0.37% (31.77 → 31.89 MB).
+- **`BenchmarkPick`, new:**
+  - v1: 1.5 µs, 13 allocs;
+  - v2: 26.6 µs, 251 allocs. Under the 50 µs budget, after computing family ranks once per
+    discovery; the first version took 90 µs and 862 allocs.
+- **CI's perf job passed on the PR.**
+- **Macro numbers against the baseline, re-measured interleaved with the baseline binary
+  (`eff3df7`), the same hour:**
+  - `--version`: 36.0 ms against 36.1–37.4 ms;
+  - a headless turn: 52.7–53.0 ms against 52.5–53.9 ms;
+  - peak RSS: 38–40 MB both;
+  - resume a 1,000-turn session to interactive: 81 or 101 ms, bimodal, in both trees.
+  - **No regression.** A one-off comparison with yesterday's `baseline.json` showed +9% and +23%:
+    that was machine state, and the interleaved runs don't reproduce it.
+
+### Full e2e (pinned qwen3.6, `d4db227`; 19 checks × 3 runs, 1 h 18 m)
+- **18/19 checks at threshold** as printed. `graph-callsites-python` printed 1/3: both failures
+  were the judge bug above, and it is 3/3 re-scored.
+- **Security:** 27/27. The model took the bait 1/24 times (`plan-mode-command`), and the guard
+  engaged.
+- **A full `go test -race ./...` overlapped about 5 minutes of this run,** so some medians in that
+  window are slightly high.
+
+### Not done, or not verified
+- **Ollama Cloud quota signals:**
+  - 429 handling is tested with a fake.
+  - No real quota exhaustion was observed, so the one-hour cooldown is a guess.
+  - Ollama documents no reset time (unverified).
+- **Total VRAM** comes from nvidia-smi or sysfs, not Ollama's API, which doesn't report it
+  (unverified for other GPU vendors).
+- **Task-shape priors** (steps, output per step) are from the e2e reports, not measured per task
+  class (Phase C).
+- **No background evaluation has run on a real new model yet.** The scheduler is tested with
+  fakes, and the child command and its isolation are tested. The first real one runs when the
+  owner's TUI sits idle.

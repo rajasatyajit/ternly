@@ -47,10 +47,11 @@ type fileConfig struct {
 	Verify            *string               `json:"verify"`
 	Reasoning         string                `json:"reasoning"`          // auto (default), off, low, medium, high (ADR 015)
 	ReasoningLevels   []discover.EffortRule `json:"reasoning_levels"`   // per-model level map, ahead of the built-in one (ADR 016)
-	ReasoningWatchdog *int                  `json:"reasoning_watchdog"` // reasoning chunks before a step is interrupted (0: default, -1: off)
+	ReasoningWatchdog *watchdogSetting      `json:"reasoning_watchdog"` // {tokens, seconds} before a step with no text or tool call is interrupted (0: default, -1: off); a bare number is tokens (issue #2)
 	NoLocal           bool                  `json:"no_local"`
 	Model             string                `json:"model"`
 	Tiers             map[string]int        `json:"tiers"`
+	Routing           routingConfig         `json:"routing"` // "v1", "v2" or {version, time_value_usd_per_hour, background_eval} (ADR 018)
 	Limits            struct {
 		Steps       *int     `json:"steps"`
 		TurnMinutes *float64 `json:"turn_minutes"`
@@ -98,6 +99,7 @@ func run() int {
 		noNet      = flag.Bool("no-net", false, "deny network to shell commands (bubblewrap)")
 		projectMCP = flag.Bool("project-mcp", false, "also start MCP servers from ./.mcp.json (untrusted repo config)")
 		listModels = flag.Bool("models", false, "list discovered models and exit")
+		routing    = flag.String("routing", "", "router: v1 (price only) or v2 (expected cost to finish; ADR 018); default from config")
 		dir        = flag.String("C", ".", "workspace directory")
 		showVer    = flag.Bool("version", false, "print version")
 		mcpLogin   = flag.String("mcp-login", "", "log in to a remote MCP server (OAuth in the browser) and exit")
@@ -208,8 +210,29 @@ func run() int {
 		for _, x := range w {
 			fmt.Fprintln(os.Stderr, "warning:", x)
 		}
+		turn := agent.DefaultLimits.Time
+		if v := fc.Limits.TurnMinutes; v != nil {
+			turn = time.Duration(*v * float64(time.Minute))
+		}
+		cm, err := fc.Routing.costModel(*routing, dataDir, turn)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		r := discover.NewRouter()
+		r.SetModels(ms)
+		r.SetCostModel(cm)
+		if cm != nil { // each model's background-evaluation state, from the ledger
+			r.SetEvalStatus(backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, r, nil, nil).Status)
+		}
+		why := r.Explanations(modelsCtx)
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-		fmt.Fprintln(tw, "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL")
+		head := "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\t"
+		if why != nil {
+			head += "ROUTING v2: RANK T1/T2/T3, P, T2 TASK (20k context)\t"
+		}
+		head += "MODEL" // last: scripts (and the e2e preflight) read the key from the end
+		fmt.Fprintln(tw, head)
 		for _, m := range ms {
 			basis := m.Basis
 			if ms := m.Measure; ms != nil {
@@ -218,9 +241,21 @@ func run() int {
 					basis += ",baitable"
 				}
 			}
-			fmt.Fprintf(tw, "T%d\t%v\t%s\t%d\t%s\t%s\n", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
+			line := fmt.Sprintf("T%d\t%v\t%s\t%d\t%s\t", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis)
+			if w := why[m]; w != nil {
+				line += w.Short() + "\t"
+			} else if why != nil {
+				line += "– (no tool calling, or too little context)\t"
+			}
+			line += m.Key()
+			fmt.Fprintln(tw, line)
 		}
 		tw.Flush()
+		if why == nil {
+			fmt.Println("\nrouting v1 (price only); --routing v2 or \"routing\": \"v2\" ranks by expected cost to finish (ADR 018)")
+		} else {
+			fmt.Printf("\nrouting v2: score = (money + quota + $%.0f/h × time) / p(success); /models why <model> in the TUI explains one\n", cm.TimeValue)
+		}
 		return 0
 	}
 
@@ -287,7 +322,10 @@ func run() int {
 	ag.Reasoning = orStr(*reasoning, fc.Reasoning)
 	ag.EffortRules = fc.ReasoningLevels
 	if v := fc.ReasoningWatchdog; v != nil {
-		ag.WatchdogChunks = *v
+		ag.Watchdog = agent.Watchdog{Tokens: v.Tokens, Idle: time.Duration(v.Seconds * float64(time.Second))}
+		if v.legacy {
+			notes = append(notes, fmt.Sprintf("reasoning_watchdog: a bare number now counts tokens, not stream chunks (%d tokens); write {\"tokens\": %d, \"seconds\": 300} to set both", v.Tokens, v.Tokens))
+		}
 	}
 	switch ag.Reasoning {
 	case "", "auto", "off", "low", "medium", "high":
@@ -306,6 +344,12 @@ func run() int {
 	}
 	if v := fc.Limits.TurnUSD; v != nil {
 		ag.Limits.TurnUSD = *v
+	}
+	if cm, err := fc.Routing.costModel(*routing, dataDir, ag.Limits.Time); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	} else {
+		router.SetCostModel(cm)
 	}
 	project, err := session.OpenProject(dataDir, reg.Root)
 	if err != nil {
@@ -618,6 +662,19 @@ func run() int {
 		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
 	}
 	background()
+	if router.V2() && !inEval && os.Getenv("TERNLY_BACKGROUND_EVAL") != "1" && os.Getenv("TERNLY_HARNESS") != "1" {
+		remeasure := func() { // a new measurement: discovery reads it, routing uses it
+			o := dopts
+			o.Measured = measurements(filepath.Join(dataDir, "capability"))
+			if ms, _ := discover.Discover(ctx, o); len(ms) > 0 {
+				router.SetModels(ms)
+			}
+		}
+		sched := backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, router, ag.Running, remeasure)
+		router.SetEvalStatus(sched.Status)
+		bgWG.Add(1) // waited for at exit: the evaluation's process group is stopped first
+		go func() { defer bgWG.Done(); sched.Loop(bgCtx) }()
+	}
 	if _, err := p.Run(); err != nil && ctx.Err() == nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
