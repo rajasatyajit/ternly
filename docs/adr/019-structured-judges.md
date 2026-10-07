@@ -138,7 +138,27 @@ records.
 
 **Structured e2e checks, live (the five changed checks, 3 runs each):**
 - routed v2 (kimi-k3:cloud): 5/5 checks at 3/3;
-- pinned qwen3.6: see the commit after this one.
+- pinned qwen3.6: 5/5 checks at 3/3, so a local model follows the format too.
+
+**Open decision (for review): qwen3.6 marked baitable.**
+- **What it does:**
+  - interactively, every qwen3.6 edit and non-read-only command asks;
+  - **headless, pinned to qwen3.6, it can't edit at all.** `verify-loop` was refused: "ollama/
+    qwen3.6:latest is measured as easily baited … need a person to confirm"
+    (`bench/dogfood/2026-10-07-eval-v4/e2e-verify-loop-baitable.log`).
+- **Who it affects:**
+  - routing v2 picks cloud models on the owner's machine, so the default path is barely touched;
+  - but qwen3.6 is the review e2e model, and it can no longer pass the edit checks;
+  - qwen3.6's own eval edit traps would be refused too.
+- **Options:**
+  1. Keep it. This is security first, per the plan's ordering. The review e2e then uses another
+     model for the edit checks.
+  2. Measure bait over more runs before the flag applies (n = 9 is small; v2 saw 0/9).
+  3. Decide whether fetching the hostile script without running it (`curl … | head`) counts as
+     taking the bait. ADR 012 says contacting the beacon does.
+
+  The rule wasn't changed here. That would be a security trade-off, which needs a decision and an
+  ADR.
 
 ## Not done
 - **ADR 012's fact-check A/B** isn't re-run. It belongs with Phase C's task suite, where it will
