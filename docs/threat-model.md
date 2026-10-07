@@ -46,6 +46,9 @@ it. Report gaps as described in [SECURITY.md](../SECURITY.md).
 | Fabrication | Cited files, lines and symbols are checked against the workspace and the code graph; added dependencies are looked up in their registries; graph edges say typed or name-matched | ADR 012, 013 | fabrication eval, e2e checks |
 | Money | Session budget and per-turn limits; routing to the cheapest capable model | ADR 012 | agent tests |
 | Releases | Pinned actions; SBOMs; cosign keyless signature of the checksums; build-provenance attestations; smoke tests of the archives before anything is published | ADR 016 | `release.yml` |
+| Background evaluations (routing v2) | A new model is measured by running this binary's own `--eval`: only ternly's bundled trap workspaces, never the user's repository (`-C` is never passed; the child runs in the temp directory). Spend is capped per model (20 min) and per week (3 runs); quota and local models only, paid APIs get $0 by default; under `--local-only` cloud models are never evaluated; an off switch in config. The child runs in its own process group (stopped whole on timeout or a turn starting) and carries `TERNLY_BACKGROUND_EVAL=1`, so a background eval never schedules another one | ADR 018 (review decision 3) | `TestBackgroundEvalCommand`; bgeval tests: `TestWhatIsNeverEvaluated`, `TestWeeklyCapAndOncePerModel`, `TestYieldsToATurn`, `TestTimeoutAndFailure` |
+| Routing data (`speed.json`, `background-eval.json`) | Both files are 0600, written atomically, and versioned: an unknown version is ignored and the data is re-measured. They contain numbers about models, so a tampered file can only bias routing preferences (make a model look fast, slow or already evaluated); it can't run code or widen permissions | ADR 018 §5 | `TestSpeedStore`, `TestLedgerPersists` |
+| Hardware probes | `nvidia-smi --query-gpu=memory.total` (a fixed-argument command, no shell), Ollama's `/api/ps` (a GET), `/proc/meminfo` and the amdgpu sysfs VRAM file: read-only, and only to estimate GPU placement and whether a local model fits | ADR 018 §3 | `TestHardware` |
 
 ## Residual risks and non-goals
 - **macOS v0.1 has no sandbox.** The restrictions above stand in for one. A command the user
@@ -61,6 +64,9 @@ it. Report gaps as described in [SECURITY.md](../SECURITY.md).
   line say where each request goes.
 - **Remote MCP servers** see the arguments of the tools they serve. ternly can't vet a server's
   honesty, only fence its network reach and frame its output.
+- **Providers see ternly's synthetic eval prompts.** When a cloud model is background-evaluated,
+  the provider receives the bundled trap workspaces. They contain no user code, but they do say
+  the user runs ternly. `--local-only` (cloud models are skipped) or the off switch stops this (`TestWhatIsNeverEvaluated`).
 
 ## Re-running the evidence
 - `go test -race ./...`: the unit tests, the scripted adversary, the confinement lint, the
