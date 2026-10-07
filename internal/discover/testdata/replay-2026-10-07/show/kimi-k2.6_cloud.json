@@ -1,0 +1,11 @@
+{
+  "capabilities": [
+    "vision",
+    "thinking",
+    "completion",
+    "tools"
+  ],
+  "model_info": {
+    "kimi-k2.context_length": 262144
+  }
+}

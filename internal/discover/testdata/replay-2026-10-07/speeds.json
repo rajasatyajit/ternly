@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "models": {
+    "ollama/qwen3.6:latest": {"prefill_tps": 324, "gen_tps": 32.0, "base_s": 0.3, "samples": 3, "updated": "2026-10-06T11:40:00Z"},
+    "ollama/glm-5.3:cloud": {"prefill_tps": 10083, "gen_tps": 81.3, "base_s": 1.3, "samples": 3, "updated": "2026-10-06T11:40:00Z"},
+    "ollama/kimi-k3:cloud": {"prefill_tps": 10538, "gen_tps": 82.4, "base_s": 1.0, "samples": 3, "updated": "2026-10-06T11:40:00Z"}
+  }
+}

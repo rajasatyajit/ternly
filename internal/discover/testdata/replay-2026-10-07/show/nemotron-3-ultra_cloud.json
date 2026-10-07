@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "completion",
+    "thinking",
+    "tools"
+  ],
+  "model_info": {
+    ".context_length": 262144
+  }
+}

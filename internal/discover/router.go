@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Router picks the cheapest model that is strong enough for the task, and
@@ -16,6 +17,10 @@ type Router struct {
 	pinned *Model
 	ready  chan struct{}
 	once   sync.Once
+	// routing v2 (ADR 018); cost nil = v1
+	cost      *CostModel
+	exhausted map[string]time.Time // model key → out of routing until
+	place     map[string]float64   // model key → GPU fraction measured since discovery
 }
 
 func NewRouter() *Router { return &Router{ready: make(chan struct{})} }
@@ -155,6 +160,12 @@ func (r *Router) Failover(cur *Model, needCtx int) (*Model, bool) {
 
 // Utility is the cheapest model for summaries/compaction (tier ≥ 1, big context).
 func (r *Router) Utility(needCtx int) *Model {
+	r.mu.RLock()
+	c := r.cost
+	r.mu.RUnlock()
+	if c != nil {
+		return r.utilityV2(c, needCtx)
+	}
 	cands := r.usable(needCtx)
 	sort.SliceStable(cands, func(i, j int) bool { return cheaper(cands[i], cands[j]) })
 	for _, m := range cands {

@@ -1,0 +1,265 @@
+{
+  "models": [
+    {
+      "name": "deepseek-v4-pro:cloud",
+      "size": 323,
+      "remote_model": "deepseek-v4-pro:0813",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "1.65T"
+      }
+    },
+    {
+      "name": "kimi-k3:cloud",
+      "size": 308,
+      "remote_model": "kimi-k3",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "2.81T"
+      }
+    },
+    {
+      "name": "qwen3-embedding:0.6b",
+      "size": 639150858,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "595.78M"
+      }
+    },
+    {
+      "name": "bge-m3:latest",
+      "size": 1157672605,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "566.70M"
+      }
+    },
+    {
+      "name": "mxbai-embed-large:latest",
+      "size": 669615493,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "334M"
+      }
+    },
+    {
+      "name": "mistral-large-3:675b-cloud",
+      "size": 319,
+      "remote_model": "mistral-large-3:675b",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "675B"
+      }
+    },
+    {
+      "name": "gpt-oss:120b-cloud",
+      "size": 307,
+      "remote_model": "gpt-oss:120b",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "117B"
+      }
+    },
+    {
+      "name": "gemma4:cloud",
+      "size": 312,
+      "remote_model": "gemma4:31b",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "32.7B"
+      }
+    },
+    {
+      "name": "minimax-m3:cloud",
+      "size": 301,
+      "remote_model": "minimax-m3",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "0"
+      }
+    },
+    {
+      "name": "deepseek-v4.1-flash:cloud",
+      "size": 326,
+      "remote_model": "deepseek-v4.1-flash",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "763B"
+      }
+    },
+    {
+      "name": "nemotron-3-ultra:cloud",
+      "size": 310,
+      "remote_model": "nemotron-3-ultra",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "550B"
+      }
+    },
+    {
+      "name": "glm-5.3:cloud",
+      "size": 293,
+      "remote_model": "glm-5.3",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "753B"
+      }
+    },
+    {
+      "name": "kimi-k2.7-code:cloud",
+      "size": 320,
+      "remote_model": "kimi-k2.7-code",
+      "remote_host": "https://ollama.com",
+      "details": {
+        "parameter_size": "1.04T"
+      }
+    },
+    {
+      "name": "gemma4:latest",
+      "size": 6583656505,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "7.5B"
+      }
+    },
+    {
+      "name": "deepseek-ocr:3b",
+      "size": 6687240356,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "3.3B"
+      }
+    },
+    {
+      "name": "deepseek-v4-flash:cloud",
+      "size": 348,
+      "remote_model": "deepseek-v4-flash",
+      "remote_host": "https://ollama.com:443",
+      "details": {
+        "parameter_size": ""
+      }
+    },
+    {
+      "name": "llama3.1:8b-instruct-q4_K_M",
+      "size": 4920753328,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "8.0B"
+      }
+    },
+    {
+      "name": "gemma4:31b",
+      "size": 19868981791,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "31.3B"
+      }
+    },
+    {
+      "name": "gemma4:26b",
+      "size": 17987581215,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "25.8B"
+      }
+    },
+    {
+      "name": "minimax-m2.7:cloud",
+      "size": 375,
+      "remote_model": "minimax-m2.7",
+      "remote_host": "https://ollama.com:443",
+      "details": {
+        "parameter_size": ""
+      }
+    },
+    {
+      "name": "glm-5.1:cloud",
+      "size": 327,
+      "remote_model": "glm-5.1",
+      "remote_host": "https://ollama.com:443",
+      "details": {
+        "parameter_size": ""
+      }
+    },
+    {
+      "name": "kimi-k2.6:cloud",
+      "size": 384,
+      "remote_model": "kimi-k2.6",
+      "remote_host": "https://ollama.com:443",
+      "details": {
+        "parameter_size": "1T"
+      }
+    },
+    {
+      "name": "qwen3.6:latest",
+      "size": 23938333577,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "36.0B"
+      }
+    },
+    {
+      "name": "gemma4:e4b",
+      "size": 9608350718,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "8.0B"
+      }
+    },
+    {
+      "name": "llama3.1:8b",
+      "size": 4920753328,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "8.0B"
+      }
+    },
+    {
+      "name": "granite3.3:2b",
+      "size": 1545321637,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "2.5B"
+      }
+    },
+    {
+      "name": "nomic-embed-text:latest",
+      "size": 274302450,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "137M"
+      }
+    },
+    {
+      "name": "ibm/granite3.3:2b-base",
+      "size": 1545298183,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "2.5B"
+      }
+    },
+    {
+      "name": "granite3.3:8b",
+      "size": 4942891653,
+      "remote_model": null,
+      "remote_host": null,
+      "details": {
+        "parameter_size": "8.2B"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "capabilities": [
+    "completion",
+    "vision",
+    "audio",
+    "tools",
+    "thinking"
+  ],
+  "model_info": {
+    "gemma4.context_length": 131072
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "capabilities": [
+    "completion",
+    "tools",
+    "thinking",
+    "vision"
+  ],
+  "model_info": {
+    "minimax-m3.context_length": 512000
+  }
+}

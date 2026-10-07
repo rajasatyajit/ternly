@@ -1,0 +1,10 @@
+{
+  "capabilities": [
+    "tools",
+    "thinking",
+    "embedding"
+  ],
+  "model_info": {
+    "qwen3.context_length": 32768
+  }
+}
