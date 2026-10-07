@@ -816,7 +816,7 @@ func (m *Memory) search(q Query, qv []byte, qs float32) []Hit {
 				vs = append(vs, c)
 			}
 		}
-		fuse(keep[:len(keep)], vs)
+		fuse(keep, vs)
 	}
 	byScore(keep)
 	keep = keep[:min(len(keep), q.Limit)]
@@ -841,17 +841,6 @@ func halfLife(s Scope) float64 {
 		return 365
 	}
 	return 60
-}
-
-// prefs are the store's preference items (always candidates; few).
-func (s *Store) prefs() []*Item {
-	var out []*Item
-	for _, slot := range s.ix.keys["kind:pref"] {
-		if it := s.ix.docs[slot]; it != nil {
-			out = append(out, it)
-		}
-	}
-	return out
 }
 
 // ─────────────────────────── injection ───────────────────────────

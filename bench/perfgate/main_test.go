@@ -104,3 +104,20 @@ func TestCommittedConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRetriesCounted(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "retries.tsv")
+	_ = os.WriteFile(p, []byte("base\tinternal/memory\t--- FAIL: BenchmarkSearch10k-4\nbase\tinternal/memory\t--- FAIL: BenchmarkSearch10k-4\nhead\tinternal/tui\tpanic: x\n"), 0o600)
+	var out strings.Builder
+	if err := retries(&out, p); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Retries: base 2, head 1") || !strings.Contains(out.String(), "BenchmarkSearch10k") {
+		t.Errorf("retry report:\n%s", out.String())
+	}
+	_ = os.WriteFile(p, nil, 0o600)
+	out.Reset()
+	if err := retries(&out, p); err != nil || !strings.Contains(out.String(), "Retries: base 0, head 0") {
+		t.Errorf("empty retry file: %v %q", err, out.String())
+	}
+}

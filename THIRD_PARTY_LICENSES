@@ -682,8 +682,8 @@ SOFTWARE.
 
 
 ================================================================================
-github.com/yuin/goldmark (v1.7.13) — MIT
-https://github.com/yuin/goldmark/blob/v1.7.13/LICENSE
+github.com/yuin/goldmark (v1.7.17) — MIT
+https://github.com/yuin/goldmark/blob/v1.7.17/LICENSE
 --------------------------------------------------------------------------------
 MIT License
 
@@ -736,8 +736,8 @@ SOFTWARE.
 
 
 ================================================================================
-golang.org/x/net/html (v0.39.0) — BSD-3-Clause
-https://cs.opensource.google/go/x/net/+/v0.39.0:LICENSE
+golang.org/x/net/html (v0.59.0) — BSD-3-Clause
+https://cs.opensource.google/go/x/net/+/v0.59.0:LICENSE
 --------------------------------------------------------------------------------
 Copyright 2009 The Go Authors.
 

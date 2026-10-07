@@ -162,9 +162,22 @@ run replaces it.
 wait. It builds without the sandbox, so its export cache is separate and cold. This is
 pre-existing and not a baseline metric.
 
+## Follow-up (review of PR #5)
+- **Retries are logged and counted.** `bench/run.sh perf` records every retried suite in
+  `retries.tsv`: side, package, and the first failure line. `perfgate check -retries` prints
+  "Retries: base N, head M" with each failure under the gate table. A retry doesn't change the
+  verdict, because a suite that never passes has already failed the job, but a flaky benchmark is
+  now visible on every PR.
+- **`staticcheck` (v0.8.1) and `govulncheck` (v1.8.0) run in CI** (non-negotiable 6), on the
+  linux, darwin and `e2e` builds.
+  - **First findings:** 14 from staticcheck, all in test helpers or dead code, and fixed. The
+    darwin build flagged Linux-only e2e helpers, which moved to `e2e_helpers_linux_test.go`.
+  - **One *reachable* vulnerability:** GO-2026-5320, an XSS in goldmark v1.7.13, reached through
+    glamour's markdown rendering. Fixed by goldmark v1.7.17.
+  - golang.org/x/net v0.39.0 had 10 advisories that weren't reachable. Bumped to v0.59.0, so
+    govulncheck starts from "No vulnerabilities found".
+
 ## Not done here
-- `staticcheck` and `govulncheck` in CI (non-negotiable 6) are a separate small PR, so that this
-  one stays about performance.
 - TUI performance targets (16 ms keystroke-to-render, idle CPU, 10k-line smoothness) are Phase F.
   The baseline already shows the first gap: **`BenchmarkRedraw10k` takes 33 ms**, because
   `refresh` rebuilds the whole transcript string on every redraw.

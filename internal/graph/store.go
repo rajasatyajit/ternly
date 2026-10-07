@@ -84,7 +84,7 @@ type Service struct {
 	dmu      sync.Mutex      // guards the watcher's state (never held across builds)
 	dirty    map[string]bool // files the watcher saw change ("*": rescan everything)
 	watching bool
-	w        *watcher
+	w        *watcher //lint:ignore U1000 the watcher exists on Linux only (watch_linux.go)
 }
 
 // Timing records what the last build or update cost.

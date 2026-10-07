@@ -22,7 +22,9 @@ func corpusWords(t testing.TB) ([]string, []string) {
 	var files []string
 	re := regexp.MustCompile(`[A-Za-z][A-Za-z0-9]{2,}`)
 	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() && (d.Name() == ".git" || d.Name() == "node_modules") {
+		// dot directories (.git, .perf-work-*, .e2e-work-*) are tooling, not the corpus:
+		// a worktree's random suffix in a path key reads as a secret
+		if err != nil || d.IsDir() && p != root && (strings.HasPrefix(d.Name(), ".") || d.Name() == "node_modules") {
 			return filepath.SkipDir
 		}
 		if strings.HasSuffix(p, ".go") || strings.HasSuffix(p, ".md") {
@@ -193,7 +195,6 @@ func TestScale(t *testing.T) {
 	run(fmt.Sprintf("ranked + full vector scan (%d vectors)", n), withVec)
 	VecScanMax = old
 
-	t0 = time.Now()
 	var lat []time.Duration
 	for _, q := range queries[:200] {
 		a := time.Now()

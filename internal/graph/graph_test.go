@@ -188,7 +188,7 @@ func TestToolsOutput(t *testing.T) {
 func TestIncrementalAndPersistence(t *testing.T) {
 	root := fixture(t)
 	cache := t.TempDir()
-	s, g := build(t, root, cache, localRun)
+	s, _ := build(t, root, cache, localRun)
 	if s.Timing.Mode != "first → typed" {
 		t.Fatalf("first build mode %q", s.Timing.Mode)
 	}
@@ -196,7 +196,7 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	main := filepath.Join(root, "app", "main.go")
 	src, _ := os.ReadFile(main)
 	_ = os.WriteFile(main, []byte(strings.Replace(string(src), "NewSquare(3)", "NewSquare(4)", 1)), 0o644)
-	if g, _, _ = s.Graph(bg, time.Second); s.Timing.Mode != "incremental" || s.Timing.Rechecked != 1 {
+	if _, _, _ = s.Graph(bg, time.Second); s.Timing.Mode != "incremental" || s.Timing.Rechecked != 1 {
 		t.Fatalf("body edit: %+v", s.Timing)
 	}
 	// API change in shapes: a new function, called from app
@@ -205,7 +205,7 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	_ = os.WriteFile(shape, append(b, []byte("\nfunc Double(s Shape) float64 { return 2 * s.Area() }\n")...), 0o644)
 	src, _ = os.ReadFile(main)
 	_ = os.WriteFile(main, []byte(strings.Replace(string(src), "func main() {", "func main() {\n\t_ = shapes.Double(nil)", 1)), 0o644)
-	g, _, _ = s.Graph(bg, time.Second)
+	g, _, _ := s.Graph(bg, time.Second)
 	if got := refsFrom(g.References(pk+".Double", true)); !strings.Contains(got, "app/main.go") {
 		t.Fatalf("new API not linked after incremental update: %q (%+v)", got, s.Timing)
 	}
