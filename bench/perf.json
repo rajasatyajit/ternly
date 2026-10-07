@@ -9,7 +9,8 @@
     {"pkg": "internal/memory", "bench": "^BenchmarkSearch10k$", "benchtime": "200ms"},
     {"pkg": "internal/graph", "bench": "^BenchmarkGraph(Build|Load|Incremental)$", "benchtime": "20x"},
     {"pkg": "internal/tools", "bench": "^Benchmark(ReadFile|EditFile|Grep|Validate|Frame)$", "benchtime": "200ms"},
-    {"pkg": "internal/tui", "bench": "^Benchmark(Keystroke|Redraw10k|RenderAnswer)$", "benchtime": "50x"}
+    {"pkg": "internal/tui", "bench": "^Benchmark(Keystroke|Redraw10k|RenderAnswer)$", "benchtime": "50x"},
+    {"pkg": "internal/discover", "bench": "^BenchmarkPick$", "benchtime": "200ms"}
   ],
   "budgets": {}
 }

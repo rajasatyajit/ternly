@@ -324,3 +324,30 @@ func TestNewestOfFamilyPreferred(t *testing.T) {
 		t.Fatalf("explanation: %+v", es[1])
 	}
 }
+
+// BenchmarkPick: routing a turn among 40 models (perf gate, ADR 017/018).
+func BenchmarkPick(b *testing.B) {
+	var ms []*Model
+	for i := range 40 {
+		switch i % 3 {
+		case 0:
+			ms = append(ms, local(fmt.Sprintf("local-%d:latest", i), 1+i%3, float64(i%10)/10, "estimated"))
+		case 1:
+			ms = append(ms, cloud(fmt.Sprintf("cloud-%d.%d:cloud", i/3, i%5), 1+i%3))
+		default:
+			ms = append(ms, api(fmt.Sprintf("api-%d", i), 1+i%3, float64(i%7), float64(i%11)*4))
+		}
+	}
+	for _, c := range []struct {
+		name string
+		cm   *CostModel
+	}{{"v1", nil}, {"v2", v2}} {
+		r := router(c.cm, ms...)
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				r.PickFor(2, 20000, 36000, ms[4])
+			}
+		})
+	}
+}
