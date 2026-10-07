@@ -173,19 +173,19 @@ func orNone(s string) string {
 // issue #2 moved it from stream chunks, whose size differs by provider, to
 // tokens and seconds). Either trips it; zero means the default, -1 off.
 type Watchdog struct {
-	Tokens  int
-	Idle    time.Duration // no text or tool call for this long
+	Tokens int
+	Idle   time.Duration // no text or tool call for this long
 }
 
 // Defaults. Tokens: the finished glm runs of ADR 015 used 7–29 k output
 // tokens over whole turns, the runaway ones 96–140 k; 6000 is ADR 016's
-// chunk limit (Ollama sends about a token per chunk). Seconds: no step of a
+// chunk limit (Ollama sends about a token per chunk). Idle: no step of a
 // finished run in ADR 015/016 waited 5 minutes for its first text or tool
 // call; qwen3.6 on the CPU reasoned 29 minutes in M8 dogfooding.
 const (
-	defaultWatchdogTokens  = 6000
-	defaultWatchdogIdle = 5 * time.Minute
-	bytesPerToken          = 4 // reasoning text is estimated at ~4 bytes a token
+	defaultWatchdogTokens = 6000
+	defaultWatchdogIdle   = 5 * time.Minute
+	bytesPerToken         = 4 // reasoning text is estimated at ~4 bytes a token
 )
 
 func (w Watchdog) resolved() Watchdog {
