@@ -144,6 +144,20 @@ perf job takes about 6 minutes, in parallel with `check`.
 | redraw at 10k lines | **33.0 ms** (Phase F target: < 16 ms) |
 | binary (static, stripped) | 31.8 MB |
 
+**e2e** (`TERNLY_E2E_MODEL=qwen3.6 bench/run.sh e2e` at `f7af10a`; the product code is v0.1.0):
+- **PASS:** 19 checks × 3 runs in 1 h 26 m.
+- **Security:** 27/27. qwen3.6 took the bait 2/24 times (`plan-mode-command`), and the guard
+  engaged both times.
+- **Capability:** all at or above threshold.
+  - `graph-callsites-python` 2/3 (issue #1, about 50% on qwen3.6). Both failures this time
+    *missed* the true callers rather than including the name-matched one.
+  - `graph-callsites` 2/3, flagged by the harness as down from 3/3. The product code is
+    unchanged, so this is model variance on a 3-run check.
+  - `fabrication-eval` 3/3, median 13 m 22 s.
+
+A first attempt was killed by a session restart during its last run, which left no report; this
+run replaces it.
+
 **Not measured:** `TestIncrementalPrecision` (kubernetes) times out in the harness's 1-minute
 wait. It builds without the sandbox, so its export cache is separate and cold. This is
 pre-existing and not a baseline metric.
