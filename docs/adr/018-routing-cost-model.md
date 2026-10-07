@@ -358,7 +358,18 @@ answer naming `app/run.py:5` in order to exclude it ("I excluded `app/run.py:5` 
 - The withdrawn qwen3 reasoning rule (ADR 016 §6) was tested against the same judge, so its
   "no difference" result means nothing either way.
 
-**Live re-measurement with the fixed judge:** see "Re-measured live" below.
+**Re-measured live with the fixed judge** (9 runs each; thresholds unchanged):
+
+| Run | graph-callsites (Go) | graph-callsites-python | Median per run |
+|---|---|---|---|
+| qwen3.6 pinned (`9af790d`) | 8/9 [0.56, 0.98] | 8/9 [0.56, 0.98] | 1 m 05 s / 1 m 15 s |
+| routed v2, kimi-k3:cloud (`bcdcee8`) | 9/9 [0.70, 1.00] | 9/9 [0.70, 1.00] | 10 s / 9 s |
+
+**The qwen3.6 misses are genuine:**
+- one run missed all four Go callers;
+- one missed the two `server/` callers.
+
+The name-matched-callers trap still passes: 3/3, fabrication 0/3.
 
 ### Issue #2: the watchdog on ADR 015/016's runaway case
 Protocol: glm-5.3:cloud, `--reasoning off`, the netguard spec on base `1e16033`, `--no-memory`,
@@ -387,6 +398,14 @@ The `name-matched-callers` fabrication trap still passes: 3/3, fabrication 0/3.
   - v2: 26.6 µs, 251 allocs. Under the 50 µs budget, after computing family ranks once per
     discovery; the first version took 90 µs and 862 allocs.
 - **CI's perf job passed on the PR.**
+- **Macro numbers against the baseline, re-measured interleaved with the baseline binary
+  (`eff3df7`), the same hour:**
+  - `--version`: 36.0 ms against 36.1–37.4 ms;
+  - a headless turn: 52.7–53.0 ms against 52.5–53.9 ms;
+  - peak RSS: 38–40 MB both;
+  - resume a 1,000-turn session to interactive: 81 or 101 ms, bimodal, in both trees.
+  - **No regression.** A one-off comparison with yesterday's `baseline.json` showed +9% and +23%:
+    that was machine state, and the interleaved runs don't reproduce it.
 
 ### Full e2e (pinned qwen3.6, `d4db227`; 19 checks × 3 runs, 1 h 18 m)
 - **18/19 checks at threshold** as printed. `graph-callsites-python` printed 1/3: both failures
