@@ -602,11 +602,18 @@ type Why struct {
 	Eval string   // background evaluation state, when one applies
 }
 
+// SetEvalStatus gives Explanations each model's background-evaluation state.
+func (r *Router) SetEvalStatus(f func(*Model) string) {
+	r.mu.Lock()
+	r.evalStatus = f
+	r.mu.Unlock()
+}
+
 // Explanations ranks every usable model for T1–T3 at a context of ctx
 // tokens. Nil under routing v1.
 func (r *Router) Explanations(ctx int) map[*Model]*Why {
 	r.mu.RLock()
-	c := r.cost
+	c, status := r.cost, r.evalStatus
 	r.mu.RUnlock()
 	if c == nil {
 		return nil
@@ -624,6 +631,9 @@ func (r *Router) Explanations(ctx int) map[*Model]*Why {
 			}
 			if d == 2 {
 				w.T2 = e
+				if status != nil {
+					w.Eval = status(e.Model)
+				}
 			}
 		}
 	}
@@ -641,6 +651,9 @@ func (w *Why) Short() string {
 	s := fmt.Sprintf("#%s/%s/%s  p %.2f  T2 ≈ %s  %s", rank(w.Rank[1]), rank(w.Rank[2]), rank(w.Rank[3]), w.T2.P, humanDur(w.T2.Seconds), costWord(w.T2))
 	if !w.T2.Eligible {
 		s += "  (" + w.T2.Why + ")"
+	}
+	if w.Eval != "" {
+		s += "  · " + w.Eval
 	}
 	return s
 }

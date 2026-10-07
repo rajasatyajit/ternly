@@ -222,6 +222,9 @@ func run() int {
 		r := discover.NewRouter()
 		r.SetModels(ms)
 		r.SetCostModel(cm)
+		if cm != nil { // each model's background-evaluation state, from the ledger
+			r.SetEvalStatus(backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, r, nil, nil).Status)
+		}
 		why := r.Explanations(modelsCtx)
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 		head := "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL"
@@ -657,6 +660,19 @@ func run() int {
 		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
 	}
 	background()
+	if router.V2() && !inEval && os.Getenv("TERNLY_BACKGROUND_EVAL") != "1" && os.Getenv("TERNLY_HARNESS") != "1" {
+		remeasure := func() { // a new measurement: discovery reads it, routing uses it
+			o := dopts
+			o.Measured = measurements(filepath.Join(dataDir, "capability"))
+			if ms, _ := discover.Discover(ctx, o); len(ms) > 0 {
+				router.SetModels(ms)
+			}
+		}
+		sched := backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, router, ag.Running, remeasure)
+		router.SetEvalStatus(sched.Status)
+		bgWG.Add(1) // waited for at exit: the evaluation's process group is stopped first
+		go func() { defer bgWG.Done(); sched.Loop(bgCtx) }()
+	}
 	if _, err := p.Run(); err != nil && ctx.Err() == nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1

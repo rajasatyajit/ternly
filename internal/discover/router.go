@@ -23,6 +23,8 @@ type Router struct {
 	place     map[string]float64   // model key → GPU fraction measured since discovery
 	placed    map[string]time.Time // model key → when its placement was last read
 	newer     map[*Model]int       // newer models of the same family (familyRanks)
+	// evalStatus reports a model's background evaluation (internal/bgeval)
+	evalStatus func(*Model) string
 }
 
 func NewRouter() *Router { return &Router{ready: make(chan struct{})} }

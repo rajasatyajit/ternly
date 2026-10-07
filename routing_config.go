@@ -1,11 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
+	"github.com/rajasatyajit/ternly/internal/bgeval"
 	"github.com/rajasatyajit/ternly/internal/discover"
 )
 
@@ -92,4 +98,70 @@ func (w *watchdogSetting) UnmarshalJSON(b []byte) error {
 	}
 	type plain watchdogSetting
 	return json.Unmarshal(b, (*plain)(w))
+}
+
+// backgroundEvals builds the scheduler of background evaluations (ADR 018
+// review, decision 3). Each runs this binary's own --eval on one model: the
+// bundled trap workspaces only, never the user's repository, in its own
+// process group, logged to <data>/background-eval/<model>.log.
+func backgroundEvals(c evalCaps, localOnly bool, dataDir string, router *discover.Router, busy func() bool, done func()) *bgeval.Scheduler {
+	caps := bgeval.DefaultCaps
+	if c.Enabled != nil {
+		caps.Enabled = *c.Enabled
+	}
+	if c.PerModelMinutes != nil {
+		caps.PerModel = time.Duration(*c.PerModelMinutes * float64(time.Minute))
+	}
+	if c.RunsPerWeek != nil {
+		caps.PerWeek = *c.RunsPerWeek
+	}
+	caps.PaidUSD, caps.LocalOnly = c.PaidUSD, localOnly
+	return &bgeval.Scheduler{
+		Caps:   caps,
+		Ledger: bgeval.OpenLedger(filepath.Join(dataDir, "background-eval.json")),
+		Models: router.Models,
+		Busy:   busy,
+		Done:   done,
+		Run: func(ctx context.Context, m *discover.Model, budget float64) error {
+			logDir := filepath.Join(dataDir, "background-eval")
+			if err := os.MkdirAll(logDir, 0o700); err != nil {
+				return err
+			}
+			log, err := os.OpenFile(filepath.Join(logDir, strings.NewReplacer("/", "_", ":", "_").Replace(m.Key())+".log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+			if err != nil {
+				return err
+			}
+			defer log.Close()
+			cmd, err := evalCommand(ctx, m, budget, localOnly)
+			if err != nil {
+				return err
+			}
+			cmd.Stdout, cmd.Stderr = log, log
+			return cmd.Run()
+		},
+	}
+}
+
+// evalCommand is one background evaluation: this binary's --eval on the
+// model, which builds its own throwaway trap workspaces (no -C: the user's
+// repository is never involved), in its own process group.
+func evalCommand(ctx context.Context, m *discover.Model, budget float64, localOnly bool) (*exec.Cmd, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"--eval", "--model", m.Key(), "--eval-runs", "1"}
+	if budget > 0 {
+		args = append(args, "--budget", fmt.Sprint(budget))
+	}
+	if localOnly {
+		args = append(args, "--local-only")
+	}
+	cmd := exec.CommandContext(ctx, exe, args...)
+	cmd.Dir = os.TempDir()
+	cmd.Env = append(os.Environ(), "TERNLY_BACKGROUND_EVAL=1") // the child never schedules evaluations itself
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}      // stopped whole: the eval's own ternly children too
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM) }
+	cmd.WaitDelay = 5 * time.Second
+	return cmd, nil
 }

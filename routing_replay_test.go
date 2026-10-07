@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -210,5 +211,27 @@ func TestWatchdogSetting(t *testing.T) {
 		if err := json.Unmarshal([]byte(in), &fc); err != nil || fc.ReasoningWatchdog == nil || *fc.ReasoningWatchdog != want {
 			t.Errorf("%s: %+v %v", in, fc.ReasoningWatchdog, err)
 		}
+	}
+}
+
+// A background evaluation runs only the bundled traps: --eval on the model,
+// no workspace (-C), from a temp directory, flagged so it never schedules
+// evaluations of its own (ADR 018 review, decision 3).
+func TestBackgroundEvalCommand(t *testing.T) {
+	m := &discover.Model{ProvID: "ollama", ID: "kimi-k3:cloud"}
+	cmd, err := evalCommand(context.Background(), m, 0, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Join(cmd.Args[1:], " ")
+	if args != "--eval --model ollama/kimi-k3:cloud --eval-runs 1" || cmd.Dir != os.TempDir() {
+		t.Fatalf("args %q dir %q", args, cmd.Dir)
+	}
+	if !slices.Contains(cmd.Env, "TERNLY_BACKGROUND_EVAL=1") || cmd.SysProcAttr == nil || !cmd.SysProcAttr.Setpgid {
+		t.Fatalf("env/process group: %v %+v", cmd.Env[len(cmd.Env)-1], cmd.SysProcAttr)
+	}
+	cmd, _ = evalCommand(context.Background(), m, 1.5, true)
+	if a := strings.Join(cmd.Args[1:], " "); !strings.Contains(a, "--budget 1.5") || !strings.Contains(a, "--local-only") {
+		t.Fatalf("args %q", a)
 	}
 }
