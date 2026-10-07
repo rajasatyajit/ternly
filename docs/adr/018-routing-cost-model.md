@@ -1,6 +1,6 @@
 # ADR 018 — Phase A: route on the expected cost of finishing, not on token price
 
-Status: **proposed** (root cause and plan; awaiting review before implementation). v0.2 plan,
+Status: **accepted** (reviewed 2026-10-07, with the decisions and refinements below). v0.2 plan,
 Phase A. Ships as v0.1.1 with issues #1 and #2.
 
 ## Symptom
@@ -100,7 +100,36 @@ Defect (5) removes the safety net.
 3. **Expected cost to finish successfully (chosen).** It's what the plan asks for, and it
    degrades to today's behaviour when speed is unknown and the user's time is valued at 0.
 
-## Decision (proposed)
+## Review decisions (2026-10-07)
+These override the proposal text below wherever the two differ.
+
+1. **λ** defaults to **$20/hour** and is configurable. **λ = 0 must reproduce price-only routing**,
+   and a test proves it.
+2. **The default flips to routing v2 in v0.1.1** once it's proven on:
+   - the e2e suite;
+   - the baseline (benchmarks);
+   - a **routing replay test on the owner's real model list**: hard tasks go to cloud, and so on.
+
+   `routing: "v1"` stays as an escape hatch for one release.
+3. **Background evals may spend Ollama Cloud quota**, under two caps: per new model and per week.
+   - They are visible in `/models`, and there's an off switch.
+   - Paid APIs default to $0.
+   - Evals use **only ternly's bundled tasks**, never the user's repositories.
+
+**Refinements:**
+- **P(success)** is the Wilson lower bound, **with a floor**, never the raw rate.
+- **Re-rank every turn on the current context size,** since prefill cost grows with context.
+  **Hysteresis** keeps a task from flapping between models mid-task and losing the prompt cache.
+- **Background utility calls** (titles, summaries, compaction) use a local model **only if it's
+  fully on the GPU**; otherwise the cheapest cloud model.
+- **Provider identity for failover is endpoint + locality,** so local Ollama ≠ Ollama Cloud.
+- **When escalation has nowhere higher to go,** ternly tells the user what would help: a
+  stronger model, an API key, or a quota reset.
+- **The perf gate logs and counts base retries** (done in PR #9).
+
+**Sequencing:** the staticcheck/govulncheck PR (#9) lands before the Phase A fix merges.
+
+## Decision (as proposed; amended by the review above)
 
 ### 1. The objective
 For a task of difficulty *d* (Classify, unchanged), each tool-capable candidate *m* gets:
