@@ -301,7 +301,7 @@ func (r *Router) estimates(c *CostModel, d, ctx, need int, skip func(*Model) boo
 	cands := r.usable(need)
 	r.mu.RLock()
 	now := time.Now()
-	newer := familyRanks(r.models)
+	newer := r.newer
 	out := make([]Estimate, 0, len(cands))
 	for _, m := range cands {
 		if skip != nil && skip(m) {
@@ -339,7 +339,7 @@ var (
 // familyRanks counts, for each model, the newer models of its family on the
 // same provider: same name with the version numbers taken out (glm-5.1 and
 // glm-5.3 are "glm-", kimi-k2.6 and kimi-k3 are "kimi-k"; kimi-k2.7-code is
-// its own family). Callers hold r.mu.
+// its own family).
 func familyRanks(ms []*Model) map[*Model]int {
 	type ver struct {
 		m *Model

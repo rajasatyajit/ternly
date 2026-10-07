@@ -22,13 +22,16 @@ type Router struct {
 	exhausted map[string]time.Time // model key → out of routing until
 	place     map[string]float64   // model key → GPU fraction measured since discovery
 	placed    map[string]time.Time // model key → when its placement was last read
+	newer     map[*Model]int       // newer models of the same family (familyRanks)
 }
 
 func NewRouter() *Router { return &Router{ready: make(chan struct{})} }
 
 func (r *Router) SetModels(ms []*Model) {
+	newer := familyRanks(ms) // fixed until the next discovery
 	r.mu.Lock()
 	r.models = ms
+	r.newer = newer
 	r.mu.Unlock()
 	r.once.Do(func() { close(r.ready) })
 }
