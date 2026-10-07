@@ -138,6 +138,7 @@ func benchReg(b *testing.B) *Registry {
 
 func BenchmarkReadFile(b *testing.B) {
 	r := benchReg(b)
+	b.ReportAllocs()
 	tc := llm.ToolCall{ID: "1", Name: "read_file", Args: `{"path":"pkg/sub/f.go"}`}
 	for b.Loop() {
 		r.Call(context.Background(), tc)
@@ -146,11 +147,27 @@ func BenchmarkReadFile(b *testing.B) {
 
 func BenchmarkEditFile(b *testing.B) {
 	r := benchReg(b)
+	b.ReportAllocs()
 	args := [2]string{`{"path":"pkg/sub/f.go","old_string":"return 42 }\nfunc","new_string":"return 43 }\nfunc"}`, `{"path":"pkg/sub/f.go","old_string":"return 43 }\nfunc","new_string":"return 42 }\nfunc"}`}
 	i := 0
 	for b.Loop() {
 		r.Call(context.Background(), llm.ToolCall{ID: "1", Name: "edit_file", Args: args[i%2]})
 		i++
+	}
+}
+
+// BenchmarkGrep searches a 200-file tree (ripgrep when installed, as in CI).
+func BenchmarkGrep(b *testing.B) {
+	r := benchReg(b)
+	for i := range 200 {
+		d := filepath.Join(r.Root, "pkg", fmt.Sprint("p", i%20))
+		_ = os.MkdirAll(d, 0o755)
+		_ = os.WriteFile(filepath.Join(d, fmt.Sprint("f", i, ".go")), []byte(strings.Repeat("func f() int { return 42 }\n", 100)+"// NEEDLE here\n"), 0o644)
+	}
+	tc := llm.ToolCall{ID: "1", Name: "grep", Args: `{"pattern":"NEEDLE"}`}
+	b.ReportAllocs()
+	for b.Loop() {
+		r.Call(context.Background(), tc)
 	}
 }
 

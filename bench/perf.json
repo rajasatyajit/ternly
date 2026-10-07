@@ -1,0 +1,15 @@
+{
+  "_doc": "Performance gate (ADR 017). bench/run.sh perf <base-ref> runs these suites interleaved at the base and here, COUNT times each, and bench/perfgate fails on a statistically significant regression (benchstat, p < alpha) beyond the budget. A budget other than the default needs an ADR, named in its entry.",
+  "budget_pct": 5,
+  "alpha": 0.05,
+  "count": 10,
+  "binary_budget_pct": 5,
+  "suites": [
+    {"pkg": "internal/session", "bench": "^Benchmark(Record|Resume1000)$", "benchtime": "200ms"},
+    {"pkg": "internal/memory", "bench": "^BenchmarkSearch10k$", "benchtime": "200ms"},
+    {"pkg": "internal/graph", "bench": "^BenchmarkGraph(Build|Load|Incremental)$", "benchtime": "20x"},
+    {"pkg": "internal/tools", "bench": "^Benchmark(ReadFile|EditFile|Grep|Validate|Frame)$", "benchtime": "200ms"},
+    {"pkg": "internal/tui", "bench": "^Benchmark(Keystroke|Redraw10k|RenderAnswer)$", "benchtime": "50x"}
+  ],
+  "budgets": {}
+}

@@ -52,6 +52,40 @@ jobs:
           version: "~> v2"
           args: check
 
+  perf:
+    # ADR 017: interleaved A/B benchmarks (base vs this PR), compared with
+    # benchstat; a significant regression beyond the budget in bench/perf.json fails.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the base branch, for the A side
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Search tool used by the grep benchmark
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+      - name: perf gate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PERF_OUT: ${{ runner.temp }}/perf
+        run: bench/run.sh perf "origin/$BASE_REF"
+      - name: summary
+        if: always()
+        env:
+          PERF_OUT: ${{ runner.temp }}/perf
+        run: |
+          cat "$PERF_OUT/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          { echo; echo '```'; cat "$PERF_OUT/benchstat.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: perf-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/perf
+          retention-days: 30
+
   macos:
     runs-on: macos-latest
     steps:

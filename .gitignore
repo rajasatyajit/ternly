@@ -5,3 +5,5 @@ bench/results/
 bench/dogfood/
 /simple.json
 /ternly
+.perf-work-*/
+bench/baseline.json.new
