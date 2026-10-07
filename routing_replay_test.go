@@ -235,3 +235,15 @@ func TestBackgroundEvalCommand(t *testing.T) {
 		t.Fatalf("args %q", a)
 	}
 }
+
+// The shipped example config parses, routing and watchdog included.
+func TestExampleConfigParses(t *testing.T) {
+	var fc fileConfig
+	if err := json.Unmarshal(must(os.ReadFile("examples/config.json")), &fc); err != nil {
+		t.Fatal(err)
+	}
+	cm, err := fc.Routing.costModel("", t.TempDir(), 30*time.Minute)
+	if err != nil || cm == nil || cm.TimeValue != 20 || fc.ReasoningWatchdog == nil || fc.ReasoningWatchdog.Tokens != 6000 || fc.ReasoningWatchdog.Seconds != 300 {
+		t.Fatalf("cm=%+v err=%v watchdog=%+v", cm, err, fc.ReasoningWatchdog)
+	}
+}

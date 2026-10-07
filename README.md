@@ -45,14 +45,33 @@ catalog (cached 24 h). `ternly -models` prints the table.
 ## How it keeps token cost down
 | Mechanism | Effect |
 |---|---|
-| Zero-token difficulty classifier → cheapest model with tier ≥ difficulty | trivial work goes to free/local or mini models |
-| Cascade escalation only after verification fails twice | frontier prices only when needed |
+| Routing on the expected cost of finishing (below), from a zero-token difficulty classifier | a slow free model doesn't win just because it's free |
+| Cascade escalation only after verification fails twice, or a step stalls | frontier prices only when needed |
 | Reasoning budget set by routing: low for routine turns, medium for hard ones, high for `/architect` plans and after escalation (`reasoning_effort`; Anthropic thinking budgets); `--reasoning auto\|off\|low\|medium\|high` | reasoning tokens spent where they pay |
-| Provider failover on 429/5xx to an equal-tier model elsewhere | no wasted retries |
+| Failover on 429/5xx to another provider (local Ollama and Ollama Cloud count as different); a subscription's 429 takes its model out of routing for an hour | no wasted retries |
 | Anthropic prompt caching (system, tools, last turn) + byte-stable prefix; OpenAI auto-cache | repeated context billed at ~10 % |
 | `edit_file` diffs instead of rewrites; capped `read_file`/`grep`/`bash` output (head+tail) | fewer output & input tokens |
 | Auto-compaction at ~55 % of context using the cheapest model | long sessions don't grow unbounded |
 | `--budget` / `/budget` hard cap, live `$` in status bar | no surprises |
+
+### Routing: the expected cost of finishing (v0.1.1, ADR 018)
+Each turn, every model gets a score: **(money + quota + λ × time) ÷ p(success)**.
+- **money:** pay-per-token spend for a task of that difficulty and the current context;
+- **quota:** a small shadow price for a subscription with quota left (Ollama Cloud);
+- **time:** the expected wall time *on this machine*: speeds measured on every request
+  (`~/.local/share/ternly/speed.json`), GPU placement from Ollama (`/api/ps`), VRAM and RAM;
+- **λ:** what your waiting costs, `$20/hour` by default (`routing.time_value_usd_per_hour`; 0 routes
+  on price alone, exactly as v0.1 did);
+- **p:** the lower bound of the model's measured pass rate (with a floor), or a prior below any
+  measured model's for one that isn't measured yet.
+
+A model expected to take longer than the turn limit isn't picked; the previous turn's model is
+kept unless another is clearly better (it keeps the prompt cache); escalation and failover use the
+same ranking, and say what would help when there's nowhere to go. Unmeasured models are evaluated
+in the background with the bundled traps, at idle, under caps (3 a week, 20 minutes each; paid APIs
+never, unless you give them a budget). `ternly --models` and `/models why` show the ranking and
+where each number came from. `"routing": "v1"` (or `--routing v1`) restores v0.1's router for one
+release.
 
 ## How it keeps quality up
 Strict engineering system prompt (+ the first of `TERNLY.md`, `AGENTS.md`, `CLAUDE.md`), auto-detected post-edit verification
@@ -237,7 +256,7 @@ Apache-2.0 — see `LICENSE` and `NOTICE`.
 
 ## Usage
 `ternly` (TUI) · `ternly -p "fix the failing test"` (headless, CI-friendly) · `--model`, `--mode`,
-`--budget`, `--local-only`, `--no-local`, `--verify`, `--reasoning`, `--no-memory`, `--no-net`, `-C dir`, `-c`,
+`--budget`, `--local-only`, `--no-local`, `--verify`, `--reasoning`, `--routing v1|v2`, `--no-memory`, `--no-net`, `-C dir`, `-c`,
 `--resume [id]`, `--new`, `--mcp-login <server>` ·
 `ternly --eval --model <m>` (measure a model) · `ternly --models` (tiers and their basis).
 The binary embeds the code graph's six grammars; `go build -tags ternly_all_grammars` adds every

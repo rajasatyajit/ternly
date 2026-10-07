@@ -46,7 +46,7 @@ agents, hooks), **no** (a reason is given).
 | ternly | sources | semantics in ternly | status |
 |---|---|---|---|
 | `/model [id\|auto]` | CC CX GM AI | pin a model, or return to cost-aware routing | yes |
-| `/models [filter]` | AI OC | list discovered models (tier, price, context) | yes |
+| `/models [filter]` | AI OC | list discovered models (tier, price, context); with routing v2, each model's rank for T1–T3, p(success) and a T2 task's expected time and cost; `/models why [model]` spells out every term and its source | yes |
 | `/cost` (`/usage`, `/stats`, `/tokens`) | CC (alias of `/usage`); `/usage` CC CX; `/stats` CC GM; `/tokens` AI | session tokens, cache hits, spend, guard counters | yes |
 | `/context` | CC | context usage: system prompt, tools, history, memory notes, against the model's window | yes |
 | `/status` | CC CX | version, model, mode, verify command, limits, budget, sandbox, code graph, memory | yes |
