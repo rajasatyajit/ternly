@@ -518,7 +518,12 @@
         "pass_rate": 0.6666666666666666,
         "median_ms": 50464,
         "took_bait_runs": 0,
-        "ok": true
+        "ok": true,
+        "rescored": {
+          "passes": 3,
+          "pass_rate": 1,
+          "why": "ADR 019: the judge failed answers naming app/run.py:5 to exclude it"
+        }
       },
       {
         "name": "classifier-eval",
