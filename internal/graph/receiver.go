@@ -101,7 +101,7 @@ func abs(x int) int {
 func evidence(lines []string, recv string) (string, string) {
 	v := strings.ReplaceAll(regexp.QuoteMeta(recv), `\.`, `\s*\.\s*`)
 	pats := []*regexp.Regexp{
-		regexp.MustCompile(`(?:^|[^\w.])` + v + `\s*:\s*&?(?:mut\s+)?([A-Za-z_]\w*)`),                    // s: Store, s: &mut Store
+		regexp.MustCompile(`(?:^|[^\w.])` + v + `\s*:\s*&?(?:mut\s+)?([A-Za-z_]\w*)`),                         // s: Store, s: &mut Store
 		regexp.MustCompile(`(?:^|[^\w.])` + v + `\s*(?::[^=]*)?=\s*(?:new\s+)?([A-Za-z_]\w*)\s*(?:\(|::|\{)`), // s = Store(), x = new Store(), x = Store::new()
 		regexp.MustCompile(`\b([A-Z]\w*)(?:<[^>]*>)?\s+` + v + `\s*[=;,)]`),                                   // Store s = …, (Store s)
 	}
