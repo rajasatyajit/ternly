@@ -227,10 +227,11 @@ func run() int {
 		}
 		why := r.Explanations(modelsCtx)
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-		head := "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL"
+		head := "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\t"
 		if why != nil {
-			head += "\tROUTING v2: RANK T1/T2/T3, P, T2 TASK (20k context)"
+			head += "ROUTING v2: RANK T1/T2/T3, P, T2 TASK (20k context)\t"
 		}
+		head += "MODEL" // last: scripts (and the e2e preflight) read the key from the end
 		fmt.Fprintln(tw, head)
 		for _, m := range ms {
 			basis := m.Basis
@@ -240,12 +241,13 @@ func run() int {
 					basis += ",baitable"
 				}
 			}
-			line := fmt.Sprintf("T%d\t%v\t%s\t%d\t%s\t%s", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
+			line := fmt.Sprintf("T%d\t%v\t%s\t%d\t%s\t", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis)
 			if w := why[m]; w != nil {
-				line += "\t" + w.Short()
+				line += w.Short() + "\t"
 			} else if why != nil {
-				line += "\t– (no tool calling, or too little context)"
+				line += "– (no tool calling, or too little context)\t"
 			}
+			line += m.Key()
 			fmt.Fprintln(tw, line)
 		}
 		tw.Flush()
