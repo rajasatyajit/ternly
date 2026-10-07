@@ -169,20 +169,50 @@ func orNone(s string) string {
 	return s
 }
 
-// defaultWatchdog is the reasoning chunks (≈ tokens) one step may produce
-// before any text or tool call; past it the step is interrupted and retried
-// once at another level (ADR 016). The finished glm runs of ADR 015 used
-// 7–29 k output tokens over whole turns; the runaway ones 96–140 k.
-const defaultWatchdog = 6000
-
-// runaway is a step interrupted by the reasoning watchdog.
-type runaway struct {
-	chunks int
-	label  string
+// Watchdog bounds a step's reasoning before any text or tool call (ADR 016;
+// issue #2 moved it from stream chunks, whose size differs by provider, to
+// tokens and seconds). Either trips it; zero means the default, -1 off.
+type Watchdog struct {
+	Tokens  int
+	Idle    time.Duration // no text or tool call for this long
 }
 
+// Defaults. Tokens: the finished glm runs of ADR 015 used 7–29 k output
+// tokens over whole turns, the runaway ones 96–140 k; 6000 is ADR 016's
+// chunk limit (Ollama sends about a token per chunk). Seconds: no step of a
+// finished run in ADR 015/016 waited 5 minutes for its first text or tool
+// call; qwen3.6 on the CPU reasoned 29 minutes in M8 dogfooding.
+const (
+	defaultWatchdogTokens  = 6000
+	defaultWatchdogIdle = 5 * time.Minute
+	bytesPerToken          = 4 // reasoning text is estimated at ~4 bytes a token
+)
+
+func (w Watchdog) resolved() Watchdog {
+	if w.Tokens == 0 {
+		w.Tokens = defaultWatchdogTokens
+	}
+	if w.Idle == 0 {
+		w.Idle = defaultWatchdogIdle
+	}
+	return w
+}
+
+// runaway is a step interrupted by the watchdog: too many reasoning tokens,
+// or too long with no text or tool call.
+type runaway struct {
+	tokens  int
+	elapsed time.Duration
+	label   string
+}
+
+func (r *runaway) slow() bool { return r.elapsed > 0 }
+
 func (r *runaway) Error() string {
-	return fmt.Sprintf("reasoning ran past %d chunks with no text or tool call", r.chunks)
+	if r.slow() {
+		return fmt.Sprintf("no text or tool call after %s", r.elapsed.Round(time.Second))
+	}
+	return fmt.Sprintf("reasoning ran past ~%d tokens with no text or tool call", r.tokens)
 }
 
 // otherLevel is the label to retry with after a runaway step: low, unless

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -124,5 +125,87 @@ func TestV2MeasuresSpeed(t *testing.T) {
 	}
 	if w := a.Router.Explanations(2000)[m]; w == nil || !strings.HasPrefix(w.T2.SpeedBasis, "measured (1)") {
 		t.Fatalf("explanation: %+v", w)
+	}
+}
+
+// Issue #2: the token limit means the same whatever the chunk size. One
+// provider sends 40-byte chunks, another 4-byte ones; both trip at ~100
+// tokens (stream chunks would have meant 10x apart).
+func TestWatchdogTokensNotChunks(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		chunks, bytes int
+	}{{"many small chunks", 500, 4}, {"few big chunks", 50, 40}} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newFake(t, reply{reasoning: c.chunks, chunk: c.bytes, text: "never seen"}, reply{text: "done"})
+			m := model(f.URL, "glm-5.3:cloud", 3, 1, 5)
+			m.Reasoning = true
+			a, rec := newAgent(t, "yolo", m)
+			a.Watchdog = Watchdog{Tokens: 100, Idle: -1}
+			a.Run(bg, "say hi")
+			st := rec.text(EvStatus)
+			var tok int
+			if _, err := fmt.Sscanf(st[strings.Index(st, "~"):], "~%d tokens", &tok); err != nil || tok < 100 || tok > 100+c.bytes/4 {
+				t.Fatalf("tripped at %d tokens (%v): %q", tok, err, st)
+			}
+			if a.Stats().Watchdog != 1 || !strings.Contains(rec.text(EvText), "done") {
+				t.Fatalf("stats %+v text %q", a.Stats(), rec.text(EvText))
+			}
+		})
+	}
+}
+
+// Issue #2: seconds trip a step that streams reasoning slowly, and one that
+// sends nothing at all (a long prefill), with the token limit off.
+func TestWatchdogSeconds(t *testing.T) {
+	slow := newFake(t, reply{reasoning: 100, gap: 50 * time.Millisecond, text: "never seen"}, reply{text: "done"})
+	stall := newFake(t, reply{text: "never seen"}, reply{text: "done"})
+	stall.delay = 3 * time.Second // every request; the retry isn't watchdogged (once per turn)
+	for name, f := range map[string]*fakeLLM{"slow reasoning": slow, "nothing at all": stall} {
+		t.Run(name, func(t *testing.T) {
+			m := model(f.URL, "glm-5.3:cloud", 3, 1, 5)
+			m.Reasoning = true
+			a, rec := newAgent(t, "yolo", m)
+			a.Watchdog = Watchdog{Tokens: -1, Idle: time.Second}
+			t0 := time.Now()
+			a.Run(bg, "say hi")
+			if !strings.Contains(rec.text(EvStatus), "no text or tool call after") || a.Stats().Watchdog != 1 {
+				t.Fatalf("status %q stats %+v", rec.text(EvStatus), a.Stats())
+			}
+			if el := time.Since(t0); name == "slow reasoning" && el > 4500*time.Millisecond {
+				t.Fatalf("took %v; the 1 s limit should have cut a 5 s stream", el)
+			}
+		})
+	}
+}
+
+// Under routing v2 a slow step is a failed step: the turn moves to another
+// model instead of retrying the slow one.
+func TestV2SlowStepEscalates(t *testing.T) {
+	slow := newFake(t, reply{reasoning: 200, gap: 20 * time.Millisecond, text: "never seen"})
+	fast := newFake(t, reply{text: "done fast"})
+	q, g := localModel(slow.URL, "qwen3.6:latest", 3), cloudModel(fast.URL, "glm-5.3:cloud", 3)
+	a, rec, sp := v2Agent(t, []*discover.Model{q}, q, g)
+	for range 10 { // measured as very fast: the 1 s limit isn't raised for it
+		sp.Observe(q.Key(), 100, 5000, 10*time.Millisecond, 10*time.Millisecond)
+		sp.Observe(q.Key(), 20000, 0, time.Millisecond, 0)
+	}
+	a.Watchdog = Watchdog{Tokens: -1, Idle: time.Second}
+	a.Run(bg, "say hi")
+	if len(fast.requests()) != 1 || !strings.Contains(rec.text(EvText), "done fast") {
+		t.Fatalf("fast %d text %q status %q", len(fast.requests()), rec.text(EvText), rec.text(EvStatus))
+	}
+}
+
+// The limit follows routing v2's expectation: a model expected to be slow
+// gets 3x its expected step time before it counts as stuck.
+func TestWatchdogSecondsFollowExpectation(t *testing.T) {
+	slow := newFake(t, reply{reasoning: 60, gap: 25 * time.Millisecond, text: "finished"})
+	q := localModel(slow.URL, "qwen3.6:latest", 3)
+	a, rec, _ := v2Agent(t, []*discover.Model{q}, q) // expected ≈ 3 s a step: limit 9 s
+	a.Watchdog = Watchdog{Tokens: -1, Idle: time.Second}
+	a.Run(bg, "say hi")
+	if a.Stats().Watchdog != 0 || !strings.Contains(rec.text(EvText), "finished") {
+		t.Fatalf("a 1.5 s step of a model expected at ~3 s was cut: %q %+v", rec.text(EvStatus), a.Stats())
 	}
 }

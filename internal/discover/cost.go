@@ -658,3 +658,24 @@ func (w *Why) Long() string {
 	}
 	return s
 }
+
+// StepSeconds is routing v2's expected time for one model round-trip of a
+// task of difficulty d at ctx tokens of context on m (0 under v1). The
+// watchdog lets a step run 3× this before calling it stuck (ADR 018).
+func (r *Router) StepSeconds(m *Model, d, ctx int) float64 {
+	if m == nil {
+		return 0
+	}
+	r.mu.RLock()
+	c := r.cost
+	gpu := m.GPU
+	if g, ok := r.place[m.Key()]; ok {
+		gpu = g
+	}
+	r.mu.RUnlock()
+	if c == nil {
+		return 0
+	}
+	d = clampTier(d)
+	return c.estimate(m, d, ctx, gpu, false, 0).Seconds / shapeSteps[d]
+}

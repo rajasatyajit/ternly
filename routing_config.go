@@ -73,3 +73,23 @@ func (r routingConfig) costModel(flag, dataDir string, turn time.Duration) (*dis
 	}
 	return &discover.CostModel{TimeValue: lambda, TurnLimit: turn, Speeds: discover.OpenSpeeds(filepath.Join(dataDir, "speed.json"))}, nil
 }
+
+// watchdogSetting is "reasoning_watchdog" (issue #2): {"tokens": N,
+// "seconds": S}, either of which trips it (0: default, -1: off). The v0.1
+// form, a bare number of stream chunks, is read as tokens for a release,
+// with a note: Ollama sends about one token per chunk.
+type watchdogSetting struct {
+	Tokens  int     `json:"tokens"`
+	Seconds float64 `json:"seconds"`
+	legacy  bool
+}
+
+func (w *watchdogSetting) UnmarshalJSON(b []byte) error {
+	var n int
+	if json.Unmarshal(b, &n) == nil {
+		*w = watchdogSetting{Tokens: n, legacy: true}
+		return nil
+	}
+	type plain watchdogSetting
+	return json.Unmarshal(b, (*plain)(w))
+}

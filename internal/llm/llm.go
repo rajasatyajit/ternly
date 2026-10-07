@@ -92,8 +92,12 @@ type Event struct {
 	// Reasoning marks an EvProgress chunk as reasoning (thinking), not tool
 	// arguments: what the reasoning watchdog counts (ADR 016).
 	Reasoning bool
-	Stop      string
-	Err       error
+	// N is the length in bytes of the reasoning text an EvProgress chunk
+	// carried: the watchdog counts tokens from it, whatever the chunk size
+	// (issue #2).
+	N    int
+	Stop string
+	Err  error
 }
 
 // Endpoint describes where and how to talk to a provider.

@@ -47,7 +47,7 @@ type fileConfig struct {
 	Verify            *string               `json:"verify"`
 	Reasoning         string                `json:"reasoning"`          // auto (default), off, low, medium, high (ADR 015)
 	ReasoningLevels   []discover.EffortRule `json:"reasoning_levels"`   // per-model level map, ahead of the built-in one (ADR 016)
-	ReasoningWatchdog *int                  `json:"reasoning_watchdog"` // reasoning chunks before a step is interrupted (0: default, -1: off)
+	ReasoningWatchdog *watchdogSetting      `json:"reasoning_watchdog"` // {tokens, seconds} before a step with no text or tool call is interrupted (0: default, -1: off); a bare number is tokens (issue #2)
 	NoLocal           bool                  `json:"no_local"`
 	Model             string                `json:"model"`
 	Tiers             map[string]int        `json:"tiers"`
@@ -317,7 +317,10 @@ func run() int {
 	ag.Reasoning = orStr(*reasoning, fc.Reasoning)
 	ag.EffortRules = fc.ReasoningLevels
 	if v := fc.ReasoningWatchdog; v != nil {
-		ag.WatchdogChunks = *v
+		ag.Watchdog = agent.Watchdog{Tokens: v.Tokens, Idle: time.Duration(v.Seconds * float64(time.Second))}
+		if v.legacy {
+			notes = append(notes, fmt.Sprintf("reasoning_watchdog: a bare number now counts tokens, not stream chunks (%d tokens); write {\"tokens\": %d, \"seconds\": 300} to set both", v.Tokens, v.Tokens))
+		}
 	}
 	switch ag.Reasoning {
 	case "", "auto", "off", "low", "medium", "high":

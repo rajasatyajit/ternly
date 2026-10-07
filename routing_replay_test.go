@@ -197,3 +197,18 @@ func TestRoutingConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestWatchdogSetting(t *testing.T) {
+	for in, want := range map[string]watchdogSetting{
+		`{"reasoning_watchdog": 6000}`:                          {Tokens: 6000, legacy: true}, // a v0.1 config keeps working
+		`{"reasoning_watchdog": -1}`:                            {Tokens: -1, legacy: true},
+		`{"reasoning_watchdog": {"tokens": 8000}}`:              {Tokens: 8000},
+		`{"reasoning_watchdog": {"seconds": 120}}`:              {Seconds: 120},
+		`{"reasoning_watchdog": {"tokens": -1, "seconds": 60}}`: {Tokens: -1, Seconds: 60},
+	} {
+		var fc fileConfig
+		if err := json.Unmarshal([]byte(in), &fc); err != nil || fc.ReasoningWatchdog == nil || *fc.ReasoningWatchdog != want {
+			t.Errorf("%s: %+v %v", in, fc.ReasoningWatchdog, err)
+		}
+	}
+}

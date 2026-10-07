@@ -136,7 +136,7 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 				case chc.Delta.Content != "":
 					ch <- Event{Kind: EvText, Text: chc.Delta.Content}
 				case chc.Delta.Reasoning != "" || chc.Delta.ReasoningContent != "":
-					ch <- Event{Kind: EvProgress, Reasoning: true}
+					ch <- Event{Kind: EvProgress, Reasoning: true, N: len(chc.Delta.Reasoning) + len(chc.Delta.ReasoningContent)}
 				default:
 					ch <- Event{Kind: EvProgress}
 				}

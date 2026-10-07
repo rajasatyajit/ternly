@@ -80,9 +80,9 @@ type Agent struct {
 	// EffortRules map reasoning levels per model family (config
 	// "reasoning_levels"; ahead of the built-in table, ADR 016).
 	EffortRules []discover.EffortRule
-	// WatchdogChunks: reasoning chunks a step may produce before any text or
-	// tool call (0: the default; negative: no watchdog).
-	WatchdogChunks int
+	// Watchdog bounds one step's reasoning before any text or tool call, in
+	// tokens and in seconds (issue #2; zero values: the defaults, -1: off).
+	Watchdog Watchdog
 	// Reasoning is the reasoning-budget policy (ADR 015): "auto" (or "")
 	// lets routing decide — low for routine turns, medium for hard ones,
 	// high for /architect plans and after an escalation; "off" sends no
@@ -330,8 +330,15 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 		msg, calls, stop, err := a.step(tctx, model, st)
 		var ra *runaway
 		if errors.As(err, &ra) {
-			st.watchdogged, st.forceLabel = true, otherLevel(ra.label)
+			st.watchdogged = true
 			a.count(func(s *Stats) { s.Watchdog++ })
+			if ra.slow() && a.Router.V2() { // a slow step is a failed step: another model, if there is one (ADR 018)
+				if up := a.escalate(model, need, st, "escalated: "+ra.Error()); up != model {
+					model = up
+					continue
+				}
+			}
+			st.forceLabel = otherLevel(ra.label)
 			a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s (reasoning %s) — interrupted; retrying once at %s", ra.Error(), orNone(ra.label), st.forceLabel)})
 			continue
 		}
@@ -557,12 +564,12 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 		req.Effort = st.forceLabel
 	}
 	a.mu.Unlock()
-	limit := a.WatchdogChunks
-	if limit == 0 {
-		limit = defaultWatchdog
-	}
+	wd := a.Watchdog.resolved()
 	if st.watchdogged { // one interruption per turn
-		limit = -1
+		wd = Watchdog{Tokens: -1, Idle: -1}
+	}
+	if exp := a.Router.StepSeconds(m, st.diff, st.ctx); wd.Idle > 0 && 3*exp > wd.Idle.Seconds() {
+		wd.Idle = time.Duration(3 * exp * float64(time.Second)) // routing v2 expects a slow model to be slow (ADR 018)
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -572,13 +579,38 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 	var thinking []json.RawMessage
 	var stop string
 	chunks, lastProgress := 0, time.Now()
-	thought, acted := 0, false // reasoning chunks before any text or tool call
+	reasoned, acted := 0, false // reasoning bytes before any text or tool call
 	t0 := time.Now()
 	var first, last time.Time // first and last output: speed measurement (ADR 018)
 	var usage llm.Usage
 	gotUsage := false
 	stream := cl.Stream(ctx, req)
-	for ev := range stream {
+	interrupt := func(r *runaway) error {
+		cancel()
+		go func() { // the client stops on the cancelled context; drain what it sent meanwhile
+			for range stream {
+			}
+		}()
+		a.account(m, llm.Usage{In: estTokens(req.System, req.Messages), Out: reasoned / bytesPerToken}) // an estimate: no usage arrives
+		return r
+	}
+	tick := time.NewTicker(time.Second) // the seconds limit holds even when nothing arrives (a long prefill)
+	defer tick.Stop()
+recv:
+	for {
+		var ev llm.Event
+		select {
+		case e, ok := <-stream:
+			if !ok {
+				break recv
+			}
+			ev = e
+		case <-tick.C:
+			if el := time.Since(t0); !acted && wd.Idle > 0 && el > wd.Idle {
+				return llm.Message{}, nil, "", interrupt(&runaway{elapsed: el, label: req.Effort})
+			}
+			continue
+		}
 		switch ev.Kind {
 		case llm.EvText, llm.EvProgress, llm.EvToolCall, llm.EvThinking:
 			if first.IsZero() {
@@ -594,14 +626,8 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 			}
 			if !ev.Reasoning {
 				acted = true // tool arguments are streaming
-			} else if thought++; !acted && limit > 0 && thought > limit {
-				cancel()
-				go func() { // the client stops on the cancelled context; drain what it sent meanwhile
-					for range stream {
-					}
-				}()
-				a.account(m, llm.Usage{In: estTokens(req.System, req.Messages), Out: thought}) // an estimate: no usage arrives
-				return llm.Message{}, nil, "", &runaway{chunks: thought, label: req.Effort}
+			} else if reasoned += ev.N; !acted && wd.Tokens > 0 && reasoned/bytesPerToken > wd.Tokens {
+				return llm.Message{}, nil, "", interrupt(&runaway{tokens: reasoned / bytesPerToken, label: req.Effort})
 			}
 		case llm.EvText:
 			acted = true

@@ -24,9 +24,11 @@ import (
 // reply is one scripted model response.
 type reply struct {
 	text      string
-	calls     [][2]string // name, raw JSON args
-	stop      string      // finish_reason override
-	reasoning int         // reasoning chunks streamed first (Ollama's delta.reasoning)
+	calls     [][2]string   // name, raw JSON args
+	stop      string        // finish_reason override
+	reasoning int           // reasoning chunks streamed first (Ollama's delta.reasoning)
+	chunk     int           // bytes per reasoning chunk (default 4: "hmm ", about a token)
+	gap       time.Duration // pause between reasoning chunks (a slow model)
 }
 
 func call(name, args string) [2]string { return [2]string{name, args} }
@@ -59,8 +61,21 @@ func newFake(t *testing.T, replies ...reply) *fakeLLM {
 		time.Sleep(f.delay)
 		w.Header().Set("Content-Type", "text/event-stream")
 		send := func(v any) { b, _ := json.Marshal(v); fmt.Fprintf(w, "data: %s\n\n", b) }
+		piece := "hmm "
+		if rp.chunk > 0 {
+			piece = strings.Repeat("x", rp.chunk)
+		}
 		for i := 0; i < rp.reasoning; i++ {
-			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "", "reasoning": "hmm "}}}})
+			send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "", "reasoning": piece}}}})
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			if rp.gap > 0 {
+				select {
+				case <-time.After(rp.gap):
+				case <-r.Context().Done():
+				}
+			}
 			if r.Context().Err() != nil {
 				return // the client hung up (watchdog)
 			}
@@ -1056,7 +1071,7 @@ func TestReasoningWatchdog(t *testing.T) {
 	m := model(f.URL, "glm-5.3:cloud", 3, 1, 5)
 	m.Reasoning = true
 	a, rec := newAgent(t, "yolo", m)
-	a.WatchdogChunks = 100
+	a.Watchdog = Watchdog{Tokens: 100}
 	a.Run(bg, "redesign the scheduler's concurrency model")
 	f.mu.Lock()
 	efforts := append([]string(nil), f.efforts...)
@@ -1086,7 +1101,7 @@ func TestReasoningWatchdog(t *testing.T) {
 	m2 := model(g.URL, "glm-5.3:cloud", 3, 1, 5)
 	m2.Reasoning = true
 	b, rec2 := newAgent(t, "yolo", m2)
-	b.WatchdogChunks = 100
+	b.Watchdog = Watchdog{Tokens: 100}
 	b.Run(bg, "redesign the scheduler's concurrency model")
 	if !strings.Contains(rec2.text(EvText), "long but finished") || b.Stats().Watchdog != 1 {
 		t.Fatalf("second runaway: %q %+v", rec2.text(EvText), b.Stats())
