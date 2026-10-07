@@ -7,3 +7,4 @@ bench/dogfood/
 /ternly
 .perf-work-*/
 bench/baseline.json.new
+/fakeprovider

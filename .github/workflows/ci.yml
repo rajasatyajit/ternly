@@ -56,6 +56,10 @@ jobs:
         run: |
           CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ternly .
           file ternly | grep -q 'statically linked'
+      - name: release smoke test (the script the release gates on)
+        run: |
+          go build -o fakeprovider ./bench/fakeprovider
+          bench/smoke.sh ./ternly ./fakeprovider
       - name: goreleaser check
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:

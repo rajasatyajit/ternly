@@ -154,8 +154,8 @@ func TestRustUnreachableFile(t *testing.T) {
 	root := t.TempDir()
 	files(t, root, map[string]string{
 		"Cargo.toml":    "[package]\nname = \"x\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
-		"src/lib.rs":    "mod used;\npub fn f() -> u8 { used::g() }\n",
-		"src/used.rs":   "pub fn g() -> u8 { 1 }\n",
+		"src/lib.rs":    "mod used;\npub fn f() -> u8 {\n    used::g()\n}\n", // rustfmt-formatted: the formatting check runs too
+		"src/used.rs":   "pub fn g() -> u8 {\n    1\n}\n",
 		"src/orphan.rs": "pub fn h() -> u8 { this does not compile }\n",
 	})
 	r := Cover(context.Background(), root, []string{"src/lib.rs", "src/used.rs", "src/orphan.rs"}, runner(t, root, nil))

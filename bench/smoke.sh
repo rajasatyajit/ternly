@@ -7,7 +7,11 @@
 set -euo pipefail
 read -ra bin <<<"$1"
 read -ra fake <<<"$2"
-work=$(mktemp -d); trap '{ kill "${pid:-0}" && wait "${pid:-0}"; } 2>/dev/null; rm -rf "$work"' EXIT
+work=$(mktemp -d)
+# Keep the script's own status: under set -e, `wait` on the killed fake
+# provider (143) used to become the exit status, failing a passing smoke test
+# (it blocked v0.1.0's release).
+trap 'st=$?; kill "${pid:-0}" 2>/dev/null || true; wait "${pid:-0}" 2>/dev/null || true; rm -rf "$work"; exit "$st"' EXIT
 "${bin[@]}" --version
 mkdir -p "$work/home/.config/ternly" "$work/home/.cache/ternly" "$work/ws"
 "${fake[@]}" SMOKE-OK > "$work/url" & pid=$!
