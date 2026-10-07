@@ -14,7 +14,7 @@ import (
 )
 
 // Guidance is added to the system prompt when the graph tools are available.
-const Guidance = `Code graph (Go, Python, TypeScript/JavaScript, Rust, Java): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with file:line citations, and cost far fewer tokens than grep plus read_file. Use them first; then read_file only the cited lines (offset/limit). Every edge is tagged: [typed] edges were resolved by the Go type checker; [name match] edges (other languages, and Go before its typed build finishes) were matched by name and may belong to another symbol with the same name. Report name-matched results as candidates ("a call named flush at app/run.py:5, probably Buffer.flush") and confirm them in the code before stating them as fact. Use grep for text that is not an identifier (strings, comments, config).`
+const Guidance = `Code graph (Go, Python, TypeScript/JavaScript, Rust, Java): find_symbol, references, callers, callees, implementations, related_files and impact answer structural questions about this codebase with file:line citations, and cost far fewer tokens than grep plus read_file. Use them first; then read_file only the cited lines (offset/limit). Every edge is tagged: [typed] edges were resolved by the Go type checker; [name match] edges (other languages, and Go before its typed build finishes) were matched by name. callers and references list confirmed uses first, then "possible" ones (matched by name only: check each in the code before reporting it, and leave it out if you can't confirm it), then "not" ones (the same method name on another type: never report those). Use grep for text that is not an identifier (strings, comments, config).`
 
 // buildWait is how long a graph tool waits for the first build before telling
 // the model to fall back to grep/read.
@@ -23,7 +23,8 @@ const buildWait = 20 * time.Second
 type args struct {
 	Query, Kind, Symbol, Path string
 	Limit, Depth              int
-	IncludeDeps               bool `json:"include_deps"`
+	IncludeDeps               bool  `json:"include_deps"`
+	IncludeUnverified         *bool `json:"include_unverified"` // callers/references: list possible (name-only) matches (default true)
 }
 
 // Tools exposes the graph to the agent. All are read-only and cite file:line.
@@ -31,6 +32,7 @@ type args struct {
 func Tools(svc *Service) []*tools.Tool {
 	sym := `"symbol":{"type":"string","description":"symbol ID or name: pkg/path.Name, Type.Method, or a bare name"}`
 	lim := `"limit":{"type":"integer","minimum":1,"maximum":500}`
+	unv := `"include_unverified":{"type":"boolean","description":"also list possible matches found by name only, whose receiver type the code doesn't show (default true; false lists only confirmed ones and counts the rest)"}`
 	mk := func(name, desc, props, req string, run func(ws, deps *Graph, a args, src *source) string, summary func(a args) string) *tools.Tool {
 		return &tools.Tool{Kind: tools.ReadOnly,
 			Spec: llm.ToolSpec{Name: name, Description: desc,
@@ -82,16 +84,16 @@ func Tools(svc *Service) []*tools.Tool {
 				}
 				return listSymbolsWithBody(ss, a.Limit, "no symbol matches "+a.Query, src)
 			}, func(a args) string { return a.Query }),
-		mk("references", "Every use of a Go symbol (calls included), with file:line and the enclosing declaration. Use instead of grepping for a name.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
+		mk("references", "Every use of a symbol (calls included), with file:line and the enclosing declaration. Use instead of grepping for a name. Outside Go, uses matched only by name are listed apart as possible references.",
+			sym+","+lim+","+unv, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
 				return withSymbol(ws, deps, a.Symbol, func(s *Symbol) string {
-					return listRefs(ws.References(s.ID, false), a.Limit, "no references to "+s.ID, src)
+					return listUses(ws, s, ws.References(s.ID, false), a, "uses", "no references to "+s.ID, src)
 				})
 			}, bySym),
-		mk("callers", "Functions and methods that call a Go function or method (static calls and calls through interfaces), with file:line.",
-			sym+","+lim, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
+		mk("callers", "Functions and methods that call a function or method (Go: static calls and calls through interfaces), with file:line. Outside Go, calls matched only by name are listed apart as possible callers, and calls on a receiver of another type are listed as not callers.",
+			sym+","+lim+","+unv, `"symbol"`, func(ws, deps *Graph, a args, src *source) string {
 				return withSymbol(ws, deps, a.Symbol, func(s *Symbol) string {
-					return listRefs(ws.References(s.ID, true), a.Limit, "no callers of "+s.ID, src)
+					return listUses(ws, s, ws.References(s.ID, true), a, "callers", "no callers of "+s.ID, src)
 				})
 			}, bySym),
 		mk("callees", "Functions and methods a Go function or method calls, with file:line.",
@@ -201,12 +203,59 @@ func listSymbols(ss []*Symbol, limit int, empty string) string {
 	return b.String()
 }
 
-func listRefs(rs []*Ref, limit int, empty string, src *source) string {
+// listUses lists the uses of s in three groups (issue #1): confirmed (typed,
+// a unique name, or a name match whose receiver is s's type in the code),
+// possible (matched by name only), and not uses (the receiver is another
+// type that has a method of this name).
+func listUses(ws *Graph, s *Symbol, rs []*Ref, a args, what, empty string, src *source) string {
 	if len(rs) == 0 {
 		return empty + "\n"
 	}
+	var sure, maybe, not []*Ref
+	why := map[*Ref]string{}
+	for _, r := range rs {
+		if !r.ByName {
+			sure = append(sure, r)
+			continue
+		}
+		v, typ, ev := classify(ws, src, r, s)
+		switch {
+		case v == recvSame:
+			why[r] = "[name match, receiver is " + typ + ": " + ev + "]"
+			sure = append(sure, r)
+		case v == recvOther:
+			why[r] = "→ " + typ + "." + s.Name + " (" + ev + ")"
+			not = append(not, r)
+		case r.Approx:
+			maybe = append(maybe, r)
+		default: // the only symbol with this name
+			sure = append(sure, r)
+		}
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%d uses\n", len(rs))
+	b.WriteString(refLines(sure, a.Limit, fmt.Sprintf("%d %s (typed, or matched by name with the receiver's type confirmed in the code)", len(sure), what), "none confirmed", why, src))
+	if len(maybe) > 0 {
+		if a.IncludeUnverified != nil && !*a.IncludeUnverified {
+			fmt.Fprintf(&b, "%d possible %s omitted: matched by name only (include_unverified: true lists them)\n", len(maybe), what)
+		} else {
+			b.WriteString(refLines(maybe, a.Limit, fmt.Sprintf("%d possible %s (unverified: matched by name only; the code nearby doesn't show the receiver's type). Check each in the code before reporting it:", len(maybe), what), "", why, src))
+		}
+	}
+	if len(not) > 0 {
+		b.WriteString(refLines(not, a.Limit, fmt.Sprintf("%d not %s: the same method name on another type", len(not), what), "", why, src))
+	}
+	return b.String()
+}
+
+func refLines(rs []*Ref, limit int, head, empty string, why map[*Ref]string, src *source) string {
+	if len(rs) == 0 {
+		if empty == "" {
+			return ""
+		}
+		return head + "\n" + empty + "\n"
+	}
+	var b strings.Builder
+	b.WriteString(head + "\n")
 	for i, r := range rs {
 		if i == limit {
 			fmt.Fprintf(&b, "… %d more (raise limit)\n", len(rs)-i)
@@ -216,8 +265,11 @@ func listRefs(rs []*Ref, limit int, empty string, src *source) string {
 		if r.Call {
 			call = " call"
 		}
-		call += " " + edgeTag(r)
-		fmt.Fprintf(&b, "%s:%d  in %s%s  │ %s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call, src.line(r.Pos.File, int(r.Pos.Line)))
+		tag := why[r]
+		if tag == "" {
+			tag = edgeTag(r)
+		}
+		fmt.Fprintf(&b, "%s:%d  in %s%s %s  │ %s\n", r.Pos.File, r.Pos.Line, orStr(r.From, "(package scope)"), call, tag, src.line(r.Pos.File, int(r.Pos.Line)))
 	}
 	return b.String()
 }
