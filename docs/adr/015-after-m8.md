@@ -184,3 +184,25 @@ A model without thinking support rejects the parameter: Ollama answers
 - **Bait:** qwen took it 1/24 times (`plan-mode-command`), and the guard engaged.
 - **Headline:** the harness prints FAIL because a filtered run counts as partial by design.
 - **Log:** `bench/dogfood/2026-10-06-followups/e2e-security.log`.
+
+## Amendment (v0.1.1): formatting is part of verification
+In review, a glm-5.3 run (ADR 018) ended ✓ verified with code that wasn't gofmt'd. Formatting is
+now checked after the coverage checks pass, on the changed files only (`internal/verify/format.go`):
+
+| Language | Check | When it can't run |
+|---|---|---|
+| Go | `gofmt -l` | a gap (gofmt ships with every Go toolchain) |
+| Rust | `rustfmt --check --edition <the crate's>`. rustfmt also visits `mod` children, so only diffs in changed files count | a gap ("rustfmt isn't installed") |
+| Python | none is standard: ruff format (ruff.toml, or `[tool.ruff]` in pyproject.toml), else black (`[tool.black]`) | unchecked, said in the summary |
+| JavaScript/TypeScript | none is standard: the project's own prettier (a prettier config or `"prettier"` in package.json), as repository code | unchecked, said in the summary |
+| Java and the rest | none | — |
+
+A file a formatter would change fails the turn ("not formatted: …; run gofmt -w"), so the model
+fixes it, as it does a build error. Tests (`format_test.go`):
+- Go: unformatted fails, formatted passes.
+- Rust: an unchanged unformatted `mod` child doesn't fail the turn, a changed one does, and both
+  diff header formats are parsed.
+- A missing rustfmt is a gap.
+- The configured Python and JS formatters, and the unconfigured case.
+
+Breaking the hook-up, or the changed-files filter, turns them red.

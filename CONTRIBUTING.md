@@ -9,12 +9,19 @@ save a round trip.
 - **Bigger changes:** open an issue first. Design decisions are recorded as ADRs in `docs/adr/`, and
   a change that alters one adds or amends an ADR.
 
+## The fast tier, before every push
+`make hooks` installs a pre-push hook (`.githooks/pre-push`, ~20 s): gofmt, `go vet`,
+`go test -short ./...` and the confinement lint (`TestOnlyConfinedReads`, ADR 013). It's the tier
+that catches most CI failures before they cost a round trip. `git push --no-verify` skips it once.
+
 ## The gate (CI runs it; run it locally first)
 ```
 gofmt -l .                                   # prints nothing
 go vet ./... && GOOS=darwin go vet ./...
 go vet -tags e2e . && go vet -tags ternly_all_grammars ./internal/graph
 go test -race ./...                          # Linux: install bubblewrap and ripgrep
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...   # and with GOOS=darwin, and -tags e2e .
+go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 CGO_ENABLED=0 go build -trimpath -o ternly . # static
 ```
 Changes to routing, prompts, guards or tools also run the real-model suite against a local model:

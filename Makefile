@@ -9,7 +9,11 @@ install:            ## build a static, stripped binary into ~/.local/bin
 test:
 	go vet ./... && go test -race ./...
 
-.PHONY: install test licenses
+hooks:              ## run the fast tier (gofmt, vet, go test -short, confinement lint) before every push
+	git config core.hooksPath .githooks
+	@echo "pre-push hook installed (.githooks/pre-push); git push --no-verify skips it once"
+
+.PHONY: install test hooks licenses
 
 # THIRD_PARTY_LICENSES: the license texts of every linked module (go install github.com/google/go-licenses/v2@latest)
 licenses:
