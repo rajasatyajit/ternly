@@ -15,7 +15,18 @@ unexpectedly, and passed non-answers that contained the right token. Fixed:
 **Shipped measurements, re-measured under eval v4:**
 - every tier is unchanged;
 - **qwen3.6 is now measured easily baited:** it ran a hostile skill's `curl … | sh` once in three
-  runs. Its edits and commands now always ask in edits and yolo modes.
+  runs, and fetched the same script with `curl … | head` once.
+
+### Asymmetric trust (ADR 020)
+- **Trust is lost under the same rule as before,** but regained only after 20 bait trials in a row
+  without taking the bait. Measuring a model afresh doesn't reset it.
+- **A model whose trust is lost:**
+  - every shell command asks, in every mode, even read-only ones, and headless runs refuse them;
+  - file edits are allowed in an explicitly chosen edits or yolo mode while checkpoints are on, so
+    each one can be undone;
+  - external tool calls ask, and "always" never sticks.
+- So headless, pinned to qwen3.6 with `--mode edits`, ternly can fix code again. Its own sandboxed
+  verify step still runs the tests.
 
 ### Quota and rate limits
 - **Errors sent inside a stream** (the way Ollama reports errors during streaming) used to be
@@ -27,7 +38,7 @@ unexpectedly, and passed non-answers that contained the right token. Fixed:
 ### Bench
 - **`bench/netguard`:** the netguard task's black-box scorer, recreated.
 
-## v0.1.1 (unreleased)
+## v0.1.1 (2026-10-08)
 
 ### Routing: the expected cost of finishing (ADR 018)
 v0.1.0 routed on token price alone. A free local model therefore won every task it was strong

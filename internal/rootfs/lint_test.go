@@ -45,7 +45,7 @@ var allowed = map[string]string{
 	"internal/discover/hardware.go amdVRAM":              "the amdgpu sysfs VRAM size",
 	"internal/bgeval/bgeval.go OpenLedger":               "background-evaluation ledger (ADR 018)",
 	"routing_config.go backgroundEvals":                  "writes a background evaluation's log under the data directory",
-	"internal/eval/record.go Load":                       "capability records",
+	"internal/eval/record.go load":                       "capability records",
 	"internal/graph/build.go newBuilderFrom":             "compiler export data in GOCACHE",
 	"internal/graph/deps.go loadDeps":                    "dependency graph cache",
 	"internal/graph/foreign.go newForeign":               "tag cache",

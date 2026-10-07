@@ -366,6 +366,7 @@ func run() int {
 			repo = nil
 		}
 	}
+	pol.Checkpointed = repo != nil // a restricted model's edits are allowed only when undoable (ADR 020)
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
 	factChecks := os.Getenv("TERNLY_NO_FACT_CHECKS") != "1" // measurement only: the eval's A/B of these checks
 	ag.NoFactChecks = !factChecks
