@@ -208,7 +208,7 @@ func (r Record) Autonomy() string {
 // Usable reports whether a record from eval version v may still route:
 // v3 only added a trap to v2 (same judges). Records of other versions are
 // never merged together (see Merge).
-func Usable(v string) bool { return v == Version || v == "2" }
+func Usable(v string) bool { return v == Version }
 
 var reFileName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
