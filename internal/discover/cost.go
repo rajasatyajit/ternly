@@ -256,6 +256,17 @@ func (r *Router) MarkExhausted(key string, until time.Time) {
 	r.mu.Unlock()
 }
 
+// ExhaustedUntil is when a model rate-limited by its provider comes back
+// into routing (zero: it isn't out).
+func (r *Router) ExhaustedUntil(key string) time.Time {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if t := r.exhausted[key]; time.Now().Before(t) {
+		return t
+	}
+	return time.Time{}
+}
+
 // Observe records a streamed request's timings (routing v2 measures speed
 // on every request; v1 ignores it).
 func (r *Router) Observe(m *Model, prompt, out int, ttft, gen time.Duration) {

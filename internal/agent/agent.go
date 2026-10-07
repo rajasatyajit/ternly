@@ -350,11 +350,15 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				a.stop(ctx, st, step, fmt.Sprintf("time limit (%s) reached", st.lim.Time))
 				return
 			}
-			var ae *llm.APIError
-			if errors.As(err, &ae) && ae.Status == 429 && model.Cloud { // a subscription's quota or rate limit
-				a.Router.MarkExhausted(model.Key(), time.Now().Add(quotaCooldown))
+			hit, wait := llm.QuotaHit(err)
+			if hit && model.Cloud { // a subscription's quota or rate limit
+				if wait <= 0 {
+					wait = quotaCooldown
+				}
+				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait))
 			}
-			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && llm.IsRetryable(err) {
+			// a quota hit fails over whatever its status (402/403 "out of credits" aren't retryable)
+			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && (llm.IsRetryable(err) || hit) {
 				a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s failed (%v) — failing over", model.Key(), short(err))})
 				model = alt
 				st.tried[model.Key()] = true
@@ -447,7 +451,8 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 }
 
 // quotaCooldown: how long a rate-limited subscription model stays out of
-// routing (Ollama Cloud documents no reset time; unverified, ADR 018).
+// routing when the provider gives no Retry-After. Ollama documents none for
+// inference; its balance API (Phase B) reports the reset time (ADR 018).
 const quotaCooldown = time.Hour
 
 // escalate moves the turn to a stronger model when the router has one. When
