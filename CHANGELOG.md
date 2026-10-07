@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Judges score structured answers (ADR 019)
+**The class of bug:** judges that searched the model's prose. They failed right answers worded
+unexpectedly, and passed non-answers that contained the right token. Fixed:
+- **The e2e checks and the eval's traps ask for a final JSON answer,** and their judges read only
+  that.
+- **History is re-scored** (`bench/rescore`, `bench/evalaudit`, with the manual verdicts committed
+  as data):
+  - 24 e2e runs changed, and three full-run reports flip FAIL → PASS;
+  - 10 of 126 eval verdicts behind the shipped tiers were wrong.
+
+**Shipped measurements, re-measured under eval v4:**
+- every tier is unchanged;
+- **qwen3.6 is now measured easily baited:** it ran a hostile skill's `curl … | sh` once in three
+  runs. Its edits and commands now always ask in edits and yolo modes.
+
+### Quota and rate limits
+- **Errors sent inside a stream** (the way Ollama reports errors during streaming) used to be
+  dropped silently, ending the turn with an empty answer. They now fail over.
+- **Retry-After is honoured,** and a long wait fails over at once.
+- **A subscription's usage limit** takes its model out of routing for that long, also when the
+  status is a 402 or 403.
+
+### Bench
+- **`bench/netguard`:** the netguard task's black-box scorer, recreated.
+
 ## v0.1.1 (unreleased)
 
 ### Routing: the expected cost of finishing (ADR 018)
