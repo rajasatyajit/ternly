@@ -28,6 +28,14 @@ enough for, however slow it was: on the owner's machine, qwen3.6 runs 84% on the
 - **`"routing": "v1"`** (or `--routing v1`) restores the old router for one release.
 
 ### Fixes
+- **Verification checks formatting.** Unformatted code never ends ✓ verified: changed Go files must
+  pass `gofmt -l`, and changed Rust files `rustfmt --check` (a missing rustfmt leaves them
+  unverified). Python and JavaScript/TypeScript have no standard formatter, so the one a project
+  configures (ruff or black; prettier) is run when it's installed. A file that needs formatting
+  goes back to the model like a build error.
+- **The release smoke test** exited 143 after passing (its cleanup's `wait` on the killed fake
+  provider became the exit status). That alone kept v0.1.0's release from publishing. CI now runs
+  it on every push.
 - **The reasoning watchdog** counts tokens and idle time, not stream chunks (#2). A bare number in
   `reasoning_watchdog` is read as tokens; `{"tokens": N, "seconds": S}` sets both.
 - **`callers` and `references`** list confirmed uses first: typed, or a name match whose receiver
@@ -49,9 +57,24 @@ passed 26 of 27 runs (ADR 018, "A judge bug").
   with fakes.
 - **Ollama Cloud's quota reset time** isn't documented, so the one-hour cooldown is a guess.
 
-## v0.1.0 (unreleased)
+## v0.1.0 (never published)
 
-The first public release. The design decisions behind each item are in `docs/adr/` (000–016).
+**v0.1.0 was never published; it is superseded by v0.1.1** (release toolchain vulnerabilities).
+- Its binaries were built with Go 1.26.0, whose net/url, crypto/tls and net/http advisories are
+  reachable from ternly (GO-2026-6218, GO-2026-6090, GO-2026-6089).
+- Its release run also stopped at the smoke test, which failed on a bug in the script itself, not
+  in the binaries.
+- The draft release and its assets were deleted on 2026-10-07. The `v0.1.0` tag stays.
+- **Two entries remain in the public Rekor transparency log**, permanently, as Rekor entries do:
+  - log index **3108111468**: the cosign keyless signature of the draft's `checksums.txt`
+    (sha256 `cf1a9aaa…0350c`);
+  - log index **3108112282**: the GitHub build-provenance attestation of its four archives and the
+    checksums.
+
+  Both are bound to the release workflow's identity for the `v0.1.0` tag. Nothing signed by them
+  was ever offered for download.
+
+The notes below describe that version, as written for it. The design decisions behind each item are in `docs/adr/` (000–016).
 
 ### What it is
 One terminal coding agent for every model you can reach: paid APIs, free tiers, local servers

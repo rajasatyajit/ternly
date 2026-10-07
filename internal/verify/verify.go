@@ -93,6 +93,9 @@ func Cover(ctx context.Context, root string, changed []string, run Runner) *Repo
 			map[string]func(context.Context, []string){"go": c.golang, "python": c.python, "js": c.js, "ts": c.ts, "rust": c.rust, "java": c.java}[l](ctx, fs)
 		}
 	}
+	if r.Failed == "" { // compiled; now formatted? (format.go)
+		c.format(ctx, by)
+	}
 	sort.Strings(r.Covered)
 	sort.Slice(r.Gaps, func(i, j int) bool { return r.Gaps[i].File < r.Gaps[j].File })
 	return r
