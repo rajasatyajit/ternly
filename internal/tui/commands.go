@@ -63,7 +63,7 @@ func init() {
 		{name: "exit", aliases: []string{"quit", "q"}, section: "Session", desc: "exit (the session is saved)"},
 
 		{name: "model", args: "[id|auto]", section: "Models & cost", desc: "pin a model, or return to cost-aware routing"},
-		{name: "models", args: "[filter]", section: "Models & cost", desc: "list models: tier, price, context"},
+		{name: "models", args: "[filter | why [model]]", section: "Models & cost", desc: "list models: tier, price, context; routing v2: rank and why"},
 		{name: "cost", aliases: []string{"usage", "stats", "tokens"}, section: "Models & cost", desc: "tokens, cache hits, spend and guard counters"},
 		{name: "context", section: "Models & cost", desc: "what the next request carries, against the window", run: (*Model).cmdContext},
 		{name: "status", section: "Models & cost", desc: "version, model, mode, limits, sandbox, memory", run: (*Model).cmdStatus},

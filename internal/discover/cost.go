@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"regexp"
@@ -568,4 +569,92 @@ func (r *Router) utilityV2(c *CostModel, need int) *Model {
 		return cheapest(any)
 	}
 	return nil
+}
+
+// RefreshPlacement re-reads where a local Ollama model runs (/api/ps), at
+// most once a minute per model: the placement changes when Ollama loads or
+// evicts it. Only routing v2 uses it.
+func (r *Router) RefreshPlacement(ctx context.Context, m *Model) {
+	if m == nil || !m.Local() || m.ProvID != "ollama" || !r.V2() {
+		return
+	}
+	r.mu.Lock()
+	if r.placed == nil {
+		r.placed = map[string]time.Time{}
+	}
+	if time.Since(r.placed[m.Key()]) < time.Minute {
+		r.mu.Unlock()
+		return
+	}
+	r.placed[m.Key()] = time.Now()
+	r.mu.Unlock()
+	ps := ollamaPS(ctx, strings.TrimSuffix(strings.TrimRight(m.Provider.BaseURL, "/"), "/v1"))
+	if l, ok := ps[m.ID]; ok && l.Size > 0 {
+		r.SetPlacement(m.Key(), min(1, float64(l.VRAM)/float64(l.Size)))
+	}
+}
+
+// Why is one model's routing explanation (/models, ternly --models): its rank
+// for each difficulty and its terms for a medium (T2) task.
+type Why struct {
+	Rank [4]int   // 1-based rank among eligible models for T1..T3; 0 = not eligible
+	T2   Estimate // the terms for a T2 task
+	Eval string   // background evaluation state, when one applies
+}
+
+// Explanations ranks every usable model for T1–T3 at a context of ctx
+// tokens. Nil under routing v1.
+func (r *Router) Explanations(ctx int) map[*Model]*Why {
+	r.mu.RLock()
+	c := r.cost
+	r.mu.RUnlock()
+	if c == nil {
+		return nil
+	}
+	out := map[*Model]*Why{}
+	for d := 1; d <= 3; d++ {
+		for i, e := range r.estimates(c, d, ctx, 0, nil) {
+			w := out[e.Model]
+			if w == nil {
+				w = &Why{}
+				out[e.Model] = w
+			}
+			if e.Eligible {
+				w.Rank[d] = i + 1
+			}
+			if d == 2 {
+				w.T2 = e
+			}
+		}
+	}
+	return out
+}
+
+// Short is the one-line form: ranks, p, expected time and cost of a T2 task.
+func (w *Why) Short() string {
+	rank := func(n int) string {
+		if n == 0 {
+			return "–"
+		}
+		return strconv.Itoa(n)
+	}
+	s := fmt.Sprintf("#%s/%s/%s  p %.2f  T2 ≈ %s  %s", rank(w.Rank[1]), rank(w.Rank[2]), rank(w.Rank[3]), w.T2.P, humanDur(w.T2.Seconds), costWord(w.T2))
+	if !w.T2.Eligible {
+		s += "  (" + w.T2.Why + ")"
+	}
+	return s
+}
+
+// Long spells out each term and where it came from.
+func (w *Why) Long() string {
+	e := w.T2
+	s := fmt.Sprintf("rank T1 %d · T2 %d · T3 %d (0: not eligible)\n  p(success at T2) %.2f — %s\n  T2 task ≈ %s — %s\n  money $%.4f · quota shadow $%.4f · score %.4f",
+		w.Rank[1], w.Rank[2], w.Rank[3], e.P, e.PBasis, humanDur(e.Seconds), e.SpeedBasis, e.Money, e.Quota, e.Score)
+	if !e.Eligible {
+		s += "\n  not eligible: " + e.Why
+	}
+	if w.Eval != "" {
+		s += "\n  evaluation: " + w.Eval
+	}
+	return s
 }

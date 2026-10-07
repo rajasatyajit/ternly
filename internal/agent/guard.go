@@ -70,10 +70,13 @@ type turnState struct {
 	forceLabel  string          // the watchdog's retry label, sent as is
 	watchdogged bool            // the watchdog interrupted a step this turn
 	Verdict     string          // the last verification's verdict ("" if none ran)
+	diff, ctx   int             // routing: the task's difficulty and context when it started (ADR 018)
+	tried       map[string]bool // models used this turn: escalation and failover go elsewhere
+	toldNowhere bool            // the user was told escalation had nowhere to go
 }
 
 func newTurnState(cost0 float64) *turnState {
-	return &turnState{start: time.Now(), cost0: cost0, seen: map[string]int{}, denied: map[string]string{}, lastEdit: -1, lastPass: -1}
+	return &turnState{start: time.Now(), cost0: cost0, seen: map[string]int{}, denied: map[string]string{}, lastEdit: -1, lastPass: -1, tried: map[string]bool{}}
 }
 
 func (st *turnState) callKey(name, args string) string {

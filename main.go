@@ -51,6 +51,7 @@ type fileConfig struct {
 	NoLocal           bool                  `json:"no_local"`
 	Model             string                `json:"model"`
 	Tiers             map[string]int        `json:"tiers"`
+	Routing           routingConfig         `json:"routing"` // "v1", "v2" or {version, time_value_usd_per_hour, background_eval} (ADR 018)
 	Limits            struct {
 		Steps       *int     `json:"steps"`
 		TurnMinutes *float64 `json:"turn_minutes"`
@@ -98,6 +99,7 @@ func run() int {
 		noNet      = flag.Bool("no-net", false, "deny network to shell commands (bubblewrap)")
 		projectMCP = flag.Bool("project-mcp", false, "also start MCP servers from ./.mcp.json (untrusted repo config)")
 		listModels = flag.Bool("models", false, "list discovered models and exit")
+		routing    = flag.String("routing", "", "router: v1 (price only) or v2 (expected cost to finish; ADR 018); default from config")
 		dir        = flag.String("C", ".", "workspace directory")
 		showVer    = flag.Bool("version", false, "print version")
 		mcpLogin   = flag.String("mcp-login", "", "log in to a remote MCP server (OAuth in the browser) and exit")
@@ -208,8 +210,25 @@ func run() int {
 		for _, x := range w {
 			fmt.Fprintln(os.Stderr, "warning:", x)
 		}
+		turn := agent.DefaultLimits.Time
+		if v := fc.Limits.TurnMinutes; v != nil {
+			turn = time.Duration(*v * float64(time.Minute))
+		}
+		cm, err := fc.Routing.costModel(*routing, dataDir, turn)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		r := discover.NewRouter()
+		r.SetModels(ms)
+		r.SetCostModel(cm)
+		why := r.Explanations(modelsCtx)
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-		fmt.Fprintln(tw, "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL")
+		head := "TIER\tTOOLS\tPRICE $/Mtok\tCTX\tBASIS\tMODEL"
+		if why != nil {
+			head += "\tROUTING v2: RANK T1/T2/T3, P, T2 TASK (20k context)"
+		}
+		fmt.Fprintln(tw, head)
 		for _, m := range ms {
 			basis := m.Basis
 			if ms := m.Measure; ms != nil {
@@ -218,9 +237,20 @@ func run() int {
 					basis += ",baitable"
 				}
 			}
-			fmt.Fprintf(tw, "T%d\t%v\t%s\t%d\t%s\t%s\n", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
+			line := fmt.Sprintf("T%d\t%v\t%s\t%d\t%s\t%s", m.Tier, m.Tools, discover.Price(m), m.Ctx, basis, m.Key())
+			if w := why[m]; w != nil {
+				line += "\t" + w.Short()
+			} else if why != nil {
+				line += "\t– (no tool calling, or too little context)"
+			}
+			fmt.Fprintln(tw, line)
 		}
 		tw.Flush()
+		if why == nil {
+			fmt.Println("\nrouting v1 (price only); --routing v2 or \"routing\": \"v2\" ranks by expected cost to finish (ADR 018)")
+		} else {
+			fmt.Printf("\nrouting v2: score = (money + quota + $%.0f/h × time) / p(success); /models why <model> in the TUI explains one\n", cm.TimeValue)
+		}
 		return 0
 	}
 
@@ -306,6 +336,12 @@ func run() int {
 	}
 	if v := fc.Limits.TurnUSD; v != nil {
 		ag.Limits.TurnUSD = *v
+	}
+	if cm, err := fc.Routing.costModel(*routing, dataDir, ag.Limits.Time); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	} else {
+		router.SetCostModel(cm)
 	}
 	project, err := session.OpenProject(dataDir, reg.Root)
 	if err != nil {

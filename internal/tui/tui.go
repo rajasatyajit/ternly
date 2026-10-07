@@ -867,6 +867,21 @@ func (m *Model) strongest() *discover.Model {
 
 func (m *Model) modelsTable(filter string) string {
 	ms := m.App.Router.Models()
+	cu := m.App.Agent.Context()
+	why := m.App.Router.Explanations(max(cu.System+cu.Tools+cu.Notes+cu.User+cu.Assistant+cu.ToolResults, 2000))
+	if name, ok := strings.CutPrefix(filter, "why"); ok && why != nil { // /models why <model>: every term, with its source
+		name = strings.ToLower(strings.TrimSpace(name))
+		var out []string
+		for _, x := range ms {
+			if w := why[x]; w != nil && (name == "" && w.Rank[2] > 0 && w.Rank[2] <= 3 || name != "" && strings.Contains(strings.ToLower(x.Key()), name)) {
+				out = append(out, sAccent.Render("  "+x.Key())+"\n  "+strings.ReplaceAll(w.Long(), "\n", "\n  "))
+			}
+		}
+		if len(out) == 0 {
+			return "  no model matches " + name
+		}
+		return strings.Join(out, "\n")
+	}
 	var rows []string
 	shown := 0
 	byProv := map[string]int{}
@@ -883,7 +898,11 @@ func (m *Model) modelsTable(filter string) string {
 		if !x.Tools {
 			tl = sDim.Render("·")
 		}
-		rows = append(rows, fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), x.Key()))
+		row := fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), x.Key())
+		if w := why[x]; w != nil {
+			row += sDim.Render("  " + w.Short())
+		}
+		rows = append(rows, row)
 	}
 	var provs []string
 	for p, n := range byProv {
@@ -896,6 +915,9 @@ func (m *Model) modelsTable(filter string) string {
 	}
 	if shown == 60 {
 		rows = append(rows, sDim.Render("  … use /models <filter>"))
+	}
+	if why != nil {
+		rows = append(rows, sDim.Render("  routing v2: rank T1/T2/T3 · p(success) · a T2 task's time and cost at this context · /models why [model] explains"))
 	}
 	return head + "\n" + strings.Join(rows, "\n")
 }

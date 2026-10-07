@@ -141,7 +141,7 @@ func TestRoutingReplayQuotaExhausted(t *testing.T) {
 	if !m.Local() || m.ID != "qwen3.6:latest" {
 		t.Fatalf("quota exhausted → %s (%s); want the strongest local model", m.Key(), why)
 	}
-	up, ok, hint := r.EscalateFor(by["qwen3.6:latest"], 3, ctx20k, ctx20k+16000, map[string]bool{})
+	up, ok, _ := r.EscalateFor(by["qwen3.6:latest"], 3, ctx20k, ctx20k+16000, map[string]bool{})
 	if ok && up.Tier >= 3 {
 		t.Fatalf("escalated to %s with every T3 cloud model exhausted", up.Key())
 	}
@@ -149,7 +149,7 @@ func TestRoutingReplayQuotaExhausted(t *testing.T) {
 	for _, m := range r.Models() {
 		tried[m.Key()] = true
 	}
-	if _, ok, hint = r.EscalateFor(by["qwen3.6:latest"], 3, ctx20k, ctx20k+16000, tried); ok || !strings.Contains(hint, "quota resets") || !strings.Contains(hint, "API key") {
+	if _, ok, hint := r.EscalateFor(by["qwen3.6:latest"], 3, ctx20k, ctx20k+16000, tried); ok || !strings.Contains(hint, "quota resets") || !strings.Contains(hint, "API key") {
 		t.Fatalf("nowhere to go: ok=%v hint=%q", ok, hint)
 	}
 }
@@ -166,6 +166,34 @@ func TestRoutingReplayLambdaZeroIsV1(t *testing.T) {
 			if a.Key() != b.Key() {
 				t.Errorf("T%d ctx %d: v1 %s, v2 at λ=0 %s", d, ctx, a.Key(), b.Key())
 			}
+		}
+	}
+}
+
+func TestRoutingConfig(t *testing.T) {
+	for _, c := range []struct {
+		json, flag string
+		v2         bool
+		lambda     float64
+		bad        bool
+	}{
+		{`{}`, "", defaultRouting == "v2", discover.DefaultTimeValue, false},
+		{`{"routing":"v1"}`, "", false, 0, false},
+		{`{"routing":"v2"}`, "", true, discover.DefaultTimeValue, false},
+		{`{"routing":{"version":"v2","time_value_usd_per_hour":0}}`, "", true, 0, false},
+		{`{"routing":{"version":"v2","time_value_usd_per_hour":45}}`, "", true, 45, false},
+		{`{"routing":"v2"}`, "v1", false, 0, false}, // the flag wins
+		{`{"routing":"v1"}`, "v2", true, discover.DefaultTimeValue, false},
+		{`{"routing":"v3"}`, "", false, 0, true},
+		{`{"routing":{"version":"v2","time_value_usd_per_hour":-1}}`, "", false, 0, true},
+	} {
+		var fc fileConfig
+		if err := json.Unmarshal([]byte(c.json), &fc); err != nil {
+			t.Fatalf("%s: %v", c.json, err)
+		}
+		cm, err := fc.Routing.costModel(c.flag, t.TempDir(), 30*time.Minute)
+		if (err != nil) != c.bad || (cm != nil) != c.v2 || cm != nil && cm.TimeValue != c.lambda {
+			t.Errorf("%s flag=%q: cm=%+v err=%v", c.json, c.flag, cm, err)
 		}
 	}
 }

@@ -21,6 +21,7 @@ type Router struct {
 	cost      *CostModel
 	exhausted map[string]time.Time // model key → out of routing until
 	place     map[string]float64   // model key → GPU fraction measured since discovery
+	placed    map[string]time.Time // model key → when its placement was last read
 }
 
 func NewRouter() *Router { return &Router{ready: make(chan struct{})} }
