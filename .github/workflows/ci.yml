@@ -38,6 +38,14 @@ jobs:
           go vet -tags e2e . # the real-model suite (bench/run.sh e2e) must keep compiling
           go test -tags e2e -run '^TestManifestMatchesChecks$' . # …and its manifest must match its checks
           go vet -tags ternly_all_grammars ./internal/graph # the opt-in build keeps compiling
+      - name: staticcheck (linux, darwin, e2e)
+        run: |
+          sc="go run honnef.co/go/tools/cmd/staticcheck@v0.8.1"
+          $sc ./...
+          GOOS=darwin $sc ./...
+          $sc -tags e2e .
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - name: go test -race
         env:
           TERNLY_REQUIRE_SANDBOX: "1" # sandbox/security tests fail instead of skipping

@@ -193,7 +193,6 @@ func TestScale(t *testing.T) {
 	run(fmt.Sprintf("ranked + full vector scan (%d vectors)", n), withVec)
 	VecScanMax = old
 
-	t0 = time.Now()
 	var lat []time.Duration
 	for _, q := range queries[:200] {
 		a := time.Now()

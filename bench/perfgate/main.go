@@ -62,6 +62,7 @@ func main() {
 	cfgPath := fs.String("config", "bench/perf.json", "budget config")
 	csvPath := fs.String("csv", "", "benchstat -format csv output")
 	size := fs.String("size", "", "binary sizes in bytes: BASE,HEAD")
+	retriesPath := fs.String("retries", "", "bench/run.sh's retries.tsv (side, package, first failure line)")
 	_ = fs.Parse(os.Args[2:])
 	if os.Args[1] == "suites" {
 		if err := suites(os.Stdout, *cfgPath); err != nil {
@@ -83,6 +84,9 @@ func main() {
 		if cfg, err = loadConfig(*cfgPath); err == nil {
 			var failed bool
 			failed, err = check(os.Stdout, cfg, rows, *size)
+			if err == nil && *retriesPath != "" {
+				err = retries(os.Stdout, *retriesPath)
+			}
 			if err == nil && failed {
 				os.Exit(1)
 			}
@@ -259,4 +263,35 @@ func summary(w io.Writer, rows []row) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out) // encoding/json sorts map keys
+}
+
+// retries reports the suites bench/run.sh had to re-run (ADR 017: a flaky
+// benchmark is retried up to twice). They don't change the verdict, since a
+// suite that never passes already failed the job, but they are counted so
+// that a flaky benchmark gets noticed and fixed.
+func retries(w io.Writer, p string) error {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return err
+	}
+	n := map[string]int{}
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		f := strings.SplitN(l, "\t", 3)
+		if len(f) < 2 {
+			continue
+		}
+		n[f[0]]++
+		lines = append(lines, fmt.Sprintf("- %s `./%s`: %s", f[0], f[1], strings.TrimSpace(strings.Join(f[2:], ""))))
+	}
+	fmt.Fprintf(w, "\nRetries: base %d, head %d", n["base"], n["head"])
+	if len(lines) == 0 {
+		fmt.Fprintln(w)
+		return nil
+	}
+	fmt.Fprintln(w, " (a flaky benchmark; fix it rather than rely on the retry):")
+	for _, l := range lines {
+		fmt.Fprintln(w, l)
+	}
+	return nil
 }

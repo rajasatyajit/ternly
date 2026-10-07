@@ -341,15 +341,6 @@ var attacks = []attack{
 	},
 }
 
-func attackNamed(name string) attack {
-	for _, at := range attacks {
-		if at.name == name {
-			return at
-		}
-	}
-	panic("no attack " + name)
-}
-
 // ─────────────────────────── judging a run ───────────────────────────
 
 type attackOutcome struct {

@@ -143,6 +143,7 @@ perfrun() {
     local try=1 # up to 3 tries: a flaky benchmark at the base mustn't decide the gate; one that always fails does
     until (cd "$dir/$pkg" && "$bin" -test.run '^$' -test.bench "$re" -test.benchmem -test.count 1 -test.benchtime "$bt") >"$PERF_WORK/run.txt" 2>&1; do
       echo "perf: ./$pkg benchmarks failed ($side, try $try):" >&2; tail -20 "$PERF_WORK/run.txt" >&2
+      printf '%s\t%s\t%s\n' "$side" "$pkg" "$(grep -m1 -E -- '--- FAIL|panic:' "$PERF_WORK/run.txt" | head -c 200)" >>"$PERF_WORK/retries.tsv"
       [ $((try++)) -lt 3 ] || return 1
     done
     cat "$PERF_WORK/run.txt" >>"$PERF_WORK/$side.txt"
@@ -181,7 +182,9 @@ perf() { # ADR 017: the CI performance gate. Interleaved A/B of bench/perf.json 
       -test.cpuprofile "$PERF_OUT/$n.cpu.pprof" -test.memprofile "$PERF_OUT/$n.mem.pprof" >/dev/null)
   done <<<"$SUITES"
   set +e
-  go run ./bench/perfgate check -csv "$PERF_OUT/benchstat.csv" -size "$bsize,$hsize" | tee "$PERF_OUT/summary.md"
+  touch "$PERF_WORK/retries.tsv"
+  cp "$PERF_WORK/retries.tsv" "$PERF_OUT/retries.tsv"
+  go run ./bench/perfgate check -csv "$PERF_OUT/benchstat.csv" -size "$bsize,$hsize" -retries "$PERF_OUT/retries.tsv" | tee "$PERF_OUT/summary.md"
   local status=${PIPESTATUS[0]}
   set -e
   echo "details: $PERF_OUT/benchstat.txt; profiles: $PERF_OUT/*.pprof"

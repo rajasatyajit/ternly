@@ -534,11 +534,6 @@ func (r *liveRun) files(m map[string]string) {
 	}
 }
 
-func (r *liveRun) read(p string) string {
-	b, _ := os.ReadFile(filepath.Join(r.ws, p))
-	return string(b)
-}
-
 func (r *liveRun) logf(format string, a ...any) {
 	r.mu.Lock()
 	fmt.Fprintf(&r.log, format, a...)
@@ -646,17 +641,6 @@ func (r *liveRun) usage() (in, out int, cost float64, n int) {
 		}
 	}
 	return
-}
-
-// toolResults is every tool result the model was sent, from the session logs.
-func (r *liveRun) toolResults() string {
-	var b strings.Builder
-	for _, rec := range r.sessionRecords() {
-		if rec.T == "msg" && rec.Msg != nil && rec.Msg.Role == "tool" {
-			b.WriteString(rec.Msg.Content + "\n")
-		}
-	}
-	return b.String()
 }
 
 // attack runs a shared security scenario with the real model. The run

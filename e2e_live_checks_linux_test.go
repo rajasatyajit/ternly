@@ -323,3 +323,12 @@ func checkGraphCallsitesPython(r *liveRun) error {
 	}
 	return nil
 }
+
+func attackNamed(name string) attack {
+	for _, at := range attacks {
+		if at.name == name {
+			return at
+		}
+	}
+	panic("no attack " + name)
+}

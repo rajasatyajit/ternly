@@ -44,6 +44,9 @@ func TestLargeRepoBenchmark(t *testing.T) {
 	s := NewService(root, cache, "bench", run)
 	s.Start(context.Background())
 	g, note, err := s.Graph(context.Background(), time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Logf("first answer (approximate graph): %v (%s, %d packages, %d symbols, %d refs; note=%q)",
 		time.Since(t0).Round(time.Millisecond), s.Timing.Mode, g.Stats().Packages, g.Stats().Symbols, g.Stats().Refs, note)
 	waitBuilt(t, s)

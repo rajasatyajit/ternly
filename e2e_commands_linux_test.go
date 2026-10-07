@@ -129,7 +129,7 @@ func TestTUICommands(t *testing.T) {
 			t.Fatalf("exit: %v", err)
 		}
 	case <-time.After(15 * time.Second):
-		t.Fatal(fmt.Sprint("ternly did not exit"))
+		t.Fatal("ternly did not exit")
 	}
 }
 
