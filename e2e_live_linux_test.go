@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -227,6 +228,7 @@ type liveEnv struct {
 	ollamaName string // the Ollama model name, when served by Ollama
 	ollama     string // Ollama base URL
 	local      bool
+	routing    string // TERNLY_E2E_MODEL=auto: the router decides (v1 or v2; ADR 018), nothing is pinned
 	cap        float64
 	mu         sync.Mutex
 	cost       float64
@@ -256,6 +258,23 @@ func preflight(root, work, model string) (*liveEnv, error) {
 	// bubblewrap: the sandbox the security checks rely on.
 	if out, err := exec.Command("bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-pid", "true").CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("bubblewrap doesn't work (%v: %s) — install it (pacman -S bubblewrap / apt install bubblewrap) and allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone=1)", err, strings.TrimSpace(string(out)))
+	}
+	if model == "auto" { // routed: TERNLY_E2E_ROUTING picks the router, which picks the models
+		env.routing = os.Getenv("TERNLY_E2E_ROUTING")
+		if env.routing != "v1" && env.routing != "v2" {
+			return nil, errors.New("TERNLY_E2E_MODEL=auto needs TERNLY_E2E_ROUTING=v1 or v2")
+		}
+		if os.Getenv("TERNLY_E2E_ALLOW_REMOTE") != "1" {
+			return nil, errors.New("routed runs may use remote models — they need TERNLY_E2E_ALLOW_REMOTE=1 and a spend cap TERNLY_E2E_BUDGET (default $1)")
+		}
+		env.key, env.cap = "auto-"+env.routing, 1
+		if v := os.Getenv("TERNLY_E2E_BUDGET"); v != "" {
+			var err error
+			if env.cap, err = strconv.ParseFloat(v, 64); err != nil || env.cap <= 0 {
+				return nil, fmt.Errorf("TERNLY_E2E_BUDGET=%q: want a positive dollar amount", v)
+			}
+		}
+		return env, nil
 	}
 	// The model, as the binary itself classifies it (isolated HOME).
 	home := filepath.Join(work, "preflight")
@@ -448,16 +467,19 @@ func newRun(env *liveEnv, sp checkSpec, work string, n int) *liveRun {
 }
 
 type runResult struct {
-	Err       string  `json:"error,omitempty"`
-	Ms        int64   `json:"ms"`
-	In        int     `json:"in"`
-	Out       int     `json:"out"`
-	Cost      float64 `json:"cost"`
-	Exercised bool    `json:"guard_exercised"`
-	Attack    bool    `json:"attack,omitempty"`
-	Bait      bool    `json:"took_bait,omitempty"`
-	Tail      string  `json:"transcript_tail,omitempty"`
+	Err       string   `json:"error,omitempty"`
+	Ms        int64    `json:"ms"`
+	In        int      `json:"in"`
+	Out       int      `json:"out"`
+	Cost      float64  `json:"cost"`
+	Exercised bool     `json:"guard_exercised"`
+	Attack    bool     `json:"attack,omitempty"`
+	Bait      bool     `json:"took_bait,omitempty"`
+	Tail      string   `json:"transcript_tail,omitempty"`
+	Models    []string `json:"models,omitempty"` // the models the run used, as routed (◆ lines)
 }
+
+var reRouted = regexp.MustCompile(`(?m)^◆ (\S+) \(`)
 
 func (r *liveRun) execute(fn liveCheck) (rr runResult) {
 	defer os.RemoveAll(r.dir)
@@ -494,6 +516,11 @@ func (r *liveRun) execute(fn liveCheck) (rr runResult) {
 	}
 	s := r.log.String()
 	rr.Tail = s[max(0, len(s)-3000):] // for review, passing runs too
+	for _, m := range reRouted.FindAllStringSubmatch(s, -1) {
+		if !slices.Contains(rr.Models, m[1]) {
+			rr.Models = append(rr.Models, m[1])
+		}
+	}
 	return rr
 }
 
@@ -543,6 +570,9 @@ func (r *liveRun) logf(format string, a ...any) {
 // baseArgs pins the model and the workspace; local models stay local; a
 // remote model gets what's left of the spend cap as its session budget.
 func (r *liveRun) baseArgs() []string {
+	if r.env.routing != "" {
+		return []string{"-C", r.ws, "--routing", r.env.routing, "--budget", fmt.Sprintf("%.4f", r.env.remaining())}
+	}
 	a := []string{"-C", r.ws, "--model", r.env.key}
 	if r.env.local {
 		a = append(a, "--local-only")
