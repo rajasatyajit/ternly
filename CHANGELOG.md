@@ -13,6 +13,22 @@
 - **Every git call now goes through `internal/gitenv`.** A lint enforces it per call, and CI runs
   the whole suite with `GIT_DIR` pointing at a sentinel repository that must stay unchanged.
 
+### Connections: what's connected, how, and what it costs (Phase B, ADR 022)
+- **Every source gets a status line** in `ternly --models`, `/status` and `/doctor`. Each one says
+  how it was found (the key's variable name, never its value, or the daemon's address), how many
+  models it has, and its cost or remaining usage. When a source isn't connected, the line gives
+  the next step.
+  - Errors are worded by ternly, for example "the key in OPENAI_API_KEY was refused (HTTP 401)".
+    The provider's own error text is never shown.
+- **Ollama Cloud usage** comes from Ollama's documented `/api/balance`, when `OLLAMA_API_KEY` is
+  set. Without the key, Ollama gives no official usage signal, so ternly says so rather than
+  guessing.
+- **The claude and codex CLIs are detected but not used.** Whether another program may drive them
+  with your subscription is unclear in Anthropic's and OpenAI's terms, so it's an open decision
+  (ADR 022). Your API keys work as before.
+- **Status for UIs** (ADR 021, `internal/status`): connections, quota, models with trust, routing
+  and its explanation, and the session meter, with a 50 µs snapshot budget held by the perf gate.
+
 ### Judges score structured answers (ADR 019)
 **The class of bug:** judges that searched the model's prose. They failed right answers worded
 unexpectedly, and passed non-answers that contained the right token. Fixed:
