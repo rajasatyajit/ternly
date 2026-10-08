@@ -664,6 +664,7 @@ func run() int {
 		}
 		return ms, w
 	}, Notes: notes, Remote: remote, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
+		Surface: stc, Actions: stc, // the ADR 021 producer (Phase B): meter, /why, trust, quota
 		Plugins: prt, Capabilities: caps, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
 			lines := []string{"code graph on (Go): find_symbol, references, callers, … for the model"}
 			if gs == nil {

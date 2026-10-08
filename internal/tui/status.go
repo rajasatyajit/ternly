@@ -140,9 +140,11 @@ func usd(v float64) string {
 	return fmt.Sprintf("$%.4f", v)
 }
 
-// connectionLines are /status's connections section (Phase B fills them).
+// connectionLines are /status's connections section, from the snapshot —
+// a fallback: the core's own /status lines (App.Status: status.Lines, which
+// also names the CLIs found) list connections when it provides them.
 func (m *Model) connectionLines() []string {
-	if m.App.Surface == nil || len(m.snap.Connections) == 0 {
+	if m.App.Surface == nil || len(m.snap.Connections) == 0 || m.App.Status != nil {
 		return nil
 	}
 	out := []string{"connections"}

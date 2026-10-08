@@ -254,6 +254,15 @@ Guards: 6/6, and `TestTUIAccessibleMode` (real binary: no `?1049h`, no box drawi
 
 Guards: 6/6.
 
+**Wired to the real producer.** After Phase B merged (`internal/status`, the ADR 021 producer),
+`main` sets `App.Surface`/`App.Actions` to it:
+- the status bar's meter, `/why` and the trust and quota marks read the core;
+- `surface/fake` stays for the TUI's tests;
+- the core's own `/status` lines (`status.Lines`, which also names the CLIs found) list connections,
+  so the TUI's own section is only a fallback;
+- `TestTUIMeterFromCore` (real binary: the context against the model's window) fails if the wiring
+  is removed.
+
 **4. Plan panel: after Phase C produces plan data.** Not built.
 
 **5. Image paste: deferred** until `internal/llm` supports images.
