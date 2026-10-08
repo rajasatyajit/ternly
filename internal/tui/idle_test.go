@@ -56,3 +56,23 @@ func TestWaitingIsStill(t *testing.T) {
 		t.Fatal("the screen changes while waiting for the user")
 	}
 }
+
+// A turn that ends with no answer text says so, instead of ending in
+// silence (seen with kimi-k2.6: the final message was empty).
+func TestEmptyAnswerSaid(t *testing.T) {
+	m := testModel(t)
+	m.busy = true
+	m.Update(agentMsg(agent.Event{Kind: agent.EvToolStart, Tool: "read_file", ToolID: "1", Text: "cart.go"}))
+	m.Update(agentMsg(agent.Event{Kind: agent.EvToolEnd, Tool: "read_file", ToolID: "1", OK: true}))
+	m.Update(agentMsg(agent.Event{Kind: agent.EvDone}))
+	if v := m.View().Content; !strings.Contains(v, "ended the turn without an answer") {
+		t.Fatalf("silent end:\n%s", v)
+	}
+	m.busy, m.answered = true, false
+	m.Update(agentMsg(agent.Event{Kind: agent.EvText, Text: "Two bugs."}))
+	n := strings.Count(m.View().Content, "without an answer")
+	m.Update(agentMsg(agent.Event{Kind: agent.EvDone}))
+	if strings.Count(m.View().Content, "without an answer") != n {
+		t.Fatal("a turn with an answer was flagged as empty")
+	}
+}

@@ -168,6 +168,7 @@ type Model struct {
 	lastFailed    bool   // the last turn ended with an error
 	ticking       bool   // the animation ticker is scheduled (only while something animates)
 	expanded      bool   // tool output shown in full (Ctrl+O)
+	answered      bool   // the current turn has shown answer text
 	fileQ         string // the @ query the picker shows or awaits
 	fileReq       bool   // a file listing for fileQ is wanted
 	snap          surface.Snapshot
@@ -618,7 +619,7 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 	if a := m.attachments(prompt); a != "" {
 		extra = strings.TrimSpace(a + "\n\n" + extra)
 	}
-	m.lastFailed = false
+	m.lastFailed, m.answered = false, false
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel, m.busy, m.activity = cancel, true, "Routing"
 	if m.paused { // a prompt after /pause continues the session
@@ -646,6 +647,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		}
 		last.text += e.Text
 		last.rendered = ""
+		if strings.TrimSpace(e.Text) != "" {
+			m.answered = true
+		}
 		m.activity = "Writing"
 		m.dirty = true
 		return nil
@@ -688,6 +692,10 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
+		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
+			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
+				sDim.Render(" — ask again, or /model to pick another (/why shows the ranking)")})
+		}
 		m.busy, m.cancel = false, nil
 		for _, b := range m.blocks {
 			if b.kind == bTool && b.state == 0 {
