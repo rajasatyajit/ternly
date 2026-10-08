@@ -57,3 +57,19 @@ func TestTranscriptMatchesFullContent(t *testing.T) {
 		}
 	}
 }
+
+// A block re-rendered between set and view (streamed text arrives before the
+// next refresh) must not break the frame: view shows what set counted.
+// Seen as a panic, index out of range, recording the review task.
+func TestTranscriptStableBetweenSetAndView(t *testing.T) {
+	blocks := []*block{{rendered: "a\nb\nc"}, {rendered: "d\ne\nf\ng"}}
+	tr := transcript{h: 5, follow: true}
+	tr.set(blocks, "")
+	blocks[1].rendered = "x" // shorter now; ends still say 4 lines
+	blocks[0].rendered = ""
+	_ = tr.view() // must not panic
+	tr.set(blocks, "")
+	if v := tr.view(); !strings.Contains(v, "x") {
+		t.Fatalf("after the next set: %q", v)
+	}
+}

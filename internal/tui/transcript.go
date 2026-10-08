@@ -16,7 +16,7 @@ type transcript struct {
 	ends   []int    // ends[i]: lines in blocks[0..i]
 	tail   []string // the activity line under the blocks
 	total  int
-	src    []*block
+	lines  [][]string // each block's lines as counted by set: a block may be re-rendered before the next frame
 }
 
 // lines are a block's rendered lines, cached until it is rendered again.
@@ -29,14 +29,16 @@ func (b *block) linesOf() []string {
 
 // set recounts after blocks changed (O(blocks), no string building).
 func (t *transcript) set(blocks []*block, tail string) {
-	t.src = blocks
 	if cap(t.ends) < len(blocks) {
 		t.ends = make([]int, len(blocks), 2*len(blocks))
+		t.lines = make([][]string, len(blocks), 2*len(blocks))
 	}
-	t.ends = t.ends[:len(blocks)]
+	t.ends, t.lines = t.ends[:len(blocks)], t.lines[:len(blocks)]
 	n := 0
 	for i, b := range blocks {
-		n += len(b.linesOf())
+		ls := b.linesOf()
+		t.lines[i] = ls
+		n += len(ls)
 		t.ends[i] = n
 	}
 	t.tail = strings.Split(tail, "\n")
@@ -78,7 +80,7 @@ func (t *transcript) line(i int) string {
 	if bi > 0 {
 		start = t.ends[bi-1]
 	}
-	return t.src[bi].linesOf()[i-start]
+	return t.lines[bi][i-start]
 }
 
 // view is the visible window, exactly h lines.
