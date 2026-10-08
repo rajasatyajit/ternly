@@ -17,6 +17,9 @@ type Core struct {
 	Pinned   []string // every Pin call, in order
 	Explains []surface.Explanation
 	Errs     map[string]error // by method name: "Pin", "Reconnect"
+
+	Proposals []surface.EditProposal                          // every Review call, in order
+	Decide    func(surface.EditProposal) surface.EditDecision // nil: accept every hunk
 }
 
 var (
@@ -83,3 +86,22 @@ func (c *Core) Reconnect(_ context.Context, id string) error {
 	defer c.mu.Unlock()
 	return c.Errs["Reconnect"]
 }
+
+// Review is a surface.Reviewer: it records the proposal and answers with
+// Decide (every hunk accepted when Decide is nil).
+func (c *Core) Review(_ context.Context, p surface.EditProposal) surface.EditDecision {
+	c.mu.Lock()
+	c.Proposals = append(c.Proposals, p)
+	decide := c.Decide
+	c.mu.Unlock()
+	if decide != nil {
+		return decide(p)
+	}
+	all := make([]bool, len(p.Hunks))
+	for i := range all {
+		all[i] = true
+	}
+	return surface.EditDecision{Apply: all}
+}
+
+var _ surface.Reviewer = (&Core{}).Review
