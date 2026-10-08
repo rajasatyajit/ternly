@@ -128,6 +128,28 @@ func (s *screen) waitFor(t *testing.T, want string) {
 	t.Fatalf("timed out waiting for %q; screen tail:\n%s", want, tail[max(0, len(tail)-1500):])
 }
 
+// waitForRe is waitFor with a pattern: for text whose leading spaces the
+// renderer may skip with a cursor move (it writes only cells that change).
+func (s *screen) waitForRe(t *testing.T, re *regexp.Regexp) {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		s.mu.Lock()
+		text := reANSI.ReplaceAllString(s.buf.String(), "")
+		if loc := re.FindStringIndex(text[min(s.pos, len(text)):]); loc != nil {
+			s.pos += loc[1]
+			s.mu.Unlock()
+			return
+		}
+		s.mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+	}
+	s.mu.Lock()
+	tail := reANSI.ReplaceAllString(s.buf.String(), "")
+	s.mu.Unlock()
+	t.Fatalf("timed out waiting for /%s/; screen tail:\n%s", re, tail[max(0, len(tail)-1500):])
+}
+
 func TestTUIUndoRewindLimits(t *testing.T) {
 	testutil.Require(t, "git", testutil.Have("git"))
 	f := newProvider(t,
@@ -192,7 +214,7 @@ func TestTUIUndoRewindLimits(t *testing.T) {
 
 	send("/rewind\r") // code-only rewind keeps the conversation
 	scr.waitFor(t, "restores to before turn n")
-	scr.waitFor(t, " 1 ")
+	scr.waitForRe(t, regexp.MustCompile(`\b1 \d\d:\d\d [●○ ] +write v1`)) // turn 1's row: number, time, changed-files mark, prompt
 
 	send("/exit\r")
 	done := make(chan error, 1)
