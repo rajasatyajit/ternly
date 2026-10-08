@@ -177,6 +177,99 @@ pre-existing and not a baseline metric.
   - golang.org/x/net v0.39.0 had 10 advisories that weren't reachable. Bumped to v0.59.0, so
     govulncheck starts from "No vulnerabilities found".
 
+## Amendment (2026-10-08): BenchmarkFrame +7%, a layout artefact, and how the gate should treat one
+
+### What happened
+On PR #14 the gate failed BenchmarkFrame twice (+7.4%, +6.4%). PR #14 doesn't touch
+`Framer.Wrap` or anything it calls.
+- **It reproduced locally:** an interleaved A/B, n = 10, gave +7.4% (p = 0.000) with no change in
+  allocations.
+- **Bisecting pinned it to one line:** the `reQuota` regexp added to `internal/llm` by the quota
+  detection commit.
+
+| Variant | BenchmarkFrame vs base |
+|---|---|
+| head with security.go and its tests reverted | +6.1% |
+| head with openai.go reverted | +6.5% |
+| head with llm.go's Retry-After or `Error()` hunks reverted | +6.4–6.5% |
+| head with `reQuota` compiled lazily (`sync.OnceValue`) | +6.4% |
+| **head without the `reQuota` regexp** | **~ (p = 0.35)** |
+| base padded with 4 KB of data / 7–21 unused functions / string literals of 5–61 bytes / an `http.ParseTime` reference | ~ in every case |
+
+Commit f224031 replaced the regexp with substring matching (`quotaMessage`), tested equal to it on
+29 messages, and the gate passed.
+
+### Proof that quota detection isn't on the path (call counts)
+I ran BenchmarkFrame at the commit before the fix (3429c27) with count-mode coverage over
+`internal/llm`, `internal/tools` and `regexp`, at 2000 and 4000 iterations. A block that runs per
+`Wrap` call doubles; one that runs at setup stays constant.
+
+```
+go test -run '^$' -bench '^BenchmarkFrame$' -benchtime {2000,4000}x -covermode=count \
+  -coverpkg=<module>/internal/llm,<module>/internal/tools,regexp -coverprofile=… ./internal/tools
+```
+
+- **`internal/llm`: 229 blocks in the profile, 0 executed,** including `QuotaHit` (llm.go:278–282).
+  The regexp was only compiled, once, at package init. Coverage doesn't count variable
+  initialisers, but a cost that is paid once can't show per op.
+- **`internal/tools` (guard.go): +84,012,000 block executions** from 2000 → 4000. That is the
+  injection flagger, which is where the profile puts the extra time (`memeqbody` under
+  `buildSignals`).
+- **`regexp`:** one block (exec.go:386) went 1 → 2, once and not per iteration. Everything else in
+  regexp is constant in N (init compilation).
+
+**Verdict: a layout artefact, not a hot-path cost.** The work per op is identical, and the time
+moved with what was linked, not with what ran. The mechanism isn't identified:
+- the padding variants didn't reproduce it;
+- `llm` already linked a `(?i)` regexp before this change, so it isn't just "regexp tables were
+  added".
+
+No budget is added. The substring matcher stays: it is equivalent, tested, and has no regexp to
+compile.
+
+### How the gate should treat alignment noise on untouched code (proposal, for review)
+Constraints:
+- the gate must not get weaker for real regressions;
+- an artefact like this one cost hours to triage.
+
+**Rejected: a tolerance band from layout perturbation** (re-measure the base with padding and widen
+the threshold by the spread). Every padding variant above measured "~", so a perturbation-derived
+band would have been near zero. It wouldn't have absorbed this artefact, yet it would loosen the
+gate in general.
+
+**Proposed: attribute, then decide; the default verdict stays FAIL.**
+1. **Attribution in the gate (automatic, report only).** For each benchmark that fails, perfgate
+   runs the count-coverage pair above at the head and intersects the per-op executed files with the
+   PR's diff. The summary says, per benchmark, either "on the path: <files changed>" or "none of
+   the code this benchmark runs changed: likely layout". This turns hours of bisecting into one
+   line in the job summary.
+2. **A waiver, explicit and scoped, only for "none changed".** A reviewed `perf.json` entry:
+   `{"bench", "base", "head", "evidence", "adr"}`.
+   - It matches only that exact base..head pair, so it expires with the next push.
+   - The gate checks the attribution itself before honouring it: a waiver on a benchmark whose
+     code did change is refused.
+   - The table shows the regression as WAIVED, not OK.
+3. **Fixing it is still preferred when cheap,** as here.
+4. **Optional:** count waivers per release in the CHANGELOG, so a pattern of layout regressions
+   stays visible. Cumulative layout drift is still a real effect on the shipped binary, even if no
+   single PR causes it.
+
+5. **An A/A run, to find noisy benchmarks before they fail a PR.** PR #16 changed only workflow
+   YAML, so its Go code was identical on both sides, and the gate still failed it: BenchmarkGraphLoad
+   +124%.
+   - Its rounds were bimodal on both sides (about 0.7 and 1.6 ms/op).
+   - Cause 1: the first build's background dependency build overlapped the timed loop.
+   - Cause 2: at `20x`, a sub-millisecond op makes a round of about 10 ms, so one GC cycle doubles
+     it.
+   - Fixed in PR #18, which waits for that work and runs GraphLoad at 300×.
+
+   That class is found cheaply by running the gate with base = head (an A/A run): any benchmark
+   that "regresses" against itself is noisy and gets fixed. Run it weekly on a schedule, and
+   whenever a suite is added or changed. It finds noise without loosening anything.
+
+Not implemented yet: this needs a decision. Items 1 and 2 are about a day of work in
+`bench/perfgate`, with tests that break each rule.
+
 ## Not done here
 - TUI performance targets (16 ms keystroke-to-render, idle CPU, 10k-line smoothness) are Phase F.
   The baseline already shows the first gap: **`BenchmarkRedraw10k` takes 33 ms**, because
