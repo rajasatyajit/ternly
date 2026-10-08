@@ -195,8 +195,7 @@ func OllamaBalance(ctx context.Context, key string) (*Quota, error) {
 }
 
 // CLI is a provider's official command-line tool found on PATH. ternly
-// doesn't drive these as backends: whether their subscription sign-in may
-// be used by another program is an open decision (ADR 022).
+// doesn't drive these as backends (ADR 022: decided against).
 type CLI struct {
 	Name, Path, Provider, Why string
 }
@@ -208,8 +207,8 @@ var lookPath = exec.LookPath
 func FindCLIs() []CLI {
 	var out []CLI
 	for _, c := range []CLI{
-		{Name: "claude", Provider: "Anthropic (Claude subscription)", Why: "Anthropic's consumer terms bar automated access except by API key or where explicitly permitted; whether another program may drive the claude CLI is undecided, so ternly doesn't (ADR 022). ANTHROPIC_API_KEY works."},
-		{Name: "codex", Provider: "OpenAI (ChatGPT plan)", Why: "OpenAI's terms bar programmatic extraction while the Codex docs allow scripted use; undecided, so ternly doesn't drive it (ADR 022). OPENAI_API_KEY works."},
+		{Name: "claude", Provider: "Anthropic (Claude subscription)", Why: "Anthropic's consumer terms bar automated access except by API key or where explicitly permitted; ternly doesn't drive the claude CLI with a subscription (ADR 022): use ANTHROPIC_API_KEY."},
+		{Name: "codex", Provider: "OpenAI (ChatGPT plan)", Why: "ternly doesn't drive codex with a ChatGPT plan (ADR 022): use OPENAI_API_KEY; Sign in with ChatGPT is pending."},
 	} {
 		if p, err := lookPath(c.Name); err == nil {
 			c.Path = p

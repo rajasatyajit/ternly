@@ -1,7 +1,11 @@
 # ADR 022 — Phase B: which sign-ins ternly may use, and connections
 
-Status: proposed (Phase B, for review). The two subscription CLI bridges are **open decisions**
-for the owner (below).
+Status: accepted (Phase B review, 2026-10-08), with the owner's decisions:
+- **No `claude` subscription bridge.** Anthropic is reached by `ANTHROPIC_API_KEY`.
+- **No `codex exec` bridge.**
+- **Sign in with ChatGPT for open-source apps: apply.** Registering the client is the owner's
+  action. The token-storage ADR comes first, and the feature sits behind a flag and blocks nothing.
+  Pending registration.
 
 ## Problem
 The v0.2 plan asks for zero-config access to every source the owner is entitled to:
@@ -125,7 +129,7 @@ v0.1 (`discover.Builtins`).
 - **Official CLIs** (`claude`, `codex`) are detected on PATH without running them. They are listed
   as "found, not used as a backend", with the reason.
 
-**2. Not built, open decisions for the owner:**
+**2. Not built. These were the open decisions; the owner's answers are in the Status above.**
 1. **A `claude` CLI bridge** using the owner's subscription.
    - Options:
      - (a) don't build it, and use `ANTHROPIC_API_KEY`;

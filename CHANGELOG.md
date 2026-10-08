@@ -23,9 +23,10 @@
 - **Ollama Cloud usage** comes from Ollama's documented `/api/balance`, when `OLLAMA_API_KEY` is
   set. Without the key, Ollama gives no official usage signal, so ternly says so rather than
   guessing.
-- **The claude and codex CLIs are detected but not used.** Whether another program may drive them
-  with your subscription is unclear in Anthropic's and OpenAI's terms, so it's an open decision
-  (ADR 022). Your API keys work as before.
+- **The claude and codex CLIs are detected but not used.** Anthropic's and OpenAI's terms don't
+  clearly allow another program to drive them with your subscription, so ternly doesn't (ADR 022).
+  Use your API keys. OpenAI's Sign in with ChatGPT for open-source apps is planned, behind a flag,
+  once the client is registered.
 - **Status for UIs** (ADR 021, `internal/status`): connections, quota, models with trust, routing
   and its explanation, and the session meter, with a 50 µs snapshot budget held by the perf gate.
 
