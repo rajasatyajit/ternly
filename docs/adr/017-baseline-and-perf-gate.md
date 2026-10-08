@@ -227,7 +227,7 @@ moved with what was linked, not with what ran. The mechanism isn't identified:
 No budget is added. The substring matcher stays: it is equivalent, tested, and has no regexp to
 compile.
 
-### How the gate should treat alignment noise on untouched code (proposal, for review)
+### How the gate treats alignment noise on untouched code (accepted 2026-10-08, implemented)
 Constraints:
 - the gate must not get weaker for real regressions;
 - an artefact like this one cost hours to triage.
@@ -267,8 +267,60 @@ gate in general.
    that "regresses" against itself is noisy and gets fixed. Run it weekly on a schedule, and
    whenever a suite is added or changed. It finds noise without loosening anything.
 
-Not implemented yet: this needs a decision. Items 1 and 2 are about a day of work in
-`bench/perfgate`, with tests that break each rule.
+**Decision (review of Phase B and F, 2026-10-08):** approved as "profile-diff attribution;
+waivers named, justified, per-benchmark, expiring after one release, never for code the PR
+touched; weekly A/A noise run". This replaces item 2's base..head scoping with a release-scoped
+waiver. Item 4 isn't adopted.
+
+### What was built
+- **Attribution: `perfgate attribute`, wired into `bench/run.sh perf`.** A first gate pass lists
+  the benchmarks that fail, once per benchmark. For each one, `go test -bench` runs at the head with
+  `-covermode=count -coverpkg=<module>/...` at N = 100 and 2N iterations
+  (`PERF_ATTR_N` overrides N).
+  - **Per op:** a block that grows by at least N/50 between the two runs. Setup, package init and
+    the benchmark's `N=1` probe run the same number of times in both.
+  - **Touched:** any of these the PR changed (merge base..HEAD, plus uncommitted changes):
+    - the files of the per-op blocks;
+    - the benchmark's own `_test.go` file and its package's `testdata/`;
+    - `go.mod` or `go.sum`, since code outside the module isn't attributed.
+  - The final pass prints one line per failing benchmark: "on the path: <files>", "none of the code
+    this benchmark runs changed (n files per op)", or "go.mod/go.sum changed: … can't be ruled
+    out".
+  - **On the real case:** `testdata/frame-pr14` holds BenchmarkFrame's profiles at PR #14's head and
+    the files PR #14 changed. The method finds `internal/tools/guard.go` per op, nothing in
+    `internal/llm` (229 blocks instrumented), and none of the 33 changed files on the path.
+  - **End to end:** a deliberate slowdown in `guard.go` failed the gate (+43% sec/op), was
+    attributed "on the path: internal/tools/guard.go", and its waiver was refused.
+  - **Known limit:** test helpers in *other* `_test.go` files that the benchmark calls per op aren't
+    attributed (coverage doesn't instrument test files).
+- **Waivers: `bench/perf.json` "waivers".** Each has:
+  - `id` (lowercase, unique);
+  - `benchmark` (one, exactly);
+  - optional `unit`;
+  - `evidence` (at least a sentence);
+  - `adr`;
+  - `release`: the latest `v*` tag when it was added.
+
+  A waiver is honoured only when all of these hold:
+  - the gate's `-release` (`git describe --tags --abbrev=0 --match 'v*' HEAD`) is still that tag.
+    **"One release"** means it expires when the next `v*` tag is in the head's history. Every gate
+    after that release refuses it and notes that it should be removed;
+  - the benchmark has an attribution and it is clean (nothing touched, no dependency change);
+  - the run isn't the A/A run.
+
+  An honoured waiver reads **WAIVED (id, ADR, until the release after …)**, never ok. A malformed
+  waiver fails loading the config.
+- **The weekly A/A noise run: `.github/workflows/perf-aa.yml`.**
+  - It runs `PERF_AA=1 bench/run.sh perf HEAD`: base = head, waivers off.
+  - Triggers: Mondays 03:17 UTC, on workflow_dispatch, and when `bench/perf.json` changes (on PRs
+    and on main).
+  - On a failure outside PRs, a second job, the only one with `issues: write`, opens the "regressed
+    against itself" issue or comments on it.
+  - It runs on ubuntu-24.04 with timeouts.
+- **Proof.** Tests: `TestAttributionFramePR14`, `TestAttributeTouched`, `TestPerOp`, `TestWaivers`
+  (honoured, expired, touched, dependencies, no attribution, unknown release, A/A, other unit,
+  other benchmark), `TestMalformedWaivers` and `TestFailuresOncePerBenchmark`. Each of 17 rules was
+  broken in turn and failed a test.
 
 ## Not done here
 - TUI performance targets (16 ms keystroke-to-render, idle CPU, 10k-line smoothness) are Phase F.

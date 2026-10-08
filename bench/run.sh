@@ -150,6 +150,34 @@ perfrun() {
   done <<<"$SUITES"
 }
 
+# perfattribute BASE FAILURES OUT: profile-diff attribution (ADR 017
+# amendment) of each failing benchmark at the head: count-mode coverage over
+# the module at N and 2N iterations; the blocks that grow run per op. Their
+# files are intersected with the PR's changes (merge base..HEAD, plus
+# uncommitted changes).
+perfattribute() {
+  local base=$1 fails=$2 out=$3 n=${PERF_ATTR_N:-100} pkg name dir re mod changed
+  mod=$(go list -m)
+  changed="$PERF_WORK/changed.txt"
+  { git diff --name-only "$(git merge-base "$base" HEAD)" HEAD; git diff --name-only HEAD; } | sort -u >"$changed"
+  : >"$out"
+  while IFS=$'\t' read -r pkg name; do
+    dir=${pkg#"$mod"}; dir=${dir#/}; [ -n "$dir" ] || dir=.
+    re=$(go run ./bench/perfgate benchre "$name") # each part of BenchmarkX/sub anchored, as go test -bench matches them
+    local ok=1 k
+    for k in 1 2; do
+      (cd "$ROOT/$dir" && go test -run '^$' -bench "$re" -benchtime "$((n * k))x" -count 1 \
+        -covermode=count -coverpkg="$mod/..." -coverprofile="$PERF_WORK/attr.$k.cov" . >/dev/null 2>&1) || ok=0
+    done
+    if [ "$ok" = 1 ]; then
+      go run ./bench/perfgate attribute -pkg "$dir" -bench "$name" -n "$n" -cov1 "$PERF_WORK/attr.1.cov" \
+        -cov2 "$PERF_WORK/attr.2.cov" -changed "$changed" -module "$mod" -root "$ROOT" -out "$out"
+    else
+      echo "  (attribution of $name failed: its coverage run didn't complete)" >&2
+    fi
+  done <"$fails"
+}
+
 perf() { # ADR 017: the CI performance gate. Interleaved A/B of bench/perf.json at BASE (default origin/main) and the working tree
   local base=${1:-origin/main} count alpha i bsize hsize
   PERF_WORK=$(mktemp -d "$ROOT/.perf-work-XXXXXX")
@@ -184,7 +212,19 @@ perf() { # ADR 017: the CI performance gate. Interleaved A/B of bench/perf.json 
   set +e
   touch "$PERF_WORK/retries.tsv"
   cp "$PERF_WORK/retries.tsv" "$PERF_OUT/retries.tsv"
-  go run ./bench/perfgate check -csv "$PERF_OUT/benchstat.csv" -size "$bsize,$hsize" -retries "$PERF_OUT/retries.tsv" | tee "$PERF_OUT/summary.md"
+  # ADR 017 amendment: the latest release (waivers expire at the next one);
+  # PERF_AA=1 (base = head, the noise run) honours no waiver
+  local release gateflags=() fails="$PERF_WORK/failures.tsv"
+  release=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null)
+  gateflags=(-csv "$PERF_OUT/benchstat.csv" -size "$bsize,$hsize" -release "$release")
+  [ "${PERF_AA:-}" = 1 ] && gateflags+=(-no-waivers)
+  go run ./bench/perfgate check "${gateflags[@]}" -failures "$fails" >/dev/null
+  if [ -s "$fails" ]; then # attribute each failing benchmark: what it runs per op, against the PR's changes
+    echo "attributing $(wc -l <"$fails") failing benchmark(s)…"
+    perfattribute "$base" "$fails" "$PERF_OUT/attribution.json"
+    gateflags+=(-attribution "$PERF_OUT/attribution.json")
+  fi
+  go run ./bench/perfgate check "${gateflags[@]}" -retries "$PERF_OUT/retries.tsv" | tee "$PERF_OUT/summary.md"
   local status=${PIPESTATUS[0]}
   set -e
   echo "details: $PERF_OUT/benchstat.txt; profiles: $PERF_OUT/*.pprof"

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Perf gate: attribution, waivers and an A/A run (ADR 017 amendment)
+- **Every failing benchmark is attributed.** Coverage counts at two iteration counts give the code
+  it runs per op. The summary says whether the PR changed any of it ("on the path: …" or "none of
+  the code this benchmark runs changed").
+- **Waivers in `bench/perf.json`:**
+  - named, justified with evidence and an ADR, and per benchmark;
+  - they expire at the next release;
+  - they're never honoured for a benchmark whose code the PR touched;
+  - a waived regression reads WAIVED, never ok.
+- **A weekly A/A run** (base = head, waivers off) opens an issue for any benchmark that regresses
+  against itself.
+
 ### Git environment isolation (ADR 024)
 - **Fixed: ternly started with `GIT_DIR` set** (inside a git hook, or exported) could act on that
   repository:
