@@ -16,7 +16,7 @@ func cleanEvent(e agent.Event) agent.Event {
 
 // untrusted makes outside text safe to put on the terminal: model output,
 // tool output, commands awaiting permission, provider errors and model
-// names never reach it as control sequences (ADR 022, threat model).
+// names never reach it as control sequences (ADR 023, threat model).
 // Every C0/C1 control except newline and tab, DEL, a lone carriage return
 // and the bidi overrides (Trojan Source) is shown escaped instead — a
 // sequence split across stream chunks is harmless too, since its ESC byte

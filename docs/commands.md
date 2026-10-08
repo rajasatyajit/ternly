@@ -66,7 +66,7 @@ agents, hooks), **no** (a reason is given).
 | `/about` | GM | version and build | yes |
 | `/tools` | GM | the tools the model can call | yes |
 | `/refresh` | ternly | re-discover providers and models | yes |
-| `/why` | ternly | how routing ranks every model for the current context (p, time, money, quota, score; why a model is ineligible), from the status interface (ADR 021, 022) | yes |
+| `/why` | ternly | how routing ranks every model for the current context (p, time, money, quota, score; why a model is ineligible), from the status interface (ADR 021, 023) | yes |
 | `/vim` | CX GM (removed from CC in v2.1.92) | vim editing mode | no: removed from CC, and textarea vim mode is out of scope |
 | `/terminal-setup`, `/keybindings`, `/keymap`, `/statusline`, `/title`, `/editor` (GM: editor *selection*) | CC CX GM | terminal and UI customisation | no |
 

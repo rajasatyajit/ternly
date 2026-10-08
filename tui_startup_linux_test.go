@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// TestTUIStartupBudget (ADR 022): from process start to the first frame with
+// TestTUIStartupBudget (ADR 023): from process start to the first frame with
 // the input box, under 100 ms (median of 7), for a real build (the test
 // binary that re-runs itself as ternly is much bigger). Discovery runs in
 // the background, so it isn't part of this. Skipped under -race
@@ -61,7 +61,7 @@ func TestTUIStartupBudget(t *testing.T) {
 	}
 }
 
-// TestTUIIdleCPU (ADR 022): an idle TUI uses ~0% CPU — under 0.8% of a core
+// TestTUIIdleCPU (ADR 023): an idle TUI uses ~0% CPU — under 0.8% of a core
 // over 20 s, once start-up work has settled. What remains is Bubble Tea's
 // renderer checking for changes at 60 fps (0.3–0.6% here, with other load
 // on the machine); the old always-on 70 ms ticker read 1.0%.
@@ -107,7 +107,7 @@ func TestTUIIdleCPU(t *testing.T) {
 	}
 }
 
-// TestTUINoFlicker (ADR 022): after the first frame nothing clears the whole
+// TestTUINoFlicker (ADR 023): after the first frame nothing clears the whole
 // screen, and when the terminal supports synchronized output (mode 2026)
 // every update is bracketed, so a frame is never shown half-drawn — while
 // typing and while an answer streams in.

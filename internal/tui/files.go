@@ -10,7 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// The @ file picker (ADR 022): typing @ and part of a path lists matching
+// The @ file picker (ADR 023): typing @ and part of a path lists matching
 // workspace files, fuzzy-ranked; Tab or Enter inserts @path. Files come
 // from the confined glob tool (os.Root), off the UI goroutine.
 

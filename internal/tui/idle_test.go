@@ -7,7 +7,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 )
 
-// Idle costs ~0% CPU (ADR 022): once nothing animates, the ticker stops;
+// Idle costs ~0% CPU (ADR 023): once nothing animates, the ticker stops;
 // it starts again when a turn or a tool does.
 func TestTickerStopsWhenIdle(t *testing.T) {
 	m := testModel(t)

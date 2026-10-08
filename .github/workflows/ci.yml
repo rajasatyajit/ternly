@@ -64,7 +64,7 @@ jobs:
         # sentinel repository, as a hook in a worktree would set them; the
         # sentinel must be unchanged
         run: bench/gitenv-sentinel.sh
-      - name: TUI budgets — startup, idle CPU, frame times (ADR 022; without -race, which distorts timing)
+      - name: TUI budgets — startup, idle CPU, frame times (ADR 023; without -race, which distorts timing)
         run: |
           go test -count=1 -run '^(TestTUIStartupBudget|TestTUIIdleCPU)$' -v .
           go test -count=1 -run '^TestFrameBudgets$' -v ./internal/tui

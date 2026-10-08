@@ -2,7 +2,7 @@ package tui
 
 import "os"
 
-// Access settings (ADR 022): reduced motion (no shimmer, spinner or cursor
+// Access settings (ADR 023): reduced motion (no shimmer, spinner or cursor
 // blink, so nothing redraws on a timer) and a screen-reader mode (also
 // words for states instead of glyphs). NO_COLOR is honoured by the colour
 // profile; mouse capture is opt-in because it takes over text selection.

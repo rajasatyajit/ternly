@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// TestFrameBudgets (ADR 022): with a 10k-line transcript, a keystroke
+// TestFrameBudgets (ADR 023): with a 10k-line transcript, a keystroke
 // through Update to a rendered frame, and a redraw with new output, each
 // take under 16 ms at the 95th percentile. Skipped under -race; CI runs it
 // in its own step. The perf gate's BenchmarkKeystroke/BenchmarkRedraw10k

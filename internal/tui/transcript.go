@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// The transcript is virtualised (ADR 022): every block keeps its rendered
+// The transcript is virtualised (ADR 023): every block keeps its rendered
 // lines, refresh only recounts them, and a frame joins just the visible
 // window. With 10k lines a redraw no longer rebuilds and re-splits the
 // whole transcript (33 ms before; the 16 ms frame budget).

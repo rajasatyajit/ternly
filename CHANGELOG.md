@@ -55,6 +55,30 @@
 - **Status for UIs** (ADR 021, `internal/status`): connections, quota, models with trust, routing
   and its explanation, and the session meter, with a 50 µs snapshot budget held by the perf gate.
 
+### Terminal UI (Phase F, ADR 023)
+- **Outside text can't drive your terminal any more.** Model output, tool output, the command in a
+  permission dialog, provider errors, model names and file contents in `/diff` used to reach the
+  terminal raw. A hostile file could rewrite the permission dialog, write your clipboard or retitle
+  the window. Now control sequences are shown escaped as text, and only ternly's own colours pass.
+- **Faster and lighter:**
+  - starts in about 45 ms (a dependency's 50 ms init is gone);
+  - idles at ~0 % CPU (no ticker, and the terminal draws the cursor);
+  - redraws a 10k-line transcript in about 1 ms (was 33 ms).
+- **New keys:**
+  - **Ctrl+K:** every command, fuzzy-filtered;
+  - **`@`:** pick a workspace file;
+  - **Ctrl+O:** a tool's full output.
+- **The status bar** shows context fill, quota and "trust lost" when the core reports them, and
+  `/why` explains routing.
+- **Access:**
+  - `TERNLY_REDUCED_MOTION=1`: nothing animates;
+  - `TERNLY_SCREEN_READER=1`: also words instead of glyphs;
+  - `TERNLY_MOUSE=1`: wheel scrolling;
+  - `NO_COLOR` is honoured;
+  - the theme follows a light/dark switch when the window regains focus.
+- **Budgets in CI:** startup ≤ 100 ms, idle CPU ≤ 0.8 %, frame time < 16 ms at 10k lines, and no
+  flicker.
+
 ### Judges score structured answers (ADR 019)
 **The class of bug:** judges that searched the model's prose. They failed right answers worded
 unexpectedly, and passed non-answers that contained the right token. Fixed:
