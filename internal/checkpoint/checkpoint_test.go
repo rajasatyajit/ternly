@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/testutil"
 )
 
@@ -93,7 +93,7 @@ func TestRestoreRoundTrip(t *testing.T) {
 func TestUserRepoUntouched(t *testing.T) {
 	s, root := open(t)
 	git := func(args ...string) string {
-		c := exec.Command("git", append([]string{"-C", root, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...)
+		c := gitenv.Command(context.Background(), append([]string{"-C", root, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...)
 		out, err := c.CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %v: %v %s", args, err, out)
@@ -168,7 +168,7 @@ func TestRestoreRefusesSymlinkEscape(t *testing.T) {
 func TestNestedRepoAndUnreadableFileDontAbort(t *testing.T) {
 	s, root := open(t)
 	write(t, root, "a.txt", "a")
-	_ = exec.Command("git", "init", "-q", filepath.Join(root, "vendor-repo")).Run() // no commits: plain `git add` fails
+	_ = gitenv.Command(context.Background(), "init", "-q", filepath.Join(root, "vendor-repo")).Run() // no commits: plain `git add` fails
 	write(t, root, "vendor-repo/x.txt", "x")
 	write(t, root, "locked.txt", "secret")
 	_ = os.Chmod(filepath.Join(root, "locked.txt"), 0o000)

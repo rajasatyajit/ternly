@@ -1,16 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/testutil"
 )
 
@@ -31,7 +32,7 @@ func TestTUICommands(t *testing.T) {
 	_ = os.WriteFile(cfg, []byte(strings.Replace(string(b), "{", `{"memory":false,`, 1)), 0o600) // no background model calls
 	ws := t.TempDir()
 	git := func(args ...string) string {
-		out, err := exec.Command("git", append([]string{"-C", ws, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput()
+		out, err := gitenv.Command(context.Background(), append([]string{"-C", ws, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %v: %v %s", args, err, out)
 		}

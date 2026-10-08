@@ -23,6 +23,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 // Repo is one project's shadow object store.
@@ -99,14 +101,18 @@ func OpenRepo(root, cacheDir, key string) (*Repo, error) {
 	base := filepath.Join(cacheDir, "checkpoints")
 	_ = os.RemoveAll(filepath.Join(base, key)) // M1.1 layout
 	r := &Repo{root: root, git: gitBin, gitDir: filepath.Join(base, key+".git"), grace: "1.hour.ago"}
-	if out, err := exec.Command(gitBin, "config", "--global", "--path", "core.excludesFile").Output(); err == nil {
+	excl := exec.Command(gitBin, "config", "--global", "--path", "core.excludesFile")
+	excl.Env = gitenv.UserConfig(os.Environ()) // the user's own setting; no inherited repository (ADR 024)
+	if out, err := excl.Output(); err == nil {
 		r.excludes = strings.TrimSpace(string(out))
 	}
 	if _, err := os.Stat(filepath.Join(r.gitDir, "HEAD")); err != nil {
 		if err := os.MkdirAll(base, 0o700); err != nil {
 			return nil, err
 		}
-		if out, err := exec.Command(gitBin, "init", "-q", "--bare", r.gitDir).CombinedOutput(); err != nil {
+		ini := exec.Command(gitBin, "init", "-q", "--bare", r.gitDir)
+		ini.Env = gitenv.Clean(os.Environ()) // an inherited GIT_DIR would re-initialise that repository instead (ADR 024)
+		if out, err := ini.CombinedOutput(); err != nil {
 			return nil, fmt.Errorf("git init: %v: %s", err, out)
 		}
 	}
@@ -432,8 +438,8 @@ func (r *Repo) cmd(ctx context.Context, index string, args ...string) *exec.Cmd 
 	c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGTERM) }
 	c.WaitDelay = 5 * time.Second
 	// User/system config can define filters (git-lfs) or fsmonitor hooks; checkpoints must not run them.
-	c.Env = append(os.Environ(), "GIT_DIR="+r.gitDir, "GIT_WORK_TREE="+r.root, "GIT_INDEX_FILE="+index,
-		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
+	c.Env = append(gitenv.Clean(os.Environ()), "GIT_DIR="+r.gitDir, "GIT_WORK_TREE="+r.root, "GIT_INDEX_FILE="+index,
+		"GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0") // no other inherited GIT_* (object dirs, -c parameters) reaches it (ADR 024)
 	return c
 }
 

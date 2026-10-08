@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 func TestMigrateLegacy(t *testing.T) {
@@ -122,7 +123,9 @@ func TestEnrichModelPrivacy(t *testing.T) {
 // link gotreesitter's grammars package (which embeds all 206, +18 MB).
 // -tags ternly_all_grammars opts in.
 func TestDefaultBuildOnlyBuiltinGrammars(t *testing.T) {
-	out, err := exec.Command("go", "list", "-deps", ".").Output()
+	c := exec.Command("go", "list", "-deps", ".")
+	c.Env = gitenv.Clean(os.Environ()) // go consults git for VCS info: not an inherited GIT_DIR (ADR 024)
+	out, err := c.Output()
 	if err != nil {
 		t.Fatal(err)
 	}

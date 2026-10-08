@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 // Validator confirms a candidate's artifact exists before it is shown: the
@@ -139,7 +141,7 @@ func (v *Validator) git(ctx context.Context, url string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	c := exec.CommandContext(ctx, "git", "-c", "protocol.ext.allow=never", "ls-remote", "--exit-code", url, "HEAD")
-	c.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	c.Env = append(gitenv.Workspace(os.Environ()), "GIT_TERMINAL_PROMPT=0") // the user's credentials apply; an inherited GIT_DIR doesn't (ADR 024)
 	if out, err := c.CombinedOutput(); err != nil {
 		return fmt.Errorf("git repository %s isn't reachable: %s", url, strings.TrimSpace(string(out)))
 	}

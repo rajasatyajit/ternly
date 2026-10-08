@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Git environment isolation (ADR 024)
+- **Fixed: ternly started with `GIT_DIR` set** (inside a git hook, or exported) could act on that
+  repository:
+  - its checkpoint store's first `git init` would re-initialise it;
+  - installing a plugin would fetch into it;
+  - the session key and the branch shown to the model would come from it.
+- **Fixed: in the repository's own tests and pre-push hook,** a push from a git worktree let tests
+  commit into this repository, rewrite its `user.name`, and set `core.bare=true` (2026-10-08).
+- **Every git call now goes through `internal/gitenv`.** A lint enforces it per call, and CI runs
+  the whole suite with `GIT_DIR` pointing at a sentinel repository that must stay unchanged.
+
 ### Judges score structured answers (ADR 019)
 **The class of bug:** judges that searched the model's prose. They failed right answers worded
 unexpectedly, and passed non-answers that contained the right token. Fixed:

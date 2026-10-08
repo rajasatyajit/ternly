@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -94,7 +95,7 @@ func TestLargeRepoBenchmark(t *testing.T) {
 	t.Logf("full stat scan without watcher: %v (%d changed, %d gone; sample %v)", time.Since(t0).Round(time.Millisecond), len(changed), len(gone), changed[:min(5, len(changed))])
 	t.Logf("unowned files tracked: %d", len(s.man.Unowned))
 	t0 = time.Now()
-	_ = exec.Command("git", "-C", root, "status", "--porcelain", "--untracked-files=normal").Run()
+	_ = gitenv.Command(context.Background(), "-C", root, "status", "--porcelain", "--untracked-files=normal").Run()
 	t.Logf("git status, for comparison: %v", time.Since(t0).Round(time.Millisecond))
 
 	edit := func(rel, from, to string) {

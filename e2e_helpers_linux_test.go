@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 // Helpers shared by the Linux end-to-end tests: a scripted provider, an
@@ -134,7 +136,7 @@ func testHome(t *testing.T, provider string) string {
 
 func childEnv(home string, extra ...string) []string {
 	var env []string
-	for _, kv := range os.Environ() {
+	for _, kv := range gitenv.Clean(os.Environ()) { // the child's git calls must not inherit a hook's GIT_DIR (ADR 024)
 		if k, _, _ := strings.Cut(kv, "="); strings.HasSuffix(k, "_API_KEY") || k == "HOME" || k == "TERNLY_TEST_ARGS" {
 			continue
 		}

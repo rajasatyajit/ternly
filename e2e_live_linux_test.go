@@ -26,6 +26,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/eval"
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/logstore"
 )
 
@@ -422,7 +423,7 @@ func isolatedHome(home, extraConfig string) error {
 // directories; no ternly test variables; API keys only for remote models.
 func isolatedEnv(home string, keepKeys bool) []string {
 	var env []string
-	for _, kv := range os.Environ() {
+	for _, kv := range gitenv.Clean(os.Environ()) { // the child's git calls must not inherit a hook's GIT_DIR (ADR 024)
 		k, _, _ := strings.Cut(kv, "=")
 		switch {
 		case k == "HOME" || strings.HasPrefix(k, "XDG_") || strings.HasPrefix(k, "TERNLY_"):
@@ -847,12 +848,12 @@ func gitSHA(root string) string {
 	if s := os.Getenv("TERNLY_E2E_SHA"); s != "" {
 		return s
 	}
-	out, err := exec.Command("git", "-C", root, "rev-parse", "--short", "HEAD").Output()
+	out, err := gitenv.Command(context.Background(), "-C", root, "rev-parse", "--short", "HEAD").Output()
 	if err != nil {
 		return "nogit"
 	}
 	sha := strings.TrimSpace(string(out))
-	if d, _ := exec.Command("git", "-C", root, "status", "--porcelain", "--untracked-files=no").Output(); len(d) > 0 {
+	if d, _ := gitenv.Command(context.Background(), "-C", root, "status", "--porcelain", "--untracked-files=no").Output(); len(d) > 0 {
 		sha += "-dirty"
 	}
 	return sha

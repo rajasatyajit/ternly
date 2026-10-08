@@ -3,6 +3,10 @@
 # The full tier (race, sandbox, e2e) runs in CI. Skip once: git push --no-verify.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# git exports GIT_DIR and friends to hooks (in a worktree, GIT_DIR points into
+# the main repository's .git/worktrees): tests that run git in their own temp
+# repositories would act on this one instead. Clear them for the test run.
+for v in $(git rev-parse --local-env-vars); do unset "$v"; done
 unformatted=$(gofmt -l . | grep -v '^dist/' || true)
 if [ -n "$unformatted" ]; then
   echo "pre-push: gofmt needed:" >&2; echo "$unformatted" >&2; exit 1
