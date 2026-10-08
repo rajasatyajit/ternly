@@ -25,6 +25,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
+	"github.com/rajasatyajit/ternly/internal/surface"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -169,6 +170,8 @@ type Model struct {
 	expanded      bool // tool output shown in full (Ctrl+O)
 	fileQ         string // the @ query the picker shows or awaits
 	fileReq       bool   // a file listing for fileQ is wanted
+	snap          surface.Snapshot
+	surfaceCh     <-chan struct{}
 }
 
 // App bundles the long-lived services the UI drives.
@@ -190,6 +193,8 @@ type App struct {
 	Remote       *mcpremote.Manager  // remote MCP servers (ADR 014); nil: none
 	Capabilities *capability.Service // nil: no suggestions
 	Access       Access              // reduced motion, screen reader, mouse (AccessFromEnv)
+	Surface      surface.Status      // status from the core (ADR 021); nil until its adapter exists
+	Actions      surface.Actions     // nil: /why falls back to /models why
 }
 
 func New(app *App, dark bool) *Model {
@@ -258,6 +263,9 @@ func (m *Model) Init() tea.Cmd {
 	}}
 	if m.App.Pick && m.App.Sessions != nil {
 		cmds = append(cmds, func() tea.Msg { return openPickerMsg{} })
+	}
+	if c := m.startSurface(); c != nil {
+		cmds = append(cmds, c)
 	}
 	return tea.Batch(cmds...)
 }
@@ -380,6 +388,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case filesMsg:
 		m.onFiles(msg)
+
+	case surfaceMsg:
+		cmds = append(cmds, m.onSurface())
 
 	case openPickerMsg:
 		m.openPicker()
@@ -1171,6 +1182,9 @@ func (m *Model) statusBar() string {
 		right += sDim.Render(fmt.Sprintf(" ⚡%.0f%%", l.CacheRate()*100))
 	}
 	right += "  " + sAccent.Render(fmt.Sprintf("$%.4f", l.Cost))
+	if mt := m.meter(); mt != "" {
+		right = mt + "  " + right
+	}
 	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
 		if spent := l.Cost - m.turnCost0; spent >= 0.75*lim.TurnUSD { // warn before the turn limit stops work
 			right = sWarn.Render(fmt.Sprintf("turn $%.2f/$%.2f", spent, lim.TurnUSD)) + "  " + right

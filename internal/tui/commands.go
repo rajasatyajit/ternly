@@ -70,6 +70,7 @@ func init() {
 		{name: "budget", args: "<usd>", section: "Models & cost", desc: "hard spend cap for the session"},
 		{name: "limits", args: "[steps N|time 45m|turn-usd X]", section: "Models & cost", desc: "per-turn step, time and spend limits"},
 		{name: "refresh", section: "Models & cost", desc: "re-discover providers and models"},
+		{name: "why", section: "Models & cost", desc: "how routing ranks every model for the current context", run: (*Model).cmdWhy},
 
 		{name: "init", section: "Setup", desc: "analyse the repository and write AGENTS.md", run: (*Model).cmdInit},
 		{name: "memory", aliases: []string{"memories"}, args: "[search|forget|edit|add|promote]", section: "Setup", desc: "view and edit what ternly remembers"},
@@ -395,6 +396,7 @@ func (m *Model) cmdStatus(string) tea.Cmd {
 	if len(m.pins) > 0 {
 		lines = append(lines, "pinned     "+strings.Join(m.pins, ", "))
 	}
+	lines = append(lines, m.connectionLines()...)
 	m.addInfo("  " + strings.Join(lines, "\n  "))
 	return nil
 }
