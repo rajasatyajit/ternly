@@ -96,7 +96,11 @@ type Result struct {
 	Diff      string   `json:"diff"`               // the model's change (git diff of the workspace)
 	DiffLines int      `json:"diff_lines"`         // changed lines
 	At        string   `json:"at"`
-	Env       []string `json:"env_flags,omitempty"` // TERNLY_* toggles for this arm (levers)
+	Env       []string `json:"env_flags,omitempty"`      // TERNLY_* toggles for this arm (levers)
+	Prompt    string   `json:"prompt_version,omitempty"` // ternly's prompt version (ADR 029)
+	CacheHits int      `json:"cache_hits,omitempty"`     // deterministic mode: responses answered from the cache
+	Plans     int      `json:"plans,omitempty"`          // PlanFirst planning turns
+	Retries   int      `json:"retries,omitempty"`        // BestOf retries from scratch
 }
 
 func main() {
@@ -525,6 +529,7 @@ func (s *suite) runCmd(args []string) error {
 	envs := fl.String("env", "", "comma-separated KEY=VALUE set for ternly in this arm (lever toggles)")
 	bin := fl.String("bin", "", "ternly binary (default: built from this checkout)")
 	extra := fl.String("args", "", "extra ternly arguments, space-separated")
+	stable := fl.Bool("stable-ws", false, "one workspace path per task×model×arm, reused run after run (identical requests, so a response cache can answer them); forces -parallel 1")
 	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
 	if _, err := lookBwrap(); err != nil && !unsafeNoSandbox {
@@ -565,6 +570,10 @@ func (s *suite) runCmd(args []string) error {
 		return err
 	}
 	defer f.Close()
+	if *stable {
+		*par = 1
+		stableWS = true
+	}
 	var mu sync.Mutex
 	ch := make(chan job)
 	var wg sync.WaitGroup
@@ -591,16 +600,26 @@ func (s *suite) runCmd(args []string) error {
 }
 
 var (
-	reModel = regexp.MustCompile(`(?m)^◆ (\S+) \(T\d+, [^)]*\) — (.*)$`)
-	reCost  = regexp.MustCompile(`(?m)^\$([0-9.]+) · [0-9]+% cache hits · ([0-9]+) tokens in, ([0-9]+) out$`)
-	reError = regexp.MustCompile(`(?m)^error: (.*)$`)
-	reQuota = regexp.MustCompile(`(?i)usage limit|quota|rate.?limit|too many requests|exhausted`)
+	reModel  = regexp.MustCompile(`(?m)^◆ (\S+) \(T\d+, [^)]*\) — (.*)$`)
+	reCost   = regexp.MustCompile(`(?m)^\$([0-9.]+) · [0-9]+% cache hits · ([0-9]+) tokens in, ([0-9]+) out$`)
+	reError  = regexp.MustCompile(`(?m)^error: (.*)$`)
+	reQuota  = regexp.MustCompile(`(?i)usage limit|quota|rate.?limit|too many requests|exhausted`)
+	rePrompt = regexp.MustCompile(`(?m)^prompt ([0-9a-f]{12})$`)
+	reCache  = regexp.MustCompile(`(?m)^response cache: ([0-9]+) hit`)
+	reLevers = regexp.MustCompile(`(?m)^levers: ([0-9]+) plan\(s\), ([0-9]+) retry`)
 )
+
+// stableWS: -stable-ws (see runCmd).
+var stableWS bool
 
 func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []string) Result {
 	res := Result{Suite: s.Version, Task: j.t.ID, Class: j.t.Class, Lang: s.Repos[j.t.Repo].Lang, Model: j.model, Arm: j.arm, Run: j.run,
 		At: time.Now().UTC().Format(time.RFC3339), Env: j.env}
 	base := filepath.Join(out, "work", fmt.Sprintf("%s-%s-%s-%d-%d", j.t.ID, sanitize(j.model), sanitize(j.arm), j.run, time.Now().UnixNano()))
+	if stableWS {
+		base = filepath.Join(out, "work", fmt.Sprintf("%s-%s-%s", j.t.ID, sanitize(j.model), sanitize(j.arm)))
+		_ = os.RemoveAll(base)
+	}
 	ws, home := filepath.Join(base, "ws"), filepath.Join(base, "home")
 	defer os.RemoveAll(base)
 	if err := s.prepare(j.t, ws, nil); err != nil {
@@ -634,6 +653,16 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 				res.Switches = append(res.Switches, m[2])
 			}
 		}
+	}
+	if m := rePrompt.FindStringSubmatch(trace); m != nil {
+		res.Prompt = m[1]
+	}
+	if m := reCache.FindStringSubmatch(trace); m != nil {
+		res.CacheHits, _ = strconv.Atoi(m[1])
+	}
+	if m := reLevers.FindStringSubmatch(trace); m != nil {
+		res.Plans, _ = strconv.Atoi(m[1])
+		res.Retries, _ = strconv.Atoi(m[2])
 	}
 	if m := reCost.FindStringSubmatch(trace); m != nil {
 		res.CostUSD, _ = strconv.ParseFloat(m[1], 64)

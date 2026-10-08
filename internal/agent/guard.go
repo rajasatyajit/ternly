@@ -33,6 +33,8 @@ type Stats struct {
 	Watchdog    int // steps the reasoning watchdog interrupted
 	Failovers   int // switches to another model after an error, a quota hit or empty answers (ADR 018, 025)
 	EmptyRetry  int // empty answers (no text, no tool call) asked again on the same model (ADR 028)
+	Retries     int // whole-task retries from a rewind after verification failed (BestOf lever, ADR 029)
+	Plans       int // planning turns by the strongest model (PlanFirst lever, ADR 029)
 }
 
 const (

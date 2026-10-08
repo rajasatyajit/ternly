@@ -50,6 +50,12 @@ func (c *openAI) body(r Request, usage bool) map[string]any {
 	if r.Effort != "" {
 		b["reasoning_effort"] = r.Effort // OpenAI, Ollama, Gemini, Groq…
 	}
+	if r.Temperature != nil {
+		b["temperature"] = *r.Temperature
+	}
+	if r.Seed != nil {
+		b["seed"] = *r.Seed // OpenAI and Ollama honour it (best effort on OpenAI's side)
+	}
 	if usage {
 		b["stream_options"] = map[string]any{"include_usage": true}
 	}

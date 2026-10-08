@@ -41,6 +41,7 @@ type fakeLLM struct {
 	replies []reply
 	reqs    [][]map[string]any
 	efforts []string // each request's reasoning_effort ("" if none)
+	pins    []string // each request's temperature/seed ("" if none), as "t=…,s=…"
 	delay   time.Duration
 }
 
@@ -50,12 +51,19 @@ func newFake(t *testing.T, replies ...reply) *fakeLLM {
 		var body struct {
 			Messages []map[string]any `json:"messages"`
 			Effort   string           `json:"reasoning_effort"`
+			Temp     *float64         `json:"temperature"`
+			Seed     *int             `json:"seed"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		f.mu.Lock()
 		n := len(f.reqs)
 		f.reqs = append(f.reqs, body.Messages)
 		f.efforts = append(f.efforts, body.Effort)
+		pin := ""
+		if body.Temp != nil || body.Seed != nil {
+			pin = fmt.Sprintf("t=%v,s=%v", deref(body.Temp), deref(body.Seed))
+		}
+		f.pins = append(f.pins, pin)
 		rp := f.replies[min(n, len(f.replies)-1)]
 		f.mu.Unlock()
 		time.Sleep(f.delay)
@@ -1123,4 +1131,11 @@ func TestReasoningWatchdog(t *testing.T) {
 	if !strings.Contains(rec2.text(EvText), "long but finished") || b.Stats().Watchdog != 1 {
 		t.Fatalf("second runaway: %q %+v", rec2.text(EvText), b.Stats())
 	}
+}
+
+func deref[T any](p *T) any {
+	if p == nil {
+		return nil
+	}
+	return *p
 }
