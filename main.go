@@ -653,7 +653,7 @@ func run() int {
 		return code
 	}
 
-	app := &tui.App{Agent: ag, Router: router, Reg: reg, Discover: func() ([]*discover.Model, []string) {
+	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: tui.AccessFromEnv(), Discover: func() ([]*discover.Model, []string) {
 		ms, w := discoverFn()
 		if pin != "" {
 			router.SetModels(ms)

@@ -249,7 +249,7 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 			b.WriteString(fmt.Sprintf("    %-34s %s\n", "/"+u.Name+" "+u.ArgHint, sDim.Render(u.Description)))
 		}
 	}
-	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history"))
+	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output"))
 	m.addInfo(b.String())
 	return nil
 }
@@ -1322,6 +1322,7 @@ type compItem struct {
 type completion struct {
 	items []compItem
 	sel   int
+	file  bool // @ file picker: items are workspace paths
 }
 
 // fuzzy scores how well q matches s as a subsequence (-1: no match):
@@ -1355,6 +1356,13 @@ func fuzzyScore(q, s string) int {
 // updateCompletion shows matching commands while a command name is typed.
 func (m *Model) updateCompletion() {
 	v := m.ta.Value()
+	if q, ok := atToken(v); ok {
+		if m.fileQ != q || m.comp == nil || !m.comp.file {
+			m.fileQ, m.fileReq = q, true // Update fetches the files
+		}
+		return
+	}
+	m.fileQ = "\x00"
 	if !strings.HasPrefix(v, "/") || strings.ContainsAny(v, " \n") {
 		if m.comp != nil {
 			m.comp = nil
@@ -1390,7 +1398,7 @@ func (m *Model) updateCompletion() {
 	}
 	prev := m.comp
 	m.comp = &completion{}
-	for _, a := range all[:min(len(all), 8)] {
+	for _, a := range all { // all of them: the list scrolls (Ctrl+K shows every command)
 		m.comp.items = append(m.comp.items, a.compItem)
 	}
 	if prev != nil && prev.sel < len(m.comp.items) {
@@ -1402,6 +1410,19 @@ func (m *Model) updateCompletion() {
 // compKey handles keys while the completion list is open.
 func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	c := m.comp
+	if c.file {
+		switch k.String() {
+		case "tab", "enter": // replace the @token being typed with the chosen path
+			v := m.ta.Value()
+			i := strings.LastIndex(v, "@")
+			m.ta.SetValue(v[:i] + "@" + c.items[c.sel].name + " ")
+			m.ta.CursorEnd()
+			m.comp = nil
+			m.fileQ = "\x00"
+			m.layout()
+			return nil, true
+		}
+	}
 	switch k.String() {
 	case "tab":
 		m.ta.SetValue("/" + c.items[c.sel].name + " ")
@@ -1432,8 +1453,15 @@ func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 
 func (m *Model) compView() string {
 	var b strings.Builder
+	first := min(max(0, m.comp.sel-compRows/2), max(0, len(m.comp.items)-compRows))
 	for i, it := range m.comp.items {
+		if i < first || i >= first+compRows {
+			continue
+		}
 		name := "/" + it.name
+		if m.comp.file {
+			name = "@" + it.name
+		}
 		if it.hint != "" {
 			name += " " + sDim.Render(it.hint)
 		}
@@ -1449,8 +1477,14 @@ func (m *Model) compView() string {
 		}
 		b.WriteString(line + "\n")
 	}
+	if n := len(m.comp.items); n > compRows {
+		b.WriteString(sDim.Render(fmt.Sprintf("   %d/%d · ↑↓ to scroll", m.comp.sel+1, n)) + "\n")
+	}
 	return strings.TrimRight(b.String(), "\n")
 }
+
+// compRows is how many completion rows show at once.
+const compRows = 8
 
 func (m *Model) cmdSkills(string) tea.Cmd {
 	rt := m.App.Plugins

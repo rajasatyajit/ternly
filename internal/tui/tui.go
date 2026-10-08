@@ -119,6 +119,7 @@ type block struct {
 	state    int // 0 running, 1 ok, 2 fail, 3 unverified
 	detail   string
 	elapsed  time.Duration
+	full     string   // a tool's whole output (Ctrl+O shows it)
 	lines    []string // rendered, split (the virtualised transcript)
 	linesFor string   // the rendering lines was split from
 }
@@ -165,6 +166,9 @@ type Model struct {
 	laterSuggest  *capability.Suggestion
 	lastFailed    bool // the last turn ended with an error
 	ticking       bool // the animation ticker is scheduled (only while something animates)
+	expanded      bool // tool output shown in full (Ctrl+O)
+	fileQ         string // the @ query the picker shows or awaits
+	fileReq       bool   // a file listing for fileQ is wanted
 }
 
 // App bundles the long-lived services the UI drives.
@@ -185,6 +189,7 @@ type App struct {
 	Plugins      *plugins.Runtime    // nil: plugins off
 	Remote       *mcpremote.Manager  // remote MCP servers (ADR 014); nil: none
 	Capabilities *capability.Service // nil: no suggestions
+	Access       Access              // reduced motion, screen reader, mouse (AccessFromEnv)
 }
 
 func New(app *App, dark bool) *Model {
@@ -201,6 +206,7 @@ func New(app *App, dark bool) *Model {
 		dark, m.themeSet = app.Theme == "dark", true
 	}
 	m.setTheme(dark)
+	m.ta.SetVirtualCursor(false) // the terminal draws (and blinks) the cursor: no redraws while idle
 	m.ta.Focus()
 	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
 	if app.Sessions != nil {
@@ -246,7 +252,7 @@ func (m *Model) setTheme(dark bool) {
 
 func (m *Model) Init() tea.Cmd {
 	m.ticking = true
-	cmds := []tea.Cmd{textarea.Blink, tick(), tea.RequestBackgroundColor, func() tea.Msg {
+	cmds := []tea.Cmd{tick(), tea.RequestBackgroundColor, func() tea.Msg {
 		ms, w := m.App.Discover()
 		return discoveredMsg{ms, w}
 	}}
@@ -372,6 +378,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.layout()
 		}
 
+	case filesMsg:
+		m.onFiles(msg)
+
 	case openPickerMsg:
 		m.openPicker()
 
@@ -393,6 +402,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nil
 		})
 
+	case tea.FocusMsg:
+		if !m.themeSet { // the system theme may have changed while away (GNOME light/dark)
+			cmds = append(cmds, tea.RequestBackgroundColor)
+		}
+
+	case tea.MouseWheelMsg:
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.vp.scroll(-3)
+		case tea.MouseWheelDown:
+			m.vp.scroll(3)
+		}
+
 	case tea.BackgroundColorMsg:
 		if !m.themeSet && msg.IsDark() != m.dark {
 			m.setTheme(msg.IsDark())
@@ -409,6 +431,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, c)
 	if _, ok := msg.(tea.KeyPressMsg); ok {
 		m.updateCompletion()
+		if m.fileReq {
+			m.fileReq = false
+			cmds = append(cmds, m.globFiles(m.fileQ))
+		}
 	}
 	if lc := min(8, max(1, m.ta.LineCount())); lc != m.ta.Height() {
 		m.ta.SetHeight(lc)
@@ -424,6 +450,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // animating: something on screen changes with time (the splash, discovery,
 // a turn's activity line, a running tool's spinner).
 func (m *Model) animating() bool {
+	if m.App.Access.ReducedMotion { // nothing moves; events redraw by themselves
+		return !m.ready
+	}
 	if !m.ready || m.discovering || m.busy || m.dirty {
 		return true
 	}
@@ -528,6 +557,22 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.blocks = m.blocks[:1]
 		m.refresh(true)
 		return nil, true
+	case "ctrl+o": // collapsible tool output
+		m.expanded = !m.expanded
+		for _, b := range m.blocks {
+			if b.kind == bTool {
+				b.rendered = ""
+			}
+		}
+		m.refresh(false)
+		return nil, true
+	case "ctrl+k": // the command palette: every command, fuzzy-filtered as you type
+		if m.ta.Value() == "" {
+			m.ta.SetValue("/")
+			m.ta.CursorEnd()
+			m.updateCompletion()
+		}
+		return nil, true
 	}
 	return nil, false
 }
@@ -605,7 +650,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 	case agent.EvToolEnd:
 		for i := len(m.blocks) - 1; i >= 0; i-- {
 			if b := m.blocks[i]; b.kind == bTool && b.id == e.ToolID && b.state == 0 {
-				b.state, b.elapsed, b.detail, b.rendered = 2, e.Elapsed, firstLines(e.Text, 3), ""
+				b.state, b.elapsed, b.detail, b.rendered, b.full = 2, e.Elapsed, firstLines(e.Text, 3), "", e.Text
 				if e.OK {
 					b.state = 1
 					b.detail = ""
@@ -956,7 +1001,10 @@ func (m *Model) layout() {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
 	if m.comp != nil {
-		permH += len(m.comp.items)
+		permH += min(len(m.comp.items), compRows)
+		if len(m.comp.items) > compRows {
+			permH++
+		}
 	}
 	if m.suggest != nil {
 		permH += 2*len(m.suggest.s.Candidates) + 4
@@ -983,7 +1031,7 @@ func (m *Model) refresh(force bool) {
 	}
 	tail := ""
 	if m.busy {
-		tail = "\n  " + shine(m.activity+"…", m.frame) + sDim.Render("  esc to interrupt") + "\n"
+		tail = "\n  " + m.moving(m.activity+"…") + sDim.Render("  esc to interrupt") + "\n"
 	}
 	m.vp.set(m.blocks, tail)
 	m.dirty = anim
@@ -1006,22 +1054,25 @@ func (m *Model) renderBlock(b *block) string {
 		}
 		return strings.TrimRight(out, "\n ")
 	case bTool:
-		icon := spinFrames[m.frame%len(spinFrames)]
-		switch b.state {
-		case 1:
-			icon = sOK.Render("●")
-		case 2:
-			icon = sErr.Render("●")
-		case 3: // unverified: neither ✓ nor a failure
-			icon = sWarn.Render("?")
-		}
+		icon := m.toolIcon(b.state)
 		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.w-30))
 		if b.elapsed > 0 {
 			line += sDim.Render("  " + dur(b.elapsed))
 		}
-		if b.detail != "" {
-			for _, l := range strings.Split(b.detail, "\n") {
+		detail := b.detail
+		if m.expanded && b.full != "" {
+			detail = firstLines(untrusted(b.full), maxExpanded)
+		}
+		if detail != "" {
+			ls := strings.Split(detail, "\n")
+			for i, l := range ls {
+				if i == len(ls)-1 && b.full != "" && strings.HasPrefix(l, "… +") { // firstLines' "… +N lines"
+					l += " · ctrl+o expands"
+				}
 				line += "\n" + sDim.Render("    ⎿ "+truncate(l, m.w-10))
+			}
+			if m.expanded && b.full != "" {
+				line += "\n" + sDim.Render("    ⎿ ctrl+o collapses")
 			}
 		}
 		return line
@@ -1032,14 +1083,26 @@ func (m *Model) renderBlock(b *block) string {
 }
 
 func (m *Model) View() tea.View {
-	v := tea.NewView(m.render())
+	s, boxTop := m.render()
+	v := tea.NewView(s)
 	v.AltScreen = true // basic key disambiguation (shift+enter) is requested by default
+	v.ReportFocus = true // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
+	if m.App.Access.Mouse {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
+	if c := m.ta.Cursor(); c != nil && boxTop >= 0 && m.perm == nil {
+		c.Y += boxTop + 1 // the box's top border
+		c.X += 2          // its left border and padding
+		c.Blink = !m.App.Access.ReducedMotion
+		v.Cursor = c
+	}
 	return v
 }
 
-func (m *Model) render() string {
+// render returns the frame and the row the input box starts on (-1: none).
+func (m *Model) render() (string, int) {
 	if !m.ready {
-		return "\n  " + shine("ternly", m.frame)
+		return "\n  " + m.moving("ternly"), -1
 	}
 	var sb strings.Builder
 	sb.WriteString(m.header() + "\n")
@@ -1060,9 +1123,10 @@ func (m *Model) render() string {
 	if m.ta.Focused() {
 		box = sBoxOn
 	}
+	boxTop := strings.Count(sb.String(), "\n")
 	sb.WriteString(box.Width(m.w-2).Render(m.ta.View()) + "\n")
 	sb.WriteString(m.statusBar())
-	return sb.String()
+	return sb.String(), boxTop
 }
 
 func (m *Model) header() string {
@@ -1097,7 +1161,7 @@ func (m *Model) permView() string {
 func (m *Model) statusBar() string {
 	left := sDim.Render("auto-routing")
 	if m.discovering {
-		left = shine("discovering models", m.frame)
+		left = m.moving("discovering models")
 	} else if m.model != nil {
 		left = sAccent.Render("◆ "+untrusted(m.model.Key())) + " " + tierBadge(m.model.Tier)
 	}
@@ -1194,6 +1258,9 @@ func prettyTool(t string) string {
 	}
 	return t
 }
+
+// maxExpanded bounds a tool's output in the transcript when expanded.
+const maxExpanded = 200
 
 func firstLines(s string, n int) string {
 	s = strings.TrimSpace(s)
