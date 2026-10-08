@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Catalog refresh, empty answers, e2e failure kinds (ADR 028)
+- **The capability catalog's index rebuilds once per refresh, at its end,** and is exact
+  afterwards. Before, document frequencies could count replaced entries and push common words'
+  BM25 weight below zero.
+  - A first refresh measured network-bound: 0.43% CPU on average, with no index rebuilds. So
+    Phase F's "a rebuild per entry" didn't reproduce, and batching doesn't change ternly's ~2% CPU
+    while a refresh runs.
+- **An empty answer** (no text, no tool call) is asked again once on the same model with a nudge,
+  then fails over once. Both are counted (`/cost`, the session's stats).
+- **Failovers are counted** in the session's stats, whatever caused them.
+- **e2e reports separate "format failure"** (no or misshapen structured answer) from "wrong
+  answer", per run and per check, and `bench/rescore` reads the new field.
+
 ### Perf gate: attribution, waivers and an A/A run (ADR 017 amendment)
 - **Every failing benchmark is attributed.** Coverage counts at two iteration counts give the code
   it runs per op. The summary says whether the PR changed any of it ("on the path: …" or "none of

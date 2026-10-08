@@ -26,6 +26,9 @@ type index struct {
 	words int               // uint64s per vector in sign (0 until the first vector)
 	hasV  []bool            // slot has a current vector
 	tf    map[string]uint16 // scratch for add
+	// hold > 0 defers rebuilds (a bulk update in progress: the catalog's
+	// refresh); release rebuilds at most once. rebuilds counts them.
+	hold, rebuilds int
 }
 
 type posting struct {
@@ -144,14 +147,22 @@ func (x *index) remove(it *Item) {
 		x.hasV[slot] = false
 	}
 	x.total -= int(x.dl[slot])
+	if x.hold == 0 {
+		x.compact()
+	}
+}
+
+// compact rebuilds once half the slots are dead (and more than 1024).
+func (x *index) compact() {
 	if dead := len(x.docs) - x.live; dead > 1024 && dead > x.live {
 		x.rebuild()
 	}
 }
 
 func (x *index) rebuild() {
-	old := x.docs
+	old, n, hold := x.docs, x.rebuilds+1, x.hold
 	*x = *newIndex()
+	x.rebuilds, x.hold = n, hold
 	for _, it := range old {
 		if it != nil {
 			x.add(it, nil)

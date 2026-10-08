@@ -191,6 +191,10 @@ func (a *Agent) SetCaps(l Limits, budget float64) {
 	a.Limits, a.Budget = l, budget
 	a.mu.Unlock()
 }
+
+// emptyNudge follows an empty answer (ADR 028).
+const emptyNudge = "Your last reply was empty: no text and no tool call. Continue the task: call a tool if there is more to do, otherwise give your final answer."
+
 func (a *Agent) Stats() Stats { a.mu.Lock(); defer a.mu.Unlock(); return a.state.Stats }
 
 // VerifyCmd / SetVerify: the post-edit check ("" = off). A running turn keeps
@@ -364,11 +368,31 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("%s failed (%v) — failing over", model.Key(), short(err))})
 				model = alt
 				st.tried[model.Key()] = true
+				a.count(func(s *Stats) { s.Failovers++ })
 				a.setModel(model, "failover")
 				continue
 			}
 			a.Emit(Event{Kind: EvError, Text: err.Error()})
 			return
+		}
+		if len(calls) == 0 && strings.TrimSpace(msg.Content) == "" { // an empty answer: nothing to keep (ADR 028)
+			if !st.emptyRetried {
+				st.emptyRetried = true
+				a.count(func(s *Stats) { s.EmptyRetry++ })
+				a.Emit(Event{Kind: EvStatus, Text: model.Key() + " ended its turn without an answer — asking it once more"})
+				a.appendUser(emptyNudge)
+				continue
+			}
+			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && !st.emptyFailed {
+				st.emptyFailed = true
+				a.Emit(Event{Kind: EvStatus, Text: model.Key() + " ended its turn without an answer again — failing over to " + alt.Key()})
+				model = alt
+				st.tried[model.Key()] = true
+				a.count(func(s *Stats) { s.Failovers++ })
+				a.setModel(model, "failover")
+				continue
+			}
+			// still empty, nowhere left to go: the turn ends without an answer, as the UI says
 		}
 		a.commit(Record{T: "msg", Msg: &msg})
 		if strings.TrimSpace(msg.Content) != "" {

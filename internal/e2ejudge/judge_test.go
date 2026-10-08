@@ -1,6 +1,8 @@
 package e2ejudge
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -71,5 +73,36 @@ func TestSameFile(t *testing.T) {
 		if SameFile(got, "store/shared.go") != ok {
 			t.Errorf("%q", got)
 		}
+	}
+}
+
+// ADR 028: a failed run is a format failure, a wrong answer, or other; a
+// wrong answer keeps its message (reports and the judge audit match on it).
+func TestFailureKind(t *testing.T) {
+	var v struct {
+		N int `json:"n"`
+	}
+	noBlock := FinalJSON("no json here", &v)
+	badShape := FinalJSON("```json\n{\"m\": 1}\n```", &v)
+	inner := fmt.Errorf("answered %d lines, want 23", 7)
+	wrong := Wrong(inner)
+	for _, c := range []struct {
+		err  error
+		want string
+	}{
+		{nil, ""},
+		{noBlock, FailFormat},
+		{badShape, FailFormat},
+		{fmt.Errorf("check: %w", noBlock), FailFormat},
+		{wrong, FailWrong},
+		{fmt.Errorf("run 2: %w", wrong), FailWrong},
+		{errors.New("timed out after 8m0s"), FailOther},
+	} {
+		if got := FailureKind(c.err); got != c.want {
+			t.Errorf("%v: %q, want %q", c.err, got, c.want)
+		}
+	}
+	if wrong.Error() != inner.Error() || !errors.Is(wrong, inner) {
+		t.Fatalf("Wrong changed the error: %q", wrong.Error())
 	}
 }

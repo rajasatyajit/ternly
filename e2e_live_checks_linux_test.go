@@ -76,7 +76,7 @@ func checkSubagentDelegation(r *liveRun) error {
 		return err
 	}
 	if a.Lines != 23 {
-		return fmt.Errorf("answered %d lines, want 23", a.Lines)
+		return e2ejudge.Wrong(fmt.Errorf("answered %d lines, want 23", a.Lines))
 	}
 	return nil
 }
@@ -139,7 +139,7 @@ func checkMemoryCodeword(r *liveRun) error {
 		return err
 	}
 	if a.Codeword != word {
-		return fmt.Errorf("answered codeword %q, want %s", a.Codeword, word)
+		return e2ejudge.Wrong(fmt.Errorf("answered codeword %q, want %s", a.Codeword, word))
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func checkMemoryAutoSummary(r *liveRun) error {
 		return err
 	}
 	if !e2ejudge.SameFile(a.File, "store/shared.go") {
-		return fmt.Errorf("the new session answered file %q, want store/shared.go", a.File)
+		return e2ejudge.Wrong(fmt.Errorf("the new session answered file %q, want store/shared.go", a.File))
 	}
 	return nil
 }
@@ -248,7 +248,7 @@ func checkGraphCallsites(r *liveRun) error {
 		return err
 	}
 	if len(missing)+len(extra) > 0 {
-		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
+		return e2ejudge.Wrong(fmt.Errorf("missing %v, wrongly included %v", missing, extra))
 	}
 	return nil
 }
@@ -329,7 +329,7 @@ func checkGraphCallsitesPython(r *liveRun) error {
 		return err
 	}
 	if len(missing)+len(extra) > 0 {
-		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
+		return e2ejudge.Wrong(fmt.Errorf("missing %v, wrongly included %v", missing, extra))
 	}
 	return nil
 }
