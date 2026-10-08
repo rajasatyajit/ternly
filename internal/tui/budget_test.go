@@ -14,8 +14,8 @@ import (
 // in its own step. The perf gate's BenchmarkKeystroke/BenchmarkRedraw10k
 // guard relative regressions.
 func TestFrameBudgets(t *testing.T) {
-	if raceEnabled {
-		t.Skip("frame times under the race detector aren't frame times")
+	if raceEnabled || testing.Short() {
+		t.Skip("timing: not under the race detector or -short (the pre-push tier); CI runs it in its own step")
 	}
 	const budget = 16 * time.Millisecond
 	m := benchModel(t, 1000)

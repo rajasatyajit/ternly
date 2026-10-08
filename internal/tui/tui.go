@@ -1231,7 +1231,7 @@ func (m *Model) welcome() string {
 		}
 		sb.WriteString(fmt.Sprintf("  %s %-11s %s\n", sOK.Render("●"), p, sDim.Render(fmt.Sprintf("%d models, %d with tools · %s", c[0], c[1], kind))))
 	}
-	sb.WriteString(sDim.Render("  /help for commands · tasks are routed to the cheapest capable model and escalated only on failure"))
+	sb.WriteString(sDim.Render("  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure"))
 	return sb.String()
 }
 
