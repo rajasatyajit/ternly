@@ -10,9 +10,14 @@ on:
 permissions:
   contents: read
 
+# Runners are pinned (ubuntu-latest moves to Ubuntu 26 on 2026-10-19; that
+# move is deliberate, with the bwrap/AppArmor check: issue #15). Every
+# job and every apt step has a timeout: a hung apt mirror held the v0.1.1
+# release's gate for hours.
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -21,6 +26,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Sandbox and search tools used by the tests
+        timeout-minutes: 15
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap ripgrep
@@ -70,7 +76,8 @@ jobs:
     # ADR 017: interleaved A/B benchmarks (base vs this PR), compared with
     # benchstat; a significant regression beyond the budget in bench/perf.json fails.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,6 +87,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Search tool used by the grep benchmark
+        timeout-minutes: 15
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - name: perf gate
         env:
@@ -102,6 +110,7 @@ jobs:
 
   macos:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
