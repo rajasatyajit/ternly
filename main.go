@@ -674,6 +674,7 @@ func run() int {
 	p := tea.NewProgram(m, tea.WithContext(ctx))
 	emit = func(e agent.Event) { stc.Observe(e); p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
+	pol.Review = tui.Reviewer(p) // edits that ask are reviewed per hunk (ADR 021 amendment 1)
 	if prt != nil {
 		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
 	}

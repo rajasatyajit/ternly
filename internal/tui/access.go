@@ -35,7 +35,7 @@ func (m *Model) toolIcon(state int) string {
 	case 3: // unverified: neither ✓ nor a failure
 		return sWarn.Render("?")
 	}
-	if m.App.Access.ReducedMotion || m.perm != nil { // still while the user decides
+	if m.App.Access.ReducedMotion || m.perm != nil || m.review != nil { // still while the user decides
 		return sDim.Render("◌")
 	}
 	return spinFrames[m.frame%len(spinFrames)]

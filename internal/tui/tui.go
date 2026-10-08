@@ -165,12 +165,13 @@ type Model struct {
 	afterTurn     []func() tea.Cmd // run when the current turn ends (/ask, /architect)
 	suggest       *suggestion      // a capability suggestion on screen
 	laterSuggest  *capability.Suggestion
-	lastFailed    bool   // the last turn ended with an error
-	ticking       bool   // the animation ticker is scheduled (only while something animates)
-	expanded      bool   // tool output shown in full (Ctrl+O)
-	answered      bool   // the current turn has shown answer text
-	fileQ         string // the @ query the picker shows or awaits
-	fileReq       bool   // a file listing for fileQ is wanted
+	lastFailed    bool         // the last turn ended with an error
+	ticking       bool         // the animation ticker is scheduled (only while something animates)
+	expanded      bool         // tool output shown in full (Ctrl+O)
+	answered      bool         // the current turn has shown answer text
+	review        *reviewState // an edit under per-hunk review
+	fileQ         string       // the @ query the picker shows or awaits
+	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
 	surfaceCh     <-chan struct{}
 }
@@ -390,6 +391,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case filesMsg:
 		m.onFiles(msg)
 
+	case reviewMsg:
+		m.openReview(msg)
+
 	case surfaceMsg:
 		cmds = append(cmds, m.onSurface())
 
@@ -465,7 +469,7 @@ func (m *Model) animating() bool {
 	if m.App.Access.ReducedMotion { // nothing moves; events redraw by themselves
 		return !m.ready
 	}
-	if m.perm != nil { // waiting for the user, not working: nothing should look busy
+	if m.perm != nil || m.review != nil { // waiting for the user, not working: nothing should look busy
 		return false
 	}
 	if !m.ready || m.discovering || m.busy || m.dirty {
@@ -480,6 +484,9 @@ func (m *Model) animating() bool {
 }
 
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
+	if m.review != nil {
+		return m.reviewKey(k), true
+	}
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
 	}
@@ -1019,6 +1026,7 @@ func (m *Model) layout() {
 	if m.perm != nil {
 		permH = 5
 	}
+	permH += m.reviewHeight()
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
@@ -1053,7 +1061,7 @@ func (m *Model) refresh(force bool) {
 	}
 	tail := ""
 	switch {
-	case m.busy && m.perm != nil:
+	case m.busy && (m.perm != nil || m.review != nil):
 		tail = "\n  " + sWarn.Render("Waiting for your answer") + sDim.Render("  y yes · a always · n no") + "\n"
 	case m.busy:
 		tail = "\n  " + m.moving(m.activity+"…") + sDim.Render("  esc to interrupt") + "\n"
@@ -1115,7 +1123,7 @@ func (m *Model) View() tea.View {
 	if m.App.Access.Mouse {
 		v.MouseMode = tea.MouseModeCellMotion
 	}
-	if c := m.ta.Cursor(); c != nil && boxTop >= 0 && m.perm == nil {
+	if c := m.ta.Cursor(); c != nil && boxTop >= 0 && m.perm == nil && m.review == nil {
 		c.Y += boxTop + 1 // the box's top border
 		c.X += 2          // its left border and padding
 		c.Blink = !m.App.Access.ReducedMotion
@@ -1134,6 +1142,9 @@ func (m *Model) render() (string, int) {
 	sb.WriteString(m.vp.view() + "\n")
 	if m.perm != nil {
 		sb.WriteString(m.permView() + "\n")
+	}
+	if m.review != nil {
+		sb.WriteString(m.reviewView() + "\n")
 	}
 	if m.picker != nil {
 		sb.WriteString(m.pickerView() + "\n")
