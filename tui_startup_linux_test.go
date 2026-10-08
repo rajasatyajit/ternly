@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -101,4 +103,63 @@ func TestTUIIdleCPU(t *testing.T) {
 	if pct > 0.5 {
 		t.Fatalf("idle CPU %.2f%%, budget 0.5%%", pct)
 	}
+}
+
+// TestTUINoFlicker (ADR 022): after the first frame nothing clears the whole
+// screen, and when the terminal supports synchronized output (mode 2026)
+// every update is bracketed, so a frame is never shown half-drawn — while
+// typing and while an answer streams in.
+func TestTUINoFlicker(t *testing.T) {
+	f := newProvider(t, step{text: strings.Repeat("streamed words arrive here. ", 40) + "answer-done"})
+	home := testHome(t, f.URL)
+	c := ternly(t, home, "-model", "fake/m1", "-C", t.TempDir())
+	c.Env = append(c.Env, "TERM=xterm-256color", "TERNLY_THEME=dark")
+	scr := &syncScreen{}
+	tty, err := startInPTY(c, scr, 120, 40)
+	if err != nil {
+		t.Fatalf("pseudo-terminal: %v", err)
+	}
+	defer func() { _ = c.Process.Kill(); _ = c.Wait(); _ = tty.Close() }()
+	scr.waitFor(t, "fake")
+	scr.mu.Lock()
+	start := scr.buf.Len()
+	scr.mu.Unlock()
+	for _, r := range "explain the code" {
+		_, _ = tty.Write([]byte(string(r)))
+		time.Sleep(15 * time.Millisecond)
+	}
+	_, _ = tty.Write([]byte("\r"))
+	scr.waitFor(t, "answer-done")
+	time.Sleep(200 * time.Millisecond)
+	scr.mu.Lock()
+	out := scr.buf.String()[start:]
+	scr.mu.Unlock()
+	if n := strings.Count(out, "\x1b[2J"); n > 0 {
+		t.Errorf("the screen was cleared %d times after the first frame (flicker)", n)
+	}
+	on, off := strings.Count(out, "\x1b[?2026h"), strings.Count(out, "\x1b[?2026l")
+	if on == 0 || on != off {
+		t.Fatalf("synchronized output: %d begin, %d end", on, off)
+	}
+	// every drawn cell sits inside a bracket: strip the bracketed parts, and
+	// only cursor show/hide or mode changes may remain
+	rest := regexp.MustCompile(`(?s)\x1b\[\?2026h.*?\x1b\[\?2026l`).ReplaceAllString(out, "")
+	if vis := reANSI.ReplaceAllString(rest, ""); strings.TrimSpace(vis) != "" {
+		t.Fatalf("text drawn outside a synchronized update: %q", vis[:min(len(vis), 200)])
+	}
+	t.Logf("%d synchronized updates, no clears", on)
+}
+
+// syncScreen is a screen whose terminal reports synchronized output (2026)
+// as supported, as kitty, Ghostty, WezTerm, Alacritty and recent VTE do.
+type syncScreen struct{ screen }
+
+func (s *syncScreen) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	r := s.reply
+	s.mu.Unlock()
+	if r != nil && bytes.Contains(p, []byte("\x1b[?2026$p")) {
+		_, _ = r.Write([]byte("\x1b[?2026;2$y"))
+	}
+	return s.screen.Write(p)
 }
