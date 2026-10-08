@@ -52,12 +52,6 @@ jobs:
         env:
           TERNLY_REQUIRE_SANDBOX: "1" # sandbox/security tests fail instead of skipping
         run: go test -race ./...
-      - name: "TEMPORARY (issue #12 evidence, dropped before merge): graph flake loop"
-        timeout-minutes: 20
-        run: |
-          go test -race -count=50 -run '^TestIncrementalAndPersistence$' -v ./internal/graph 2>&1 | grep -E 'reported|never|^--- FAIL|^(ok|FAIL)' | sort | uniq -c
-          go test -c -o /tmp/graph.test ./internal/graph
-          for i in $(seq 30); do (cd internal/graph && /tmp/graph.test -test.run '^$' -test.bench '^BenchmarkGraph(Build|Load|Incremental)$' -test.benchtime 20x -test.v) 2>&1 | grep -E 'reported|never|FAIL|perf_test' || true; done; echo "bench loop done"
       - name: static build
         run: |
           CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ternly .
