@@ -171,10 +171,12 @@ func (p *Policy) checkRestricted(ctx context.Context, t *Tool, name, summary, mo
 		return false, " (non-interactive: " + why + ", so " + what + "; rerun with another model, or interactively)"
 	}
 	if r := reviewFrom(ctx); r != nil && t.Kind == Edit && p.Review != nil {
-		if ok, _ := p.review(ctx, r, why, false); !ok { // "always" never sticks here (ADR 020)
-			return false, " (denied by user)"
+		if ok, _, handled := p.review(ctx, r, why, false); handled { // "always" never sticks here (ADR 020)
+			if !ok {
+				return false, " (denied by user)"
+			}
+			return true, ""
 		}
-		return true, ""
 	}
 	if p.Ask(ctx, name, summary+"  ["+why+"]", danger) == Deny {
 		return false, " (denied by user)"
@@ -208,7 +210,9 @@ func (p *Policy) isAlways(k string) bool { p.mu.Lock(); defer p.mu.Unlock(); ret
 
 func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key string) (bool, string) {
 	if r := reviewFrom(ctx); r != nil && key == "edit" && p.Review != nil && p.Ask != nil {
-		return p.review(ctx, r, "", true)
+		if ok, why, handled := p.review(ctx, r, "", true); handled {
+			return ok, why
+		}
 	}
 	if p.Ask == nil {
 		switch {

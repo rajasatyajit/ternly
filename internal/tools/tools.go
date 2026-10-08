@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rajasatyajit/ternly/internal/surface"
 	"io"
 	"io/fs"
 	"os"
@@ -251,13 +250,9 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 		}
 	}
 	var rv *editReview
-	if t.Propose != nil {
-		if p, old, nw, err := t.Propose(args); err == nil && old != nw { // an invalid edit errors in Run as before
-			ops := lineDiff(splitLines(old), splitLines(nw))
-			hunks, owner := diffHunks(ops)
-			rv = &editReview{proposal: surface.EditProposal{Tool: tc.Name, Path: r.rel(p), NewFile: old == "", Hunks: hunks}, ops: ops, owner: owner, path: p, old: old}
-			ctx = withReview(ctx, rv)
-		}
+	if t.Propose != nil && r.Policy.Review != nil && r.Policy.Ask != nil { // a person could review it: computed only if the policy asks
+		rv = &editReview{tool: tc.Name, rel: r.rel, load: func() (string, string, string, error) { return t.Propose(args) }}
+		ctx = withReview(ctx, rv)
 	}
 	if ok, why := r.Policy.Check(ctx, t, tc.Name, t.Summary(args)); !ok {
 		who := "permission denied by user" // the user said no
