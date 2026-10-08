@@ -66,6 +66,7 @@ agents, hooks), **no** (a reason is given).
 | `/about` | GM | version and build | yes |
 | `/tools` | GM | the tools the model can call | yes |
 | `/refresh` | ternly | re-discover providers and models | yes |
+| `/why` | ternly | how routing ranks every model for the current context (p, time, money, quota, score; why a model is ineligible), from the status interface (ADR 021, 023) | yes |
 | `/vim` | CX GM (removed from CC in v2.1.92) | vim editing mode | no: removed from CC, and textarea vim mode is out of scope |
 | `/terminal-setup`, `/keybindings`, `/keymap`, `/statusline`, `/title`, `/editor` (GM: editor *selection*) | CC CX GM | terminal and UI customisation | no |
 
@@ -135,6 +136,17 @@ Markdown files become commands. The file name gives the name, and subdirectories
 ## Completion
 Typing `/` opens a list of commands (built-in and user-defined) with descriptions. It filters by
 fuzzy match as you type; Tab completes and ↑/↓ choose.
+
+## Keys (ADR 023)
+- **Ctrl+K:** every command, fuzzy-filtered.
+- **`@`:** pick a workspace file.
+- **Ctrl+O:** a tool's full output.
+- **Ctrl+B:** the session sidebar. ↑↓ select, Enter switches, Esc returns to the input, and Ctrl+B
+  again hides it. It needs 100 columns.
+- **Edit review:** when an edit asks, ↑↓ move between hunks, Space toggles one, y applies the
+  selected hunks, a also stops asking, and n or Esc declines.
+- **`--accessible`** (or `TERNLY_SCREEN_READER=1`): linear output in the terminal's scrollback,
+  plain text, nothing animates.
 
 ## Out of scope (account, cloud and vendor-app features)
 - **CC:** `/login`, `/logout`, `/upgrade`, `/usage-credits`, `/passes`, `/mobile`, `/desktop`,

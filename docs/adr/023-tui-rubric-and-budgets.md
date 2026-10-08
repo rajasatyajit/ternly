@@ -1,0 +1,297 @@
+# ADR 023 — Phase F: a measured rubric for the TUI, budgets in CI, and what was built
+
+Status: accepted with decisions (Phase F review, 2026-10-08); the decisions below are built.
+
+## Problem
+The plan asks for "the best terminal UI available as of October 2026", and says to make "best"
+measurable:
+- survey today's coding-agent TUIs;
+- score them on a rubric with recorded evidence;
+- set ternly's targets above the best score on each line;
+- enforce the performance budgets in CI.
+
+Status, routing, quota, trust and connection data come only through `internal/surface` (ADR 021).
+
+## Survey (2026-10-08, this machine: Linux, Wayland, 16 threads; tmux 3.7c at 120×40)
+**What was measured and how:**
+- Installed and measured first-hand: Claude Code 2.1.293, Codex CLI 0.157.1, Crush v0.97.1,
+  OpenCode v2.0.22.
+- Not installed: Gemini CLI. Its evidence below is second-hand, from its docs, and marked so.
+- Every harness was started in a detached tmux pane with no prompt sent; nothing was signed in and
+  no trust prompt was accepted.
+- Scripts and raw output are in `bench/dogfood/phase-f-survey/`.
+
+| Measure | ternly before | **ternly after** | Claude Code | Codex CLI | OpenCode | Crush |
+|---|---|---|---|---|---|---|
+| First paint (tmux, median of 5) | 108 ms | ≈100 ms (tmux); **45 ms** pty to input box | 412 ms | 323 ms | 1.20 s | 1.63 s |
+| Key echo, typed char to screen (tmux path, median of 20) | 10.6 ms | 10.9 ms | 6.4 ms | not measured¹ | 11.0 ms | 43.8 ms (provider picker) |
+| Idle CPU, 20 s after settling | 2.7 % | **0.30–0.65 %** | 17 %² | not measured¹ | 0.55 % | 0.30 % |
+| `NO_COLOR=1` honoured (colour SGR codes on the first screen) | — | yes (0) | **no** (31) | not measured¹ | **no** (81) | yes (0) |
+
+¹ Codex opens with an update prompt, then a folder-trust prompt in any directory it hasn't been
+told to trust. Esc on the update prompt exited it. Getting past either would write to its config.
+
+² Claude Code, 20 s after a 20 s settle, in a repository that runs the user's SessionStart hooks.
+The figure is the product's own background work as configured, not its renderer alone. Likewise
+ternly in a default-config home reads 2.5 %, the capability catalog refresh reported under
+Findings. The table's ternly figure is with that service off.
+
+**What each harness shows before work can start:**
+- **Claude Code and Codex:** a folder-trust prompt in an untrusted directory.
+- **Codex:** also an update prompt.
+- **Crush:** a first-run provider picker.
+- **OpenCode:** an "update available" line.
+- **ternly:** goes straight to the input box.
+
+**Documented features** (sources with dates under Sources):
+
+| | Claude Code | Codex CLI | OpenCode | Crush | Gemini CLI (2nd-hand) |
+|---|---|---|---|---|---|
+| Command palette / discoverability | `/` menu, `?` shortcuts | `/` commands, `/keymap` | Ctrl+P commands, leader key Ctrl+X | Ctrl+P | `/settings`, docs page |
+| Diff review | `/diff`, diff dialog, `/code-review` | `/diff` incl. untracked, approvals | — | diff renders | — |
+| Collapsible tool output | Ctrl+O transcript | Ctrl+T transcript | — | — | Ctrl+T tool descriptions |
+| Screen reader | `--ax-screen-reader` (linear text) | — | — | — | `--screen-reader` |
+| No alt-screen | — | `--no-alt-screen` | — | — | — |
+| Themes | yes | — | many, incl. "system" | — | yes |
+| Remappable keys | keybindings.json | `tui.keymap` | tui.json | — | yes |
+
+## Rubric (0–4 per line; evidence above and in the recordings)
+
+| Line | What scores | Best today | ternly before | ternly after | Target |
+|---|---|---|---|---|---|
+| Responsiveness | startup, key echo, idle CPU, redraw at 10k lines | Codex/Claude startup 0.3–0.4 s; OpenCode 0.55 % idle | 3 | **4**: 45 ms start, 0.3–0.65 % idle, 0.4 ms keystroke p95 and 1.1 ms 10k redraw in-process | 4 |
+| Density without clutter | first screen useful; status in one line | OpenCode, Claude: 3 | 3 | 3: meter adds context, quota and trust only when known | 4 (session sidebar, plan panel: not built) |
+| Discoverability | palette, inline hints, help | OpenCode, Claude: 3 | 2: `/help`, slash completion | **3**: Ctrl+K palette over every command, `@` file picker, keys on the welcome line | 4 |
+| Diff and review | inline diff, per-hunk accept/reject | Claude Code: 3 | 2: `/diff` coloured | 2: `/diff` escaped and coloured | 4 (needs a contract change: see open decisions) |
+| Error clarity | actionable, never raw provider markup; waiting or empty states said plainly | OpenCode: 3 (per-answer model/time/tok/s) | 2: an 8-minute "Running…" while waiting on the user; empty answers silent | **3**: "Waiting for your answer", "ended without an answer", provider text escaped | 4 |
+| Accessibility | screen reader, reduced motion, no colour | Claude Code, Gemini: 3 | 1 | **3**: screen-reader words, reduced motion, real cursor, NO_COLOR | 4 (a linear plain mode like Claude Code's) |
+| Terminal compatibility | modern terminals, tmux, degraded terminals | (no harness publishes a matrix) | 2: untested | **3**: matrix below | 4 (kitty, WezTerm, SSH untested) |
+| Security of the screen (added) | outside text can't drive the terminal | — (no harness documents it) | **0** | **4**: three layers, tested | 4 |
+
+## What was built (all behind the existing UI, nothing removed)
+
+**1. Untrusted text never reaches the terminal as control sequences.** Before this, a model, a file
+it read, a tool, a provider error or a model name could:
+- rewrite the permission dialog with cursor moves;
+- write the clipboard (OSC 52);
+- retitle the window;
+- hide a link (OSC 8).
+
+There are now three layers:
+- `untrusted()` on every agent event and permission request;
+- the same again in `renderBlock` for every block ternly doesn't style;
+- `safeFrame`, which lets only SGR through for the whole frame, so even an info line quoting git,
+  a plugin or an MCP server can't.
+
+`/diff` escapes file contents. The threat model has a row for this.
+
+**2. Idle costs ~0 %:**
+- the 70 ms ticker runs only while something animates;
+- the terminal's own cursor replaces the blinking virtual one, so the cursor never redraws.
+
+**3. A virtualised transcript.** Blocks keep their rendered lines, and a frame joins only the visible
+window. A 10k-line redraw went from 33 ms (`BenchmarkRedraw10k`) to 1.1 ms p95.
+
+**4. Startup.** `GODEBUG=inittrace=1` showed 50 of a minimal Bubble Tea program's 65 ms going to
+`go-runewidth` v0.0.27's init. v0.0.28 builds its tables lazily (upstream issue #104), and the
+diff was reviewed. Result: input box at 65 → 45 ms. ternly's own `main` reaches the program in
+12 ms.
+
+**5. Ctrl+K palette.** Every command, fuzzy-filtered; the completion list scrolls.
+
+**6. `@` file picker.** Workspace paths from the confined `glob` tool, off the UI goroutine.
+
+**7. Ctrl+O.** Tool output in full; collapsed, the "… +N lines" line says how to expand it.
+
+**8. Meter, `/why` and connections, from `internal/surface` (ADR 021):**
+- **status bar:** context fill (amber ≥ 70 %, red ≥ 90 %), the current connection's quota or
+  "quota out until", and "trust lost" (ADR 020);
+- **`/why`:** `Actions.Explain`;
+- **`/status`:** connections with the next step.
+
+Built and tested against `surface/fake`. With no surface (until Phase B's adapter lands), nothing
+changes.
+
+**9. Access settings:**
+- `TERNLY_REDUCED_MOTION`: no shimmer, spinner, blink or ticker;
+- `TERNLY_SCREEN_READER`: also words instead of glyphs;
+- `TERNLY_MOUSE`: wheel scrolling, opt-in because capture takes over selection;
+- regaining focus re-reads the terminal background, so a GNOME light/dark switch is followed;
+- `NO_COLOR`: honoured through the colour profile.
+
+**10. Budgets in CI.** One non-race step runs:
+- `TestTUIStartupBudget`: a real build, median of 7 ≤ 100 ms;
+- `TestTUIIdleCPU`: a gross guard at 2 % over 20 s, catching a busy loop or a redraw storm (a
+  redraw storm reads 120 %). The floor is Bubble Tea's 60 fps change check: 0.3–0.65 % here, up to
+  0.95 % on a 4-vCPU CI runner, the same range as the old ticker. `TestTickerStopsWhenIdle` is the
+  exact guard on the ticker;
+- `TestFrameBudgets`: keystroke and 10k redraw p95 < 16 ms.
+
+`TestTUINoFlicker` runs everywhere: no full-screen clear after the first frame, and every update
+inside a synchronized-output bracket when the terminal supports it. The perf gate keeps
+`BenchmarkKeystroke`/`Redraw10k`/`RenderAnswer` for relative regressions.
+
+**Guards broken in turn, each failing its test:**
+- the sanitiser (2 guards, the screen test fails 5/5);
+- the frame filter;
+- the ticker (unit test, and the live idle test at 0.95 %);
+- the palette;
+- the picker;
+- Ctrl+O;
+- the cursor's offset and blink;
+- reduced motion;
+- screen-reader words;
+- focus;
+- the wheel;
+- a transcript off-by-one;
+- the meter: refresh, trust, quota, connections;
+- startup (+50 ms → 123 ms);
+- frame time (re-render per redraw: 833 ms);
+- flicker (ClearScreen per event).
+
+## Compatibility matrix
+A probe ran inside each terminal. It asked for what ternly relies on, then ran ternly for 4 s, which
+exited cleanly on SIGTERM in all five. Results are in `bench/dogfood/phase-f-survey/compat/`.
+
+| Terminal | Sync output (2026) | Focus (1004) | Bracketed paste | SGR mouse | kitty keyboard | Background (OSC 11) | ternly ran |
+|---|---|---|---|---|---|---|---|
+| Ghostty 1.3.1 | yes | yes | yes | yes | yes | yes | yes |
+| Alacritty 0.17.0 | yes | yes | yes | yes | yes | yes | yes |
+| GNOME Terminal 3.60 / VTE 0.84 | **no** (permanently reset) | yes | yes | yes | no | yes | yes |
+| tmux 3.7c in Alacritty | yes | yes | yes | yes | no | yes | yes |
+| tmux 3.7c, detached | yes | yes | yes | yes | no | no | yes |
+
+- **GNOME Terminal has no synchronized output.** Bubble Tea's cell diffing is what keeps redraws
+  small there.
+- **Without the kitty keyboard protocol** (GNOME Terminal, tmux), Shift+Enter can't be told apart.
+  Alt+Enter and Ctrl+J insert a newline everywhere.
+- **Not tested:**
+  - kitty and WezTerm: not installed, and installing system-wide was out of bounds;
+  - SSH: no SSH server runs here, and starting one would change system configuration.
+
+## Recordings
+Three tasks were run in a small Go repository (`bench/dogfood/phase-f-tasks/`: the driver, the
+template, and per run a one-frame-per-second timeline plus the final screen):
+- **explain:** what `Total` does, and is it correct;
+- **fix:** make the failing tests pass, then run them;
+- **review:** an uncommitted change with two seeded bugs.
+
+ternly and OpenCode used the same model (`kimi-k2.6:cloud` through the signed-in Ollama daemon) with
+auto-approval: ternly `--mode yolo`, OpenCode `--auto`. That makes the comparison about the UI.
+
+**Claude Code and Codex couldn't be recorded without changing their configuration.** Both ask to
+trust each new folder, including one under the user's workspace, and accepting writes to their
+config. Crush needs a provider chosen on first run. So OpenCode is the only second harness. No
+model money was spent; Ollama cloud quota was used.
+
+| Task | ternly | OpenCode |
+|---|---|---|
+| explain | ✓ 15 s: names the `+` that should be `*` | ✓ 13 s: same finding |
+| fix | ✓ 29 s, tests pass | ✓ 25 s, tests pass |
+| review | ✓ 26–34 s (2 runs): both seeded bugs, with line numbers | ✓ 19 s: both seeded bugs |
+
+**What recording found in ternly, now fixed:**
+- **A crash in the new virtualised transcript** (index out of range when streamed text re-rendered
+  a block between counting and drawing). It ended two review runs mid-turn.
+  `TestTranscriptStableBetweenSetAndView` reproduces the exact panic.
+- **A waiting dialog looked busy.** With a permission dialog open, the spinner spun and the activity
+  line said "Running Bash…" for 8 minutes. Now: "Waiting for your answer · y · a · n", and nothing
+  moves.
+- **A silent end.** A turn that ended with an empty answer (the model's final message had no text)
+  ended in silence. Now it says so and suggests `/model` or `/why`.
+
+**What OpenCode does that ternly doesn't yet:**
+- shows per-answer model, time and tokens/s;
+- has a context-percentage sidebar.
+
+ternly's meter shows context only once Phase B's adapter feeds the surface.
+
+## Decisions (Phase F review, 2026-10-08)
+
+**1. Per-hunk accept/reject: yes, through an ADR 021 amendment.** Built:
+- **Contract:** ADR 021 amendment 1 adds `EditProposal`, `Hunk`, `EditDecision` and `Reviewer` to
+  `internal/surface`, plus `fake.Core.Review`. It's its own PR (#22).
+- **Core (`internal/tools`):**
+  - `edit_file` and `write_file` propose the file before and after;
+  - `Registry.Call` diffs it into hunks (LCS line diff, 3 lines of context, deletions first);
+  - the policy calls the reviewer where it would ask yes/no today;
+  - only accepted hunks are written, byte-exact, and refused if the file changed while under
+    review (`TestReviewFileChangedMeanwhile`), so a change made meanwhile is never clobbered;
+  - the model is told which hunks were declined.
+- **ADR 020 holds:**
+  - never headless;
+  - plan mode refuses first;
+  - edits/yolo don't start asking;
+  - a restricted model is reviewed with the reason, and its "always" neither sticks nor carries
+    over to a later trusted edit.
+- **TUI:** the review dialog shows the hunk under the cursor (escaped, coloured) with a row of
+  marks. Space toggles a hunk, ↑↓ move, y applies the selection, a also stops asking, n/Esc
+  declines.
+- **Proof:**
+  - core guards 8/8;
+  - TUI guards 4/4;
+  - `TestComposeHunks` (300 random edits, every subset exact);
+  - `TestTUIPerHunkReview` (real binary: declining hunk 2 of 3 writes 1 and 3, and the model is
+    told).
+
+**2. Accessible mode inside the existing renderer: no second renderer.** Built as the linear mode
+of `TERNLY_SCREEN_READER=1` / `--accessible`:
+- no alternate screen;
+- finished blocks are printed once to the terminal's scrollback, through the frame filter;
+- the live frame holds only what still changes, plus a plain `> ` input line;
+- ASCII markdown and no box drawing;
+- questions as sentences ("removed: …", "added: …");
+- nothing animates.
+
+Guards: 6/6, and `TestTUIAccessibleMode` (real binary: no `?1049h`, no box drawing).
+
+**3. Session sidebar: built.** Ctrl+B toggles it:
+- the project's sessions beside the transcript; ↑↓ and Enter switch, Esc returns to the input;
+- it needs 100 columns, and the transcript re-wraps;
+- the list is re-read on opening, after a switch and when a turn ends, never per frame;
+- a keystroke with it open over 10k lines: p95 2.2 ms (`TestSidebarFrameBudget`, in CI's budget
+  step).
+
+Guards: 6/6.
+
+**Wired to the real producer.** After Phase B merged (`internal/status`, the ADR 021 producer),
+`main` sets `App.Surface`/`App.Actions` to it:
+- the status bar's meter, `/why` and the trust and quota marks read the core;
+- `surface/fake` stays for the TUI's tests;
+- the core's own `/status` lines (`status.Lines`, which also names the CLIs found) list connections,
+  so the TUI's own section is only a fallback;
+- `TestTUIMeterFromCore` (real binary: the context against the model's window) fails if the wiring
+  is removed.
+
+**4. Plan panel: after Phase C produces plan data.** Not built.
+
+**5. Image paste: deferred** until `internal/llm` supports images.
+
+**Rubric after these:**
+- **Diff and review:** 2 → 4.
+- **Accessibility:** 3 → 4.
+- **Density without clutter:** 3, unchanged until the plan panel. The sidebar adds session context
+  on demand, not by default.
+
+## Findings outside Track 2 (reported, not changed)
+- **Capability catalog refresh CPU.** On every start, `capability.(*Catalog).Refresh` →
+  `memory.(*Store).Upsert` → `index.remove` → `rebuild` re-indexes the whole memory index per
+  upserted entry. That is 1–3 % CPU for minutes after start (profiled), with the default config.
+- **The pre-push hook let tests act on the repository.** In a worktree, git exports an absolute
+  `GIT_DIR` to hooks. Tests that run git in temp repositories committed into this repository and
+  set its shared `user.name`/`user.email` to the fixtures' "t <t@t>". Phase B hit it first (its
+  branch carries those commits) and fixed the hook; this branch has the same fix. The polluted
+  config was removed and this branch's commits were re-authored.
+
+## Sources (accessed 2026-10-08)
+- Claude Code, [interactive mode](https://code.claude.com/docs/en/interactive-mode),
+  [accessibility](https://code.claude.com/docs/en/accessibility),
+  [keybindings](https://code.claude.com/docs/en/keybindings).
+- Codex CLI, [slash commands](https://developers.openai.com/codex/cli/slash-commands).
+  Approval prompts block the transcript: [#47865](https://github.com/openai/codex/issues/47865),
+  [#48635](https://github.com/openai/codex/issues/48635).
+- OpenCode, [TUI](https://opencode.ai/docs/tui/), [keybinds](https://opencode.ai/docs/keybinds/),
+  [themes](https://opencode.ai/docs/themes/).
+- Crush, [README](https://github.com/charmbracelet/crush/blob/main/README.md).
+- Gemini CLI (second-hand: not installed), [commands](https://geminicli.com/docs/reference/commands/),
+  [settings](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/settings.md).

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/textarea"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
@@ -26,6 +25,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
+	"github.com/rajasatyajit/ternly/internal/surface"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
 
@@ -120,13 +120,16 @@ type block struct {
 	state    int // 0 running, 1 ok, 2 fail, 3 unverified
 	detail   string
 	elapsed  time.Duration
+	full     string   // a tool's whole output (Ctrl+O shows it)
+	lines    []string // rendered, split (the virtualised transcript)
+	linesFor string   // the rendering lines was split from
 }
 
 // ─────────────────────────── model ───────────────────────────
 
 type Model struct {
 	App           *App
-	vp            viewport.Model
+	vp            transcript
 	ta            textarea.Model
 	md            *glamour.TermRenderer
 	style         string
@@ -162,7 +165,17 @@ type Model struct {
 	afterTurn     []func() tea.Cmd // run when the current turn ends (/ask, /architect)
 	suggest       *suggestion      // a capability suggestion on screen
 	laterSuggest  *capability.Suggestion
-	lastFailed    bool // the last turn ended with an error
+	lastFailed    bool         // the last turn ended with an error
+	ticking       bool         // the animation ticker is scheduled (only while something animates)
+	expanded      bool         // tool output shown in full (Ctrl+O)
+	answered      bool         // the current turn has shown answer text
+	review        *reviewState // an edit under per-hunk review
+	side          *sidebar     // the session sidebar (Ctrl+B); nil: hidden
+	printed       int          // accessible mode: blocks already printed to the scrollback
+	fileQ         string       // the @ query the picker shows or awaits
+	fileReq       bool         // a file listing for fileQ is wanted
+	snap          surface.Snapshot
+	surfaceCh     <-chan struct{}
 }
 
 // App bundles the long-lived services the UI drives.
@@ -183,6 +196,9 @@ type App struct {
 	Plugins      *plugins.Runtime    // nil: plugins off
 	Remote       *mcpremote.Manager  // remote MCP servers (ADR 014); nil: none
 	Capabilities *capability.Service // nil: no suggestions
+	Access       Access              // reduced motion, screen reader, mouse (AccessFromEnv)
+	Surface      surface.Status      // status from the core (ADR 021); nil until its adapter exists
+	Actions      surface.Actions     // nil: /why falls back to /models why
 }
 
 func New(app *App, dark bool) *Model {
@@ -193,12 +209,13 @@ func New(app *App, dark bool) *Model {
 	ta.CharLimit = 0
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
-	m := &Model{App: app, ta: ta, vp: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)), discovering: true}
+	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true}
 	switch app.Theme {
 	case "dark", "light":
 		dark, m.themeSet = app.Theme == "dark", true
 	}
 	m.setTheme(dark)
+	m.ta.SetVirtualCursor(false) // the terminal draws (and blinks) the cursor: no redraws while idle
 	m.ta.Focus()
 	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
 	if app.Sessions != nil {
@@ -235,7 +252,7 @@ func (m *Model) setTheme(dark bool) {
 	st.Focused.Placeholder = sDim
 	m.ta.SetStyles(st)
 	if m.w > 0 {
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.style), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.newMarkdown()
 	}
 	for _, b := range m.blocks {
 		b.rendered = ""
@@ -243,12 +260,16 @@ func (m *Model) setTheme(dark bool) {
 }
 
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{textarea.Blink, tick(), tea.RequestBackgroundColor, func() tea.Msg {
+	m.ticking = true
+	cmds := []tea.Cmd{tick(), tea.RequestBackgroundColor, func() tea.Msg {
 		ms, w := m.App.Discover()
 		return discoveredMsg{ms, w}
 	}}
 	if m.App.Pick && m.App.Sessions != nil {
 		cmds = append(cmds, func() tea.Msg { return openPickerMsg{} })
+	}
+	if c := m.startSurface(); c != nil {
+		cmds = append(cmds, c)
 	}
 	return tea.Batch(cmds...)
 }
@@ -276,7 +297,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.style), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.newMarkdown()
 		for _, b := range m.blocks {
 			b.rendered = ""
 		}
@@ -290,18 +311,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dirty {
 			m.refresh(false)
 		}
-		cmds = append(cmds, tick())
+		m.ticking = false // rescheduled below only if something still animates
 
 	case discoveredMsg:
 		m.discovering = false
 		m.App.Router.SetModels(msg.models)
 		m.blocks[0].text, m.blocks[0].rendered = m.welcome(), ""
 		for _, w := range msg.warn {
-			m.addInfo(sWarn.Render("! ") + w)
+			m.addInfo(sWarn.Render("! ") + untrusted(w))
 		}
 		m.refresh(true)
 
 	case permMsg:
+		msg.tool, msg.summary = untrusted(msg.tool), untrusted(msg.summary)
 		m.perm = &msg
 		m.layout()
 		m.refresh(true)
@@ -322,7 +344,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addInfo(sOK.Render(txt))
 
 	case agentMsg:
-		cmds = append(cmds, m.onAgent(agent.Event(msg)))
+		cmds = append(cmds, m.onAgent(cleanEvent(agent.Event(msg))))
 
 	case startMsg:
 		if m.busy {
@@ -368,11 +390,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.layout()
 		}
 
+	case filesMsg:
+		m.onFiles(msg)
+
+	case reviewMsg:
+		m.openReview(msg)
+
+	case surfaceMsg:
+		cmds = append(cmds, m.onSurface())
+
 	case openPickerMsg:
 		m.openPicker()
 
 	case switchedMsg:
 		m.queue, m.paused = nil, false
+		m.reloadSidebar()
 		m.loadTranscript(msg.st)
 		title := orStr(m.App.Agent.Title(), m.App.Sessions.Current().ID)
 		if p := msg.st.Settings; p != nil && p.Pin != "" {
@@ -388,6 +420,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return nil
 		})
+
+	case tea.FocusMsg:
+		if !m.themeSet { // the system theme may have changed while away (GNOME light/dark)
+			cmds = append(cmds, tea.RequestBackgroundColor)
+		}
+
+	case tea.MouseWheelMsg:
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.vp.scroll(-3)
+		case tea.MouseWheelDown:
+			m.vp.scroll(3)
+		}
 
 	case tea.BackgroundColorMsg:
 		if !m.themeSet && msg.IsDark() != m.dark {
@@ -405,15 +450,58 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, c)
 	if _, ok := msg.(tea.KeyPressMsg); ok {
 		m.updateCompletion()
+		if m.fileReq {
+			m.fileReq = false
+			cmds = append(cmds, m.globFiles(m.fileQ))
+		}
 	}
 	if lc := min(8, max(1, m.ta.LineCount())); lc != m.ta.Height() {
 		m.ta.SetHeight(lc)
 		m.layout()
 	}
+	if c := m.flushLinear(); c != nil {
+		cmds = append(cmds, c)
+	}
+	if !m.ticking && m.animating() { // idle costs ~0% CPU: no ticker unless something moves
+		m.ticking = true
+		cmds = append(cmds, tick())
+	}
 	return m, tea.Batch(cmds...)
 }
 
+// animating: something on screen changes with time (the splash, discovery,
+// a turn's activity line, a running tool's spinner).
+func (m *Model) animating() bool {
+	if m.App.Access.ReducedMotion { // nothing moves; events redraw by themselves
+		return !m.ready
+	}
+	if m.perm != nil || m.review != nil { // waiting for the user, not working: nothing should look busy
+		return false
+	}
+	if !m.ready || m.discovering || m.busy || m.dirty {
+		return true
+	}
+	for i := len(m.blocks) - 1; i >= 0 && i >= len(m.blocks)-50; i-- { // running tools are recent
+		if b := m.blocks[i]; b.kind == bTool && b.state == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
+	if m.review != nil {
+		return m.reviewKey(k), true
+	}
+	if k.String() == "ctrl+b" && m.perm == nil && m.picker == nil {
+		m.toggleSidebar()
+		return nil, true
+	}
+	if m.side != nil && m.side.focused && m.perm == nil && m.picker == nil {
+		if c, handled := m.sidebarKey(k); handled {
+			return c, true
+		}
+	}
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
 	}
@@ -497,14 +585,30 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 			return nil, true
 		}
 	case "pgup", "ctrl+u":
-		m.vp.HalfPageUp()
+		m.vp.scroll(-max(1, m.vp.h/2))
 		return nil, true
 	case "pgdown", "ctrl+d":
-		m.vp.HalfPageDown()
+		m.vp.scroll(max(1, m.vp.h/2))
 		return nil, true
 	case "ctrl+l":
 		m.blocks = m.blocks[:1]
 		m.refresh(true)
+		return nil, true
+	case "ctrl+o": // collapsible tool output
+		m.expanded = !m.expanded
+		for _, b := range m.blocks {
+			if b.kind == bTool {
+				b.rendered = ""
+			}
+		}
+		m.refresh(false)
+		return nil, true
+	case "ctrl+k": // the command palette: every command, fuzzy-filtered as you type
+		if m.ta.Value() == "" {
+			m.ta.SetValue("/")
+			m.ta.CursorEnd()
+			m.updateCompletion()
+		}
 		return nil, true
 	}
 	return nil, false
@@ -537,7 +641,7 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 	if a := m.attachments(prompt); a != "" {
 		extra = strings.TrimSpace(a + "\n\n" + extra)
 	}
-	m.lastFailed = false
+	m.lastFailed, m.answered = false, false
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel, m.busy, m.activity = cancel, true, "Routing"
 	if m.paused { // a prompt after /pause continues the session
@@ -565,6 +669,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		}
 		last.text += e.Text
 		last.rendered = ""
+		if strings.TrimSpace(e.Text) != "" {
+			m.answered = true
+		}
 		m.activity = "Writing"
 		m.dirty = true
 		return nil
@@ -572,7 +679,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.model, m.reason = e.Model, e.Reason
 		m.activity = "Thinking"
 		if e.Reason != "pinned" {
-			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", e.Model.Key(), tierBadge(e.Model.Tier), discover.Price(e.Model), e.Reason)))
+			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", untrusted(e.Model.Key()), tierBadge(e.Model.Tier), discover.Price(e.Model), untrusted(e.Reason))))
 		}
 	case agent.EvToolStart:
 		m.blocks = append(m.blocks, &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text})
@@ -583,7 +690,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 	case agent.EvToolEnd:
 		for i := len(m.blocks) - 1; i >= 0; i-- {
 			if b := m.blocks[i]; b.kind == bTool && b.id == e.ToolID && b.state == 0 {
-				b.state, b.elapsed, b.detail, b.rendered = 2, e.Elapsed, firstLines(e.Text, 3), ""
+				b.state, b.elapsed, b.detail, b.rendered, b.full = 2, e.Elapsed, firstLines(e.Text, 3), "", e.Text
 				if e.OK {
 					b.state = 1
 					b.detail = ""
@@ -607,6 +714,11 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
+		m.reloadSidebar()                           // turns and titles changed
+		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
+			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
+				sDim.Render(" — ask again, or /model to pick another (/why shows the ranking)")})
+		}
 		m.busy, m.cancel = false, nil
 		for _, b := range m.blocks {
 			if b.kind == bTool && b.state == 0 {
@@ -698,7 +810,7 @@ func (m *Model) legacyCommand(name, arg, v string) tea.Cmd {
 			m.addInfo(sOK.Render("  ◆ auto-routing enabled"))
 		default:
 			m.model, m.reason = mod, "pinned"
-			m.addInfo(sOK.Render("  ◆ pinned " + mod.Key()))
+			m.addInfo(sOK.Render("  ◆ pinned " + untrusted(mod.Key())))
 		}
 	case "/cost":
 		l, g := m.App.Agent.Ledger(), m.App.Agent.Stats()
@@ -874,7 +986,7 @@ func (m *Model) modelsTable(filter string) string {
 		var out []string
 		for _, x := range ms {
 			if w := why[x]; w != nil && (name == "" && w.Rank[2] > 0 && w.Rank[2] <= 3 || name != "" && strings.Contains(strings.ToLower(x.Key()), name)) {
-				out = append(out, sAccent.Render("  "+x.Key())+"\n  "+strings.ReplaceAll(w.Long(), "\n", "\n  "))
+				out = append(out, sAccent.Render("  "+untrusted(x.Key()))+"\n  "+strings.ReplaceAll(untrusted(w.Long()), "\n", "\n  "))
 			}
 		}
 		if len(out) == 0 {
@@ -898,7 +1010,7 @@ func (m *Model) modelsTable(filter string) string {
 		if !x.Tools {
 			tl = sDim.Render("·")
 		}
-		row := fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), x.Key())
+		row := fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), untrusted(x.Key()))
 		if w := why[x]; w != nil {
 			row += sDim.Render("  " + w.Short())
 		}
@@ -930,52 +1042,57 @@ func (m *Model) layout() {
 	if m.perm != nil {
 		permH = 5
 	}
+	permH += m.reviewHeight()
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
 	if m.comp != nil {
-		permH += len(m.comp.items)
+		permH += min(len(m.comp.items), compRows)
+		if len(m.comp.items) > compRows {
+			permH++
+		}
 	}
 	if m.suggest != nil {
 		permH += 2*len(m.suggest.s.Candidates) + 4
 	}
-	m.vp.SetWidth(m.w)
-	m.vp.SetHeight(max(3, m.h-1-inputH-1-permH))
+	m.vp.h = max(3, m.h-1-inputH-1-permH)
+	m.vp.clamp()
 }
 
 func (m *Model) refresh(force bool) {
 	if !m.ready {
 		return
 	}
-	atBottom := m.vp.AtBottom() || force
-	var sb strings.Builder
+	if force {
+		m.vp.follow = true
+	}
 	anim := m.busy
 	for _, b := range m.blocks {
 		if b.kind == bTool && b.state == 0 {
 			anim = true
-			sb.WriteString(m.renderBlock(b)) // spinner frame changes every tick
-		} else {
-			if b.rendered == "" {
-				b.rendered = m.renderBlock(b)
-			}
-			sb.WriteString(b.rendered)
+			b.rendered = m.renderBlock(b) // spinner frame changes every tick
+		} else if b.rendered == "" {
+			b.rendered = m.renderBlock(b)
 		}
-		sb.WriteString("\n")
 	}
-	if m.busy {
-		sb.WriteString("\n  " + shine(m.activity+"…", m.frame) + sDim.Render("  esc to interrupt") + "\n")
+	tail := ""
+	switch {
+	case m.busy && (m.perm != nil || m.review != nil):
+		tail = "\n  " + sWarn.Render("Waiting for your answer") + sDim.Render("  y yes · a always · n no") + "\n"
+	case m.busy:
+		tail = "\n  " + m.moving(m.activity+"…") + sDim.Render("  esc to interrupt") + "\n"
 	}
-	m.vp.SetContent(sb.String())
-	if atBottom {
-		m.vp.GotoBottom()
-	}
+	m.vp.set(m.blocks, tail)
 	m.dirty = anim
 }
 
 func (m *Model) renderBlock(b *block) string {
+	if b.kind != bInfo { // ternly styles only info lines; every other block holds outside text
+		b.text, b.detail, b.tool = untrusted(b.text), untrusted(b.detail), untrusted(b.tool)
+	}
 	switch b.kind {
 	case bUser:
-		return "\n" + sUser.Render("❯ ") + lipgloss.NewStyle().Width(m.w-4).Render(b.text)
+		return "\n" + sUser.Render("❯ ") + lipgloss.NewStyle().Width(m.cw()-4).Render(b.text)
 	case bAssistant:
 		if m.md == nil {
 			return b.text
@@ -986,46 +1103,75 @@ func (m *Model) renderBlock(b *block) string {
 		}
 		return strings.TrimRight(out, "\n ")
 	case bTool:
-		icon := spinFrames[m.frame%len(spinFrames)]
-		switch b.state {
-		case 1:
-			icon = sOK.Render("●")
-		case 2:
-			icon = sErr.Render("●")
-		case 3: // unverified: neither ✓ nor a failure
-			icon = sWarn.Render("?")
-		}
-		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.w-30))
+		icon := m.toolIcon(b.state)
+		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.cw()-30))
 		if b.elapsed > 0 {
 			line += sDim.Render("  " + dur(b.elapsed))
 		}
-		if b.detail != "" {
-			for _, l := range strings.Split(b.detail, "\n") {
-				line += "\n" + sDim.Render("    ⎿ "+truncate(l, m.w-10))
+		detail := b.detail
+		if m.expanded && b.full != "" {
+			detail = firstLines(untrusted(b.full), maxExpanded)
+		}
+		if detail != "" {
+			ls := strings.Split(detail, "\n")
+			for i, l := range ls {
+				if i == len(ls)-1 && b.full != "" && strings.HasPrefix(l, "… +") { // firstLines' "… +N lines"
+					l += " · ctrl+o expands"
+				}
+				line += "\n" + sDim.Render("    ⎿ "+truncate(l, m.cw()-10))
+			}
+			if m.expanded && b.full != "" {
+				line += "\n" + sDim.Render("    ⎿ ctrl+o collapses")
 			}
 		}
 		return line
 	case bError:
-		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.w-6).Render(b.text)
+		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.cw()-6).Render(b.text)
 	}
 	return b.text
 }
 
 func (m *Model) View() tea.View {
-	v := tea.NewView(m.render())
-	v.AltScreen = true // basic key disambiguation (shift+enter) is requested by default
+	s, boxTop := m.render()
+	v := tea.NewView(safeFrame(s))
+	v.AltScreen = !m.linear() // the accessible mode is linear: inline, finished text in the scrollback
+	v.ReportFocus = true      // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
+	if m.App.Access.Mouse {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
+	if c := m.ta.Cursor(); c != nil && boxTop >= 0 && m.perm == nil && m.review == nil {
+		if m.linear() {
+			c.Y += boxTop // the "> " line
+		} else {
+			c.Y += boxTop + 1 // the box's top border
+		}
+		c.X += 2 // the box's left border and padding, or "> "
+		c.Blink = !m.App.Access.ReducedMotion
+		v.Cursor = c
+	}
 	return v
 }
 
-func (m *Model) render() string {
+// render returns the frame and the row the input box starts on (-1: none).
+func (m *Model) render() (string, int) {
 	if !m.ready {
-		return "\n  " + shine("ternly", m.frame)
+		return "\n  " + m.moving("ternly"), -1
+	}
+	if m.linear() {
+		return m.renderLinear()
 	}
 	var sb strings.Builder
 	sb.WriteString(m.header() + "\n")
-	sb.WriteString(m.vp.View() + "\n")
+	if m.sideShown() {
+		sb.WriteString(m.besideSidebar(m.vp.view()) + "\n")
+	} else {
+		sb.WriteString(m.vp.view() + "\n")
+	}
 	if m.perm != nil {
 		sb.WriteString(m.permView() + "\n")
+	}
+	if m.review != nil {
+		sb.WriteString(m.reviewView() + "\n")
 	}
 	if m.picker != nil {
 		sb.WriteString(m.pickerView() + "\n")
@@ -1040,9 +1186,10 @@ func (m *Model) render() string {
 	if m.ta.Focused() {
 		box = sBoxOn
 	}
+	boxTop := strings.Count(sb.String(), "\n")
 	sb.WriteString(box.Width(m.w-2).Render(m.ta.View()) + "\n")
 	sb.WriteString(m.statusBar())
-	return sb.String()
+	return sb.String(), boxTop
 }
 
 func (m *Model) header() string {
@@ -1058,6 +1205,18 @@ func (m *Model) header() string {
 	mid := sDim.Render("  " + cwd)
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right
+}
+
+// permViewPlain is the permission question for the accessible mode.
+func (m *Model) permViewPlain() string {
+	if m.perm == nil {
+		return ""
+	}
+	q := "Allow " + prettyTool(m.perm.tool) + "?"
+	if m.perm.danger {
+		q = "Warning, potentially destructive. Allow " + prettyTool(m.perm.tool) + "?"
+	}
+	return q + " " + m.perm.summary + "\ny yes, a always, n no."
 }
 
 func (m *Model) permView() string {
@@ -1077,9 +1236,9 @@ func (m *Model) permView() string {
 func (m *Model) statusBar() string {
 	left := sDim.Render("auto-routing")
 	if m.discovering {
-		left = shine("discovering models", m.frame)
+		left = m.moving("discovering models")
 	} else if m.model != nil {
-		left = sAccent.Render("◆ "+m.model.Key()) + " " + tierBadge(m.model.Tier)
+		left = sAccent.Render("◆ "+untrusted(m.model.Key())) + " " + tierBadge(m.model.Tier)
 	}
 	l := m.ledger
 	right := sDim.Render(fmt.Sprintf("↑%s ↓%s", kfmt(l.Usage.In+l.Usage.CacheRead+l.Usage.CacheWrite), kfmt(l.Usage.Out)))
@@ -1087,6 +1246,9 @@ func (m *Model) statusBar() string {
 		right += sDim.Render(fmt.Sprintf(" ⚡%.0f%%", l.CacheRate()*100))
 	}
 	right += "  " + sAccent.Render(fmt.Sprintf("$%.4f", l.Cost))
+	if mt := m.meter(); mt != "" {
+		right = mt + "  " + right
+	}
 	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
 		if spent := l.Cost - m.turnCost0; spent >= 0.75*lim.TurnUSD { // warn before the turn limit stops work
 			right = sWarn.Render(fmt.Sprintf("turn $%.2f/$%.2f", spent, lim.TurnUSD)) + "  " + right
@@ -1133,7 +1295,7 @@ func (m *Model) welcome() string {
 		}
 		sb.WriteString(fmt.Sprintf("  %s %-11s %s\n", sOK.Render("●"), p, sDim.Render(fmt.Sprintf("%d models, %d with tools · %s", c[0], c[1], kind))))
 	}
-	sb.WriteString(sDim.Render("  /help for commands · tasks are routed to the cheapest capable model and escalated only on failure"))
+	sb.WriteString(sDim.Render("  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure"))
 	return sb.String()
 }
 
@@ -1174,6 +1336,9 @@ func prettyTool(t string) string {
 	}
 	return t
 }
+
+// maxExpanded bounds a tool's output in the transcript when expanded.
+const maxExpanded = 200
 
 func firstLines(s string, n int) string {
 	s = strings.TrimSpace(s)
@@ -1221,3 +1386,8 @@ func orStr(s, d string) string {
 
 // AgentMsg wraps an agent event for tea.Program.Send.
 func AgentMsg(e agent.Event) tea.Msg { return agentMsg(e) }
+
+// newMarkdown makes the markdown renderer for the content width.
+func (m *Model) newMarkdown() {
+	m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.cw()-6)), glamour.WithEmoji())
+}

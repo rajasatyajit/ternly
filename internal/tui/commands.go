@@ -70,6 +70,7 @@ func init() {
 		{name: "budget", args: "<usd>", section: "Models & cost", desc: "hard spend cap for the session"},
 		{name: "limits", args: "[steps N|time 45m|turn-usd X]", section: "Models & cost", desc: "per-turn step, time and spend limits"},
 		{name: "refresh", section: "Models & cost", desc: "re-discover providers and models"},
+		{name: "why", section: "Models & cost", desc: "how routing ranks every model for the current context", run: (*Model).cmdWhy},
 
 		{name: "init", section: "Setup", desc: "analyse the repository and write AGENTS.md", run: (*Model).cmdInit},
 		{name: "memory", aliases: []string{"memories"}, args: "[search|forget|edit|add|promote]", section: "Setup", desc: "view and edit what ternly remembers"},
@@ -249,7 +250,7 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 			b.WriteString(fmt.Sprintf("    %-34s %s\n", "/"+u.Name+" "+u.ArgHint, sDim.Render(u.Description)))
 		}
 	}
-	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history"))
+	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output · Ctrl+B sessions"))
 	m.addInfo(b.String())
 	return nil
 }
@@ -351,10 +352,10 @@ func (m *Model) cmdStatus(string) tea.Cmd {
 	lim, budget := a.Caps()
 	model := "auto-routing"
 	if p := m.App.Router.Pinned(); p != nil {
-		model = "pinned " + p.Key()
+		model = "pinned " + untrusted(p.Key())
 	}
 	if c := a.Current(); c != nil {
-		model += " · last used " + c.Key()
+		model += " · last used " + untrusted(c.Key())
 	}
 	sess := "(not saved)"
 	if sm := m.App.Sessions; sm != nil && sm.Current() != nil {
@@ -395,6 +396,7 @@ func (m *Model) cmdStatus(string) tea.Cmd {
 	if len(m.pins) > 0 {
 		lines = append(lines, "pinned     "+strings.Join(m.pins, ", "))
 	}
+	lines = append(lines, m.connectionLines()...)
 	m.addInfo("  " + strings.Join(lines, "\n  "))
 	return nil
 }
@@ -444,7 +446,7 @@ func (m *Model) cmdConfig(arg string) tea.Cmd {
 	lim, budget := a.Caps()
 	pin := "auto"
 	if p := m.App.Router.Pinned(); p != nil {
-		pin = p.Key()
+		pin = untrusted(p.Key())
 	}
 	lines := []string{
 		sDim.Render("config file: " + orStr(m.App.ConfigPath, "(none)") + " · /config <key> <value> sets one for this session"),
@@ -590,7 +592,7 @@ func (m *Model) isGit(ctx context.Context) bool {
 }
 
 func colorDiff(d string, maxLines int) string {
-	ls := strings.Split(strings.TrimRight(d, "\n"), "\n")
+	ls := strings.Split(strings.TrimRight(untrusted(d), "\n"), "\n") // file contents: outside text
 	more := 0
 	if len(ls) > maxLines {
 		more, ls = len(ls)-maxLines, ls[:maxLines]
@@ -637,7 +639,7 @@ func (m *Model) cmdDiff(string) tea.Cmd {
 			b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
 		}
 		if u := strings.TrimSpace(un); u != "" {
-			b.WriteString(sWarn.Render("  untracked: ") + strings.ReplaceAll(u, "\n", ", ") + "\n")
+			b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
 		}
 		b.WriteString(colorDiff(d, 200))
 		return infoMsg(b.String())
@@ -813,7 +815,7 @@ func (m *Model) cmdArchitect(arg string) tea.Cmd {
 	prevPin := m.App.Router.Pinned()
 	_, _ = m.App.Router.Pin(top.Key())
 	m.enterPlan()
-	m.addInfo(sDim.Render("  architect: " + top.Key() + " plans (read-only); then routing picks the cheapest capable model to implement"))
+	m.addInfo(sDim.Render("  architect: " + untrusted(top.Key()) + " plans (read-only); then routing picks the cheapest capable model to implement"))
 	m.afterTurn = append(m.afterTurn, func() tea.Cmd {
 		m.leavePlan()
 		if prevPin != nil {
@@ -1131,7 +1133,7 @@ func (m *Model) cmdWeb(arg string) tea.Cmd {
 
 func (m *Model) onWeb(w webMsg) {
 	if w.err != nil {
-		m.addInfo(sErr.Render("  /web " + w.url + ": " + w.err.Error()))
+		m.addInfo(sErr.Render("  /web " + untrusted(w.url) + ": " + untrusted(w.err.Error())))
 		return
 	}
 	framed, flagged := m.App.Reg.Frame.Wrap("web", m.App.Reg.Redact.Apply(w.text))
@@ -1322,6 +1324,7 @@ type compItem struct {
 type completion struct {
 	items []compItem
 	sel   int
+	file  bool // @ file picker: items are workspace paths
 }
 
 // fuzzy scores how well q matches s as a subsequence (-1: no match):
@@ -1355,6 +1358,13 @@ func fuzzyScore(q, s string) int {
 // updateCompletion shows matching commands while a command name is typed.
 func (m *Model) updateCompletion() {
 	v := m.ta.Value()
+	if q, ok := atToken(v); ok {
+		if m.fileQ != q || m.comp == nil || !m.comp.file {
+			m.fileQ, m.fileReq = q, true // Update fetches the files
+		}
+		return
+	}
+	m.fileQ = "\x00"
 	if !strings.HasPrefix(v, "/") || strings.ContainsAny(v, " \n") {
 		if m.comp != nil {
 			m.comp = nil
@@ -1390,7 +1400,7 @@ func (m *Model) updateCompletion() {
 	}
 	prev := m.comp
 	m.comp = &completion{}
-	for _, a := range all[:min(len(all), 8)] {
+	for _, a := range all { // all of them: the list scrolls (Ctrl+K shows every command)
 		m.comp.items = append(m.comp.items, a.compItem)
 	}
 	if prev != nil && prev.sel < len(m.comp.items) {
@@ -1402,6 +1412,19 @@ func (m *Model) updateCompletion() {
 // compKey handles keys while the completion list is open.
 func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	c := m.comp
+	if c.file {
+		switch k.String() {
+		case "tab", "enter": // replace the @token being typed with the chosen path
+			v := m.ta.Value()
+			i := strings.LastIndex(v, "@")
+			m.ta.SetValue(v[:i] + "@" + c.items[c.sel].name + " ")
+			m.ta.CursorEnd()
+			m.comp = nil
+			m.fileQ = "\x00"
+			m.layout()
+			return nil, true
+		}
+	}
 	switch k.String() {
 	case "tab":
 		m.ta.SetValue("/" + c.items[c.sel].name + " ")
@@ -1432,8 +1455,15 @@ func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 
 func (m *Model) compView() string {
 	var b strings.Builder
+	first := min(max(0, m.comp.sel-compRows/2), max(0, len(m.comp.items)-compRows))
 	for i, it := range m.comp.items {
+		if i < first || i >= first+compRows {
+			continue
+		}
 		name := "/" + it.name
+		if m.comp.file {
+			name = "@" + it.name
+		}
 		if it.hint != "" {
 			name += " " + sDim.Render(it.hint)
 		}
@@ -1449,8 +1479,14 @@ func (m *Model) compView() string {
 		}
 		b.WriteString(line + "\n")
 	}
+	if n := len(m.comp.items); n > compRows {
+		b.WriteString(sDim.Render(fmt.Sprintf("   %d/%d · ↑↓ to scroll", m.comp.sel+1, n)) + "\n")
+	}
 	return strings.TrimRight(b.String(), "\n")
 }
+
+// compRows is how many completion rows show at once.
+const compRows = 8
 
 func (m *Model) cmdSkills(string) tea.Cmd {
 	rt := m.App.Plugins

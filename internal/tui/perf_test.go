@@ -15,7 +15,7 @@ import (
 // Perf-gate benchmarks (ADR 017): keystroke-to-frame and redraw cost with a
 // long transcript (~10k lines: 1,000 turns of prompt, tool call, answer).
 
-func benchModel(b *testing.B, turns int) *Model {
+func benchModel(b testing.TB, turns int) *Model {
 	b.Helper()
 	reg, err := tools.NewRegistry(b.TempDir(), tools.NewPolicy("ask", nil), tools.NewSandbox(false, false, nil), tools.NewRedactor(nil))
 	if err != nil {
@@ -47,7 +47,7 @@ func BenchmarkKeystroke(b *testing.B) {
 // BenchmarkRedraw10k: a transcript redraw (new output arriving), blocks already rendered.
 func BenchmarkRedraw10k(b *testing.B) {
 	m := benchModel(b, 1000)
-	if n := strings.Count(m.vp.GetContent(), "\n"); n < 10000 {
+	if n := m.vp.total; n < 10000 {
 		b.Fatalf("transcript is %d lines, want ≥ 10k", n)
 	}
 	b.ReportAllocs()

@@ -43,7 +43,10 @@ type Tool struct {
 	Kind    Kind
 	Run     func(ctx context.Context, args json.RawMessage) (string, error)
 	Summary func(args json.RawMessage) string // one-line description for UI + permission prompt
-	schema  *jschema                          // compiled Spec.Schema; nil = not validated
+	// Propose returns an edit's file (resolved) and its content before and
+	// after, for per-hunk review (ADR 021 amendment 1); nil: no review.
+	Propose func(args json.RawMessage) (path, old, new string, err error)
+	schema  *jschema // compiled Spec.Schema; nil = not validated
 }
 
 type Registry struct {
@@ -246,6 +249,11 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 			return Result{Out: "blocked by a plugin hook: " + Cap(why, 2000) + ". Do not retry the same action.", IsErr: true, Rejected: true}
 		}
 	}
+	var rv *editReview
+	if t.Propose != nil && r.Policy.Review != nil && r.Policy.Ask != nil { // a person could review it: computed only if the policy asks
+		rv = &editReview{tool: tc.Name, rel: r.rel, load: func() (string, string, string, error) { return t.Propose(args) }}
+		ctx = withReview(ctx, rv)
+	}
 	if ok, why := r.Policy.Check(ctx, t, tc.Name, t.Summary(args)); !ok {
 		who := "permission denied by user" // the user said no
 		if why != "" {
@@ -253,7 +261,13 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 		}
 		return Result{Out: who + why + ". Do not retry the same action; ask the user or choose another approach.", IsErr: true, Rejected: true}
 	}
-	res, err := t.Run(ctx, args)
+	var res string
+	var err error
+	if rv != nil && rv.decision != nil && !allTrue(rv.decision.Apply) { // some hunks declined
+		res, err = r.writePartial(rv)
+	} else {
+		res, err = t.Run(ctx, args)
+	}
 	if err != nil {
 		res = "error: " + err.Error() + "\n" + res
 	}
@@ -484,6 +498,39 @@ func (r *Registry) builtin() {
 			}](a)
 			return fmt.Sprintf("%s  (-%d +%d lines)", v.Path, lines(v.OldString), lines(v.NewString))
 		},
+		Propose: func(a json.RawMessage) (string, string, string, error) {
+			v, err := arg[struct {
+				Path       string
+				OldString  string `json:"old_string"`
+				NewString  string `json:"new_string"`
+				ReplaceAll bool   `json:"replace_all"`
+			}](a)
+			if err != nil {
+				return "", "", "", err
+			}
+			p, err := r.resolve(v.Path)
+			if err != nil {
+				return "", "", "", err
+			}
+			if v.OldString == "" {
+				if _, err := r.fs.Lstat(r.inRoot(p)); err == nil {
+					return "", "", "", errors.New("file exists")
+				}
+				return p, "", v.NewString, nil
+			}
+			b, err := r.readRegular(r.inRoot(p))
+			if err != nil {
+				return "", "", "", err
+			}
+			s := string(b)
+			if n := strings.Count(s, v.OldString); n == 0 || n > 1 && !v.ReplaceAll {
+				return "", "", "", errors.New("old_string doesn't match exactly once") // Run reports it
+			}
+			if v.ReplaceAll {
+				return p, s, strings.ReplaceAll(s, v.OldString, v.NewString), nil
+			}
+			return p, s, strings.Replace(s, v.OldString, v.NewString, 1), nil
+		},
 		Run: func(ctx context.Context, a json.RawMessage) (string, error) {
 			v, err := arg[struct {
 				Path       string
@@ -533,6 +580,21 @@ func (r *Registry) builtin() {
 		Summary: func(a json.RawMessage) string {
 			v, _ := arg[struct{ Path, Content string }](a)
 			return fmt.Sprintf("%s  (%d lines)", v.Path, lines(v.Content))
+		},
+		Propose: func(a json.RawMessage) (string, string, string, error) {
+			v, err := arg[struct{ Path, Content string }](a)
+			if err != nil {
+				return "", "", "", err
+			}
+			p, err := r.resolve(v.Path)
+			if err != nil {
+				return "", "", "", err
+			}
+			b, err := r.readRegular(r.inRoot(p))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return "", "", "", err
+			}
+			return p, string(b), v.Content, nil
 		},
 		Run: func(ctx context.Context, a json.RawMessage) (string, error) {
 			v, err := arg[struct{ Path, Content string }](a)
