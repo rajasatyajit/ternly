@@ -396,6 +396,12 @@ func run() int {
 		return 2
 	} else {
 		ag.Levers = lv
+		// Routing fixes (ADR 029), on by default; TERNLY_ROUTING_FIX names the
+		// ones to keep, only to measure them ("none", "classifier", "textcall").
+		if fix, ok := os.LookupEnv("TERNLY_ROUTING_FIX"); ok {
+			discover.ClassifyV1 = !strings.Contains(fix, "classifier")
+			ag.NoTextCallEscalation = !strings.Contains(fix, "textcall")
+		}
 		ag.Deterministic = (fc.Deterministic != nil && *fc.Deterministic) || os.Getenv("TERNLY_DETERMINISTIC") == "1"
 		if ag.Deterministic && os.Getenv("TERNLY_RESPONSE_CACHE") != "0" {
 			dir := os.Getenv("TERNLY_RESPONSE_CACHE_DIR")

@@ -33,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/eval"
 	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
@@ -125,6 +126,8 @@ func main() {
 		err = report(os.Stdout, args)
 	case "repro":
 		err = repro(os.Stdout, args)
+	case "classify":
+		err = s.classify(os.Stdout)
 	default:
 		err = fmt.Errorf("unknown command %q", cmd)
 	}
@@ -752,6 +755,50 @@ func untrackedFiles(porcelain string) []string {
 		}
 	}
 	return out
+}
+
+// ─────────────────────────── classify ───────────────────────────
+
+// neededTier is the difficulty a task needs, from its oracle and class, in
+// Classify's own terms (ADR 029): every task here must change behaviour so a
+// hidden test passes (locate, edit, verify: several correct tool calls),
+// which is T2; the hard class needs reasoning across code or a
+// specification (ordering rules, an async contract), which is T3. T1 is for
+// read-only questions and trivial edits, which the suite has none of.
+func neededTier(t task) int {
+	if t.Class == "hard" {
+		return 3
+	}
+	return 2
+}
+
+// classify prints, per task, the tier the router's classifier assigns with
+// the code-change floor off (v1) and on, against the tier the task needs.
+func (s *suite) classify(w *os.File) error {
+	fmt.Fprintf(w, "%-24s %-8s %5s %5s %6s\n", "task", "class", "need", "v1", "fixed")
+	under1, under2 := 0, 0
+	for _, t := range s.Tasks {
+		discover.ClassifyV1 = true
+		v1 := discover.Classify(t.Prompt, 0)
+		discover.ClassifyV1 = false
+		v2 := discover.Classify(t.Prompt, 0)
+		need := neededTier(t)
+		mark := func(d int) string {
+			if d < need {
+				return fmt.Sprintf("T%d ✗", d)
+			}
+			return fmt.Sprintf("T%d", d)
+		}
+		if v1 < need {
+			under1++
+		}
+		if v2 < need {
+			under2++
+		}
+		fmt.Fprintf(w, "%-24s %-8s %5s %5s %6s\n", t.ID, t.Class, fmt.Sprintf("T%d", need), mark(v1), mark(v2))
+	}
+	fmt.Fprintf(w, "under-classified: v1 %d/%d, fixed %d/%d\n", under1, len(s.Tasks), under2, len(s.Tasks))
+	return nil
 }
 
 // ─────────────────────────── report ───────────────────────────

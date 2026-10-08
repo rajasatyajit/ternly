@@ -78,6 +78,9 @@ type Agent struct {
 	NoFactChecks bool
 	// Levers are Phase C's quality levers (ADR 029), off unless turned on.
 	Levers Levers
+	// NoTextCallEscalation turns off escalation when a model writes a tool
+	// call as text (only to measure it: TERNLY_ROUTING_FIX; ADR 029).
+	NoTextCallEscalation bool
 	// Deterministic pins sampling (temperature 0, a fixed seed) where the
 	// provider supports it; Responses, when set, answers identical
 	// deterministic requests from disk (ADR 029).
@@ -417,6 +420,20 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			st.answer = msg.Content
 		}
 
+		if len(calls) == 0 && !st.textCallTold && !a.NoTextCallEscalation {
+			if name := textToolCall(msg.Content, a.Reg.Specs()); name != "" {
+				// The model wrote a tool call as text instead of making it:
+				// nothing ran. A model that can't call tools has failed the
+				// turn (ADR 018's escalation; ADR 029: T1 models did this on
+				// every bug report in the suite).
+				st.textCallTold = true
+				a.count(func(s *Stats) { s.TextCalls++ })
+				a.Emit(Event{Kind: EvStatus, Text: model.Key() + " wrote a " + name + " call as text instead of calling the tool"})
+				model = a.escalate(model, need, st, "escalated: the model wrote a tool call as text instead of calling it")
+				a.appendUser(msgTextCall)
+				continue
+			}
+		}
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
 			if st.edited || st.shellRan {

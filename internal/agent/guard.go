@@ -35,6 +35,7 @@ type Stats struct {
 	EmptyRetry  int // empty answers (no text, no tool call) asked again on the same model (ADR 028)
 	Retries     int // whole-task retries from a rewind after verification failed (BestOf lever, ADR 029)
 	Plans       int // planning turns by the strongest model (PlanFirst lever, ADR 029)
+	TextCalls   int // turns where the model wrote a tool call as text (escalated once, ADR 029)
 }
 
 const (
@@ -49,6 +50,7 @@ type turnState struct {
 	// emptyRetried: an empty answer was asked again on the same model;
 	// emptyFailed: a second one failed over. Each at most once a turn (ADR 028).
 	emptyRetried, emptyFailed bool
+	textCallTold              bool // the model was told once that its tool call, written as text, didn't run (ADR 029)
 	start                     time.Time
 	cost0                     float64
 	lim                       Limits

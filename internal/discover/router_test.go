@@ -201,3 +201,39 @@ func TestMeasuredTiers(t *testing.T) {
 		t.Error("unmeasured T1 should verify memory notes")
 	}
 }
+
+// ADR 029: a prompt that asks for a change in behaviour is at least T2,
+// however short. The fixtures are the task suite's bug reports, which v1
+// sent to T1 ("find the cause" matched the easy words).
+func TestClassifyCodeChangeFloor(t *testing.T) {
+	for _, p := range []string{
+		"Bug report: in package simplelru, when the cache is full, adding a new key evicts the most recently used entry instead of the least recently used one. Find the cause and fix it.",
+		"Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still evicts one entry. Find the cause and fix it.",
+		"Bug report: more_itertools.split_at does one more split than maxsplit allows: with maxsplit=1 it splits twice. Find the cause and fix it.",
+		"Bug report: in mitt, calling off(type, handler) with a handler that was never registered for that type removes a different handler. Find the cause and fix it.",
+		"Bug report: in the semver crate, the requirement ^1.2 doesn't match version 1.2.0 (it should: ^1.2 means >=1.2.0, <2.0.0). Find the cause and fix it.",
+		"Bug report: internal/eval's Counts.Wilson returns 95% intervals that are too wide. Find the cause and fix it.",
+		"the login test is failing, find out why",
+		"list endpoint returns the wrong page size",
+		"add a method that lists the keys",
+	} {
+		if d := Classify(p, 0); d < 2 {
+			t.Errorf("T%d for a code change: %q", d, p)
+		}
+	}
+	// trivial edits and read-only questions stay T1
+	for _, p := range []string{
+		"fix the typo in README",
+		"rename parseConfig to loadConfig",
+		"explain what internal/eval does",
+		"find where Config is defined",
+		"list the files in internal/tools",
+		"summarise the README",
+		"bump the version to 0.2.0",
+		"add a comment above Pick",
+	} {
+		if d := Classify(p, 0); d != 1 {
+			t.Errorf("T%d for a trivial prompt: %q", d, p)
+		}
+	}
+}
