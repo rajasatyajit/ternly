@@ -1,0 +1,80 @@
+name: perf A/A noise run
+
+# ADR 017 amendment: the perf gate run with base = head (the same commit).
+# Any benchmark that "regresses" against itself is noise the gate would
+# otherwise blame on a PR: it gets an issue, to be fixed (as GraphLoad was in
+# PR #18), never waived. Waivers are off in this run (PERF_AA=1).
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays 03:17 UTC
+  workflow_dispatch:
+  pull_request:
+    paths: ["bench/perf.json", ".github/workflows/perf-aa.yml"]
+  push:
+    branches: [main]
+    paths: ["bench/perf.json"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-aa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # tags: the gate reads the latest release
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Search tool used by the grep benchmark
+        timeout-minutes: 15
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+      - name: A/A gate (base = head)
+        id: gate
+        env:
+          PERF_AA: "1"
+          PERF_OUT: ${{ runner.temp }}/perf
+        run: bench/run.sh perf HEAD
+      - name: summary
+        if: always()
+        env:
+          PERF_OUT: ${{ runner.temp }}/perf
+        run: |
+          { echo "## A/A noise run (base = head = ${GITHUB_SHA::7})"; echo; cat "$PERF_OUT/summary.md"; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: perf-aa-${{ github.run_id }}
+          path: ${{ runner.temp }}/perf
+          retention-days: 30
+
+  report:
+    # an issue when a benchmark regressed against itself (not for PR runs:
+    # the PR's own check shows it)
+    needs: aa
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: open or update the noise issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="perf gate: a benchmark regressed against itself (A/A noise run)"
+          body="The weekly A/A run (base = head = ${GITHUB_SHA::7}) failed: at least one benchmark shows a significant change against the same commit, so the gate could blame it on an unrelated PR. Fix the benchmark (setup overlapping the timed loop, too few iterations, background work) rather than waiving it. Run: $RUN_URL (summary and benchstat in the artifact)."
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

@@ -7,6 +7,13 @@
 //	perfgate suites -config bench/perf.json
 //	    Prints the suites as "pkg<TAB>regexp<TAB>benchtime" lines, then
 //	    "count", "alpha" (for bench/run.sh).
+//	    With -attribution (from perfgate attribute) and -release (the latest
+//	    v* tag), a failing benchmark gets a line saying whether the PR changed
+//	    the code it runs, and a waiver in bench/perf.json may excuse it.
+//	    -failures writes the failing benchmarks ("pkg<TAB>name") for
+//	    bench/run.sh to attribute; -no-waivers is the A/A run's mode.
+//	perfgate attribute -pkg DIR -bench NAME -n N -cov1 F -cov2 F -changed F -module M -root R -out attr.json
+//	    Profile-diff attribution of one benchmark (see attribute.go).
 //	perfgate summary -csv one.csv
 //	    One input: prints {"name": {"sec/op": {"median": …, "ci": "…"}, …}} for
 //	    bench/baseline.json.
@@ -37,7 +44,44 @@ type suite struct {
 	Benchtime string `json:"benchtime"`
 }
 
+// waiver excuses one benchmark's regression for one release, when none of
+// the code it runs changed (ADR 017 amendment). It is never honoured for a
+// benchmark whose attributed code the PR touched, nor after the release it
+// names has been succeeded by another v* tag.
+type waiver struct {
+	ID        string `json:"id"`        // a name, unique, for the table and the CHANGELOG
+	Benchmark string `json:"benchmark"` // BenchmarkX or BenchmarkX/sub, exactly
+	Unit      string `json:"unit"`      // optional: sec/op, B/op or allocs/op; empty means every unit
+	Evidence  string `json:"evidence"`  // why it is noise: measurements, attribution, links
+	ADR       string `json:"adr"`       // the ADR recording it
+	Release   string `json:"release"`   // the latest v* tag when it was added; it expires at the next one
+}
+
+var (
+	reRelease = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
+	reWaiver  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,63}$`)
+)
+
+func (w waiver) validate() error {
+	switch {
+	case !reWaiver.MatchString(w.ID):
+		return fmt.Errorf("waiver id %q: lowercase letters, digits and dashes, 3–64 long", w.ID)
+	case !strings.HasPrefix(w.Benchmark, "Benchmark") || strings.ContainsAny(w.Benchmark, "*^$|() "):
+		return fmt.Errorf("waiver %s: benchmark %q must name one benchmark exactly", w.ID, w.Benchmark)
+	case w.Unit != "" && w.Unit != "sec/op" && w.Unit != "B/op" && w.Unit != "allocs/op":
+		return fmt.Errorf("waiver %s: unit %q", w.ID, w.Unit)
+	case len(strings.TrimSpace(w.Evidence)) < 40:
+		return fmt.Errorf("waiver %s: needs evidence (at least a sentence: what was measured, and why it is noise)", w.ID)
+	case w.ADR == "":
+		return fmt.Errorf("waiver %s: needs an adr", w.ID)
+	case !reRelease.MatchString(w.Release):
+		return fmt.Errorf("waiver %s: release %q must be the latest v* tag when it was added (vX.Y.Z)", w.ID, w.Release)
+	}
+	return nil
+}
+
 type config struct {
+	Waivers         []waiver          `json:"waivers"`
 	Count           int               `json:"count"`
 	Suites          []suite           `json:"suites"`
 	BudgetPct       float64           `json:"budget_pct"`
@@ -63,7 +107,40 @@ func main() {
 	csvPath := fs.String("csv", "", "benchstat -format csv output")
 	size := fs.String("size", "", "binary sizes in bytes: BASE,HEAD")
 	retriesPath := fs.String("retries", "", "bench/run.sh's retries.tsv (side, package, first failure line)")
+	var o checkOpts
+	fs.StringVar(&o.failures, "failures", "", "check: write the failing benchmarks here (pkg<TAB>name), for attribution")
+	fs.StringVar(&o.attrPath, "attribution", "", "check: attributions from perfgate attribute")
+	fs.StringVar(&o.release, "release", "", "check: the latest v* tag reachable from the head (waivers expire at the next one)")
+	fs.BoolVar(&o.noWaivers, "no-waivers", false, "check: honour no waiver (the A/A noise run)")
+	var a struct {
+		pkg, bench, cov1, cov2, changed, module, root, out string
+		n                                                  int
+	}
+	fs.StringVar(&a.pkg, "pkg", "", "attribute: the benchmark's package dir, module-relative")
+	fs.StringVar(&a.bench, "bench", "", "attribute: the benchmark (BenchmarkX or BenchmarkX/sub)")
+	fs.IntVar(&a.n, "n", 0, "attribute: iterations of the first coverage run (the second ran 2n)")
+	fs.StringVar(&a.cov1, "cov1", "", "attribute: coverprofile at n")
+	fs.StringVar(&a.cov2, "cov2", "", "attribute: coverprofile at 2n")
+	fs.StringVar(&a.changed, "changed", "", "attribute: the PR's changed files, one per line")
+	fs.StringVar(&a.module, "module", "github.com/rajasatyajit/ternly", "attribute: the module path")
+	fs.StringVar(&a.root, "root", ".", "attribute: the module root")
+	fs.StringVar(&a.out, "out", "", "attribute: the attributions file to add to")
 	_ = fs.Parse(os.Args[2:])
+	if os.Args[1] == "benchre" && len(os.Args) == 3 {
+		fmt.Println(benchRE(os.Args[2]))
+		return
+	}
+	if os.Args[1] == "attribute" {
+		if a.pkg == "" || a.bench == "" || a.n <= 0 || a.cov1 == "" || a.cov2 == "" || a.changed == "" || a.out == "" {
+			fmt.Fprintln(os.Stderr, "perfgate attribute: needs -pkg -bench -n -cov1 -cov2 -changed -out")
+			os.Exit(2)
+		}
+		if err := attributeCmd(a.pkg, a.bench, a.n, a.cov1, a.cov2, a.changed, a.module, a.root, a.out); err != nil {
+			fmt.Fprintln(os.Stderr, "perfgate:", err)
+			os.Exit(2)
+		}
+		return
+	}
 	if os.Args[1] == "suites" {
 		if err := suites(os.Stdout, *cfgPath); err != nil {
 			fmt.Fprintln(os.Stderr, "perfgate:", err)
@@ -83,7 +160,9 @@ func main() {
 		var cfg config
 		if cfg, err = loadConfig(*cfgPath); err == nil {
 			var failed bool
-			failed, err = check(os.Stdout, cfg, rows, *size)
+			if o.attr, err = loadAttributions(o.attrPath); err == nil {
+				failed, err = checkWith(os.Stdout, cfg, rows, *size, o)
+			}
 			if err == nil && *retriesPath != "" {
 				err = retries(os.Stdout, *retriesPath)
 			}
@@ -116,6 +195,16 @@ func loadConfig(p string) (config, error) {
 		if b.ADR == "" || b.Pct <= 0 {
 			return c, fmt.Errorf("%s: budget for %s needs pct > 0 and an adr", p, name)
 		}
+	}
+	ids := map[string]bool{}
+	for _, w := range c.Waivers {
+		if err := w.validate(); err != nil {
+			return c, fmt.Errorf("%s: %w", p, err)
+		}
+		if ids[w.ID] {
+			return c, fmt.Errorf("%s: waiver id %q used twice", p, w.ID)
+		}
+		ids[w.ID] = true
 	}
 	return c, nil
 }
@@ -185,11 +274,56 @@ func readRows(p string) ([]row, error) {
 	return out, nil
 }
 
+// checkOpts are check's attribution and waiver inputs.
+type checkOpts struct {
+	failures  string // write failing benchmarks here
+	attrPath  string
+	attr      attributions
+	release   string // the latest v* tag reachable from the head
+	noWaivers bool
+}
+
 // check applies the budgets to an A/B table (cells: base, CI, head, CI, delta, P).
 // benchstat prints a delta only when the difference is significant at its
 // alpha (passed to it by bench/run.sh), and "~" otherwise.
 func check(w io.Writer, cfg config, rows []row, size string) (bool, error) {
+	return checkWith(w, cfg, rows, size, checkOpts{})
+}
+
+// modRel is a benchmark package's module-relative dir.
+func modRel(pkg string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(pkg, "github.com/rajasatyajit/ternly"), "/")
+}
+
+// waive decides a regression beyond budget: the waiver honoured, or why not.
+func waive(cfg config, o checkOpts, r row) (honoured *waiver, why string) {
+	if o.noWaivers {
+		return nil, ""
+	}
+	for i := range cfg.Waivers {
+		wv := &cfg.Waivers[i]
+		if wv.Benchmark != r.name || wv.Unit != "" && wv.Unit != r.unit {
+			continue
+		}
+		a, ok := o.attr[attrKey(modRel(r.pkg), r.name)]
+		switch {
+		case o.release == "":
+			return nil, fmt.Sprintf("waiver %s refused: the release couldn't be determined (no v* tag)", wv.ID)
+		case o.release != wv.Release:
+			return nil, fmt.Sprintf("waiver %s refused: expired (added at %s; %s has been released since): remove it", wv.ID, wv.Release, o.release)
+		case !ok:
+			return nil, fmt.Sprintf("waiver %s refused: no attribution for this benchmark", wv.ID)
+		case !a.clean():
+			return nil, fmt.Sprintf("waiver %s refused: %s", wv.ID, a.line())
+		}
+		return wv, ""
+	}
+	return nil, ""
+}
+
+func checkWith(w io.Writer, cfg config, rows []row, size string, o checkOpts) (bool, error) {
 	failed := false
+	var failing, notes []string
 	fmt.Fprintf(w, "### Performance gate (budget %g%%, alpha %g)\n\n| benchmark | unit | base | head | change | verdict |\n|---|---|---|---|---|---|\n", cfg.BudgetPct, cfg.Alpha)
 	for _, r := range rows {
 		c := append(r.cells, make([]string, 6)...)[:6] // a benchmark only one side has: trailing cells are dropped
@@ -218,7 +352,18 @@ func check(w io.Writer, cfg config, rows []row, size string) (bool, error) {
 				return false, fmt.Errorf("%s %s: delta %q", r.name, r.unit, delta)
 			}
 			if pct > lim {
-				verdict, failed = fmt.Sprintf("**FAIL: +%.1f%% > %g%%**", pct, lim), true
+				failing = append(failing, r.pkg+"\t"+r.name)
+				if a, ok := o.attr[attrKey(modRel(r.pkg), r.name)]; ok {
+					notes = append(notes, fmt.Sprintf("- %s %s: %s", r.name, r.unit, a.line()))
+				}
+				if wv, why := waive(cfg, o, r); wv != nil {
+					verdict = fmt.Sprintf("**WAIVED (%s, ADR %s, until the release after %s): +%.1f%% > %g%%**", wv.ID, wv.ADR, wv.Release, pct, lim)
+				} else {
+					verdict, failed = fmt.Sprintf("**FAIL: +%.1f%% > %g%%**", pct, lim), true
+					if why != "" {
+						notes = append(notes, fmt.Sprintf("- %s %s: %s", r.name, r.unit, why))
+					}
+				}
 			}
 		}
 		fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s |\n", r.name, r.unit, base, head, delta, verdict)
@@ -237,8 +382,28 @@ func check(w io.Writer, cfg config, rows []row, size string) (bool, error) {
 		}
 		fmt.Fprintf(w, "| binary (static, stripped) | bytes | %.0f | %.0f | %+.2f%% | %s |\n", bs, hs, pct, verdict)
 	}
+	if len(notes) > 0 {
+		fmt.Fprintln(w, "\nAttribution (the code each failing benchmark runs per op, against the PR's changes):")
+		for _, n := range notes {
+			fmt.Fprintln(w, n)
+		}
+	}
+	for _, wv := range cfg.Waivers {
+		if o.release != "" && wv.Release != o.release && !o.noWaivers {
+			fmt.Fprintf(w, "\nNote: waiver %s expired (added at %s; %s has been released): remove it from bench/perf.json.\n", wv.ID, wv.Release, o.release)
+		}
+	}
 	if failed {
-		fmt.Fprintln(w, "\nA regression beyond budget fails the PR. Fix it, or record why it is worth it in an ADR and set a budget for that benchmark in bench/perf.json.")
+		fmt.Fprintln(w, "\nA regression beyond budget fails the PR. Fix it, or record why it is worth it in an ADR and set a budget for that benchmark in bench/perf.json. A waiver (ADR 017) applies only when none of the code the benchmark runs changed.")
+	}
+	if o.failures != "" {
+		b := strings.Join(failing, "\n")
+		if b != "" {
+			b += "\n"
+		}
+		if err := os.WriteFile(o.failures, []byte(b), 0o644); err != nil {
+			return failed, err
+		}
 	}
 	return failed, nil
 }
