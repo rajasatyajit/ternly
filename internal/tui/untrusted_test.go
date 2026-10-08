@@ -69,3 +69,29 @@ func testModel(t *testing.T) *Model {
 	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
 	return m
 }
+
+// The frame filter keeps ternly's SGR styling and escapes everything else,
+// whatever produced it (an info line quoting git, a plugin, an MCP server).
+func TestSafeFrame(t *testing.T) {
+	styled := sOK.Render("ok") + " " + sAccent.Render("x") + "\x1b[m\x1b[0m\x1b[38;2;1;2;3m"
+	if got := safeFrame(styled); got != styled {
+		t.Fatalf("SGR styling changed: %q → %q", styled, got)
+	}
+	for in, want := range map[string]string{
+		"a\x1b]52;c;eA==\x07b": `a\x1b]52;c;eA==\x07b`,
+		"\x1b[2J\x1b[H":         `\x1b[2J\x1b[H`,
+		"\x1b[31mred\x1b[0m":    "\x1b[31mred\x1b[0m",
+		"\x1b[31":               `\x1b[31`,
+		"\u009b31m":             `\x9b31m`,
+	} {
+		if got := safeFrame(in); got != want {
+			t.Errorf("safeFrame(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// an info line built from outside text that skipped untrusted()
+	m := testModel(t)
+	m.addInfo("  git says: \x1b]0;pwned\x07 \x1b[1A\x1b[2K")
+	if v := m.View().Content; strings.Contains(v, "\x1b]0") || strings.Contains(v, "\x1b[1A") || strings.Contains(v, "\x1b[2K") {
+		t.Fatal("a non-SGR sequence in an info line reached the screen")
+	}
+}

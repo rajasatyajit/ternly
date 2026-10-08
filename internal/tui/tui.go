@@ -1095,7 +1095,7 @@ func (m *Model) renderBlock(b *block) string {
 
 func (m *Model) View() tea.View {
 	s, boxTop := m.render()
-	v := tea.NewView(s)
+	v := tea.NewView(safeFrame(s))
 	v.AltScreen = true // basic key disambiguation (shift+enter) is requested by default
 	v.ReportFocus = true // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
 	if m.App.Access.Mouse {

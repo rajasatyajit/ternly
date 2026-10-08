@@ -67,3 +67,80 @@ func plainRunes(s string) bool {
 	}
 	return true
 }
+
+// safeFrame is the last line of defence for a whole frame: ternly's own
+// styling is only SGR (ESC [ params m, from lipgloss and glamour), so every
+// other escape sequence and control character is escaped as visible text,
+// whatever produced it — an info line quoting git, a plugin or an MCP
+// server included. Bubble Tea positions the cursor itself, after View.
+func safeFrame(s string) string {
+	if isPlainFrame(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s) + 16)
+	for i := 0; i < len(s); {
+		if s[i] == 0x1b {
+			if j := sgrEnd(s, i); j > 0 {
+				b.WriteString(s[i:j])
+				i = j
+				continue
+			}
+			b.WriteString(`\x1b`)
+			i++
+			continue
+		}
+		r, n := utf8.DecodeRuneInString(s[i:])
+		i += n
+		switch {
+		case r == utf8.RuneError && n == 1:
+			b.WriteRune('�')
+		case r == '\n' || r == '\t':
+			b.WriteRune(r)
+		case r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f):
+			fmt.Fprintf(&b, `\x%02x`, r)
+		case (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069):
+			fmt.Fprintf(&b, `\u%04x`, r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// sgrEnd: if s[i:] starts an SGR sequence, the index after it, else 0.
+func sgrEnd(s string, i int) int {
+	if i+1 >= len(s) || s[i+1] != '[' {
+		return 0
+	}
+	for j := i + 2; j < len(s); j++ {
+		switch c := s[j]; {
+		case c >= '0' && c <= '9', c == ';', c == ':':
+		case c == 'm':
+			return j + 1
+		default:
+			return 0
+		}
+	}
+	return 0
+}
+
+// isPlainFrame: nothing but SGR and safe characters (the common case).
+func isPlainFrame(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == 0x1b:
+			j := sgrEnd(s, i)
+			if j == 0 {
+				return false
+			}
+			i = j - 1
+		case c < 0x20 && c != '\n' && c != '\t', c == 0x7f:
+			return false
+		case c >= 0x80:
+			return utf8.ValidString(s[i:]) && plainRunes(s[i:])
+		}
+	}
+	return true
+}

@@ -592,7 +592,7 @@ func (m *Model) isGit(ctx context.Context) bool {
 }
 
 func colorDiff(d string, maxLines int) string {
-	ls := strings.Split(strings.TrimRight(d, "\n"), "\n")
+	ls := strings.Split(strings.TrimRight(untrusted(d), "\n"), "\n") // file contents: outside text
 	more := 0
 	if len(ls) > maxLines {
 		more, ls = len(ls)-maxLines, ls[:maxLines]
@@ -639,7 +639,7 @@ func (m *Model) cmdDiff(string) tea.Cmd {
 			b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
 		}
 		if u := strings.TrimSpace(un); u != "" {
-			b.WriteString(sWarn.Render("  untracked: ") + strings.ReplaceAll(u, "\n", ", ") + "\n")
+			b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
 		}
 		b.WriteString(colorDiff(d, 200))
 		return infoMsg(b.String())
