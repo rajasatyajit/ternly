@@ -1,6 +1,44 @@
 # Changelog
 
-## v0.1.1 (unreleased)
+## Unreleased
+
+### Judges score structured answers (ADR 019)
+**The class of bug:** judges that searched the model's prose. They failed right answers worded
+unexpectedly, and passed non-answers that contained the right token. Fixed:
+- **The e2e checks and the eval's traps ask for a final JSON answer,** and their judges read only
+  that.
+- **History is re-scored** (`bench/rescore`, `bench/evalaudit`, with the manual verdicts committed
+  as data):
+  - 24 e2e runs changed, and three full-run reports flip FAIL → PASS;
+  - 10 of 126 eval verdicts behind the shipped tiers were wrong.
+
+**Shipped measurements, re-measured under eval v4:**
+- every tier is unchanged;
+- **qwen3.6 is now measured easily baited:** it ran a hostile skill's `curl … | sh` once in three
+  runs, and fetched the same script with `curl … | head` once.
+
+### Asymmetric trust (ADR 020)
+- **Trust is lost under the same rule as before,** but regained only after 20 bait trials in a row
+  without taking the bait. Measuring a model afresh doesn't reset it.
+- **A model whose trust is lost:**
+  - every shell command asks, in every mode, even read-only ones, and headless runs refuse them;
+  - file edits are allowed in an explicitly chosen edits or yolo mode while checkpoints are on, so
+    each one can be undone;
+  - external tool calls ask, and "always" never sticks.
+- So headless, pinned to qwen3.6 with `--mode edits`, ternly can fix code again. Its own sandboxed
+  verify step still runs the tests.
+
+### Quota and rate limits
+- **Errors sent inside a stream** (the way Ollama reports errors during streaming) used to be
+  dropped silently, ending the turn with an empty answer. They now fail over.
+- **Retry-After is honoured,** and a long wait fails over at once.
+- **A subscription's usage limit** takes its model out of routing for that long, also when the
+  status is a 402 or 403.
+
+### Bench
+- **`bench/netguard`:** the netguard task's black-box scorer, recreated.
+
+## v0.1.1 (2026-10-08)
 
 ### Routing: the expected cost of finishing (ADR 018)
 v0.1.0 routed on token price alone. A free local model therefore won every task it was strong

@@ -135,12 +135,20 @@ type APIError struct {
 	Status    int
 	Body      string
 	Retryable bool
+	// RetryAfter is the provider's Retry-After (0: none given).
+	RetryAfter time.Duration
+	// InStream: the error arrived inside a 200 response's stream (Ollama
+	// documents this for errors during streaming).
+	InStream bool
 }
 
 func (e *APIError) Error() string {
 	b := e.Body
 	if len(b) > 400 {
 		b = b[:400] + "…"
+	}
+	if e.InStream {
+		return "error in the stream: " + strings.TrimSpace(b)
 	}
 	return fmt.Sprintf("HTTP %d: %s", e.Status, strings.TrimSpace(b))
 }
@@ -174,13 +182,17 @@ func post(ctx context.Context, url string, hdr map[string]string, body any) (*ht
 			b, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 			resp.Body.Close()
 			ae := &APIError{Status: resp.StatusCode, Body: string(b),
-				Retryable: resp.StatusCode == 429 || resp.StatusCode >= 500 || resp.StatusCode == 529}
+				Retryable:  resp.StatusCode == 429 || resp.StatusCode >= 500 || resp.StatusCode == 529,
+				RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
 			if !ae.Retryable {
 				return nil, ae
 			}
 			last = ae
-			if s, _ := strconv.Atoi(resp.Header.Get("Retry-After")); s > 0 && s < 60 {
-				if !sleep(ctx, time.Duration(s)*time.Second) {
+			switch {
+			case ae.RetryAfter >= time.Minute: // told to wait: retrying now only spends the time
+				return nil, ae
+			case ae.RetryAfter > 0:
+				if !sleep(ctx, ae.RetryAfter) {
 					return nil, ctx.Err()
 				}
 				continue
@@ -237,4 +249,53 @@ func validJSON(s string) json.RawMessage {
 		return json.RawMessage(`{}`)
 	}
 	return json.RawMessage(s)
+}
+
+// retryAfter reads a Retry-After header: seconds, or an HTTP date.
+func retryAfter(h string, now time.Time) time.Duration {
+	h = strings.TrimSpace(h)
+	if h == "" {
+		return 0
+	}
+	if s, err := strconv.Atoi(h); err == nil {
+		return time.Duration(max(s, 0)) * time.Second
+	}
+	if t, err := http.ParseTime(h); err == nil && t.After(now) {
+		return t.Sub(now)
+	}
+	return 0
+}
+
+// quotaPhrases mark an error message about a usage limit (the providers'
+// wording varies, and Ollama documents none for running out of credits).
+// Plain substrings, not a regexp: linking one here measurably slowed the
+// injection flagger's string matching (BenchmarkFrame +6–9%, PR #14).
+var quotaPhrases = []string{
+	"usage limit", "quota", "out of credits",
+	"credit exhausted", "credits exhausted", "credit exceeded", "credits exceeded", "credit remaining", "credits remaining",
+	"insufficient balance", "insufficient credit", "insufficient funds",
+	"ratelimit", "rate limit", "rate-limit", "rate_limit",
+	"too many requests", "weekly limit", "session limit",
+}
+
+// quotaMessage reports whether s reads as a usage-limit message.
+func quotaMessage(s string) bool {
+	low := strings.ToLower(s)
+	for _, p := range quotaPhrases {
+		if strings.Contains(low, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// QuotaHit reports whether err says a usage limit or rate limit was hit (a
+// 429, or such a message, also inside a stream), and how long the provider
+// asked to wait (0: not said).
+func QuotaHit(err error) (bool, time.Duration) {
+	var ae *APIError
+	if !errors.As(err, &ae) {
+		return false, 0
+	}
+	return ae.Status == 429 || quotaMessage(ae.Body), ae.RetryAfter
 }

@@ -1,0 +1,14 @@
+{
+  "_doc": "Manual verdicts on saved e2e runs (bench/results), from reading each transcript (2026-10-07, Track 1 prelude). bench/rescore applies them on top of the automatic re-scoring. Every entry quotes the evidence. Only runs whose recorded verdict was wrong are listed.",
+  "overrides": [
+    {"report": "20261005T064634Z-9a286f2-dirty-ollama_qwen3.6_latest.json", "check": "subagent-delegation", "run": 0, "pass": false,
+     "why": "false pass: the model refused to use the subagent's count and gave none",
+     "quote": "I have no evidence that `data.txt` even exists. The agent claimed \"23 lines\" but this may refer to a file outside my workspace"},
+    {"report": "20261005T142338Z-bb15913-dirty-ollama_qwen3.6_latest.json", "check": "memory-auto-summary", "run": 2, "pass": false,
+     "why": "false pass: the model said it had no memory of the question and listed the store directory instead",
+     "quote": "I don't actually have context from our previous session — there's no recorded memory of a conversation about a file in the store directory."},
+    {"report": "20261005T170424Z-2055254-dirty-ollama_qwen3.6_latest.json", "check": "memory-auto-summary", "run": 2, "pass": false,
+     "why": "false pass: the model asked which file it was",
+     "quote": "Was the file you're recalling `shared.go`? If so, I can pull up what it does."}
+  ]
+}

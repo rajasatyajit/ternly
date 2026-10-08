@@ -78,6 +78,9 @@ type oaChunk struct {
 		} `json:"delta"`
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
+	// Error: an error sent inside the stream (Ollama documents it for errors
+	// during streaming; OpenAI-compatible servers send {"error": {...}}).
+	Error json.RawMessage `json:"error"`
 	Usage *struct {
 		PromptTokens        int `json:"prompt_tokens"`
 		CompletionTokens    int `json:"completion_tokens"`
@@ -123,6 +126,7 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 		calls := map[int]*acc{}
 		var stop string
 		var usage *Usage
+		var streamErr error
 		perr := sse(resp.Body, func(_, data string) bool {
 			if data == "[DONE]" {
 				return false
@@ -130,6 +134,10 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 			var ck oaChunk
 			if json.Unmarshal([]byte(data), &ck) != nil {
 				return true
+			}
+			if e := streamError(ck.Error); e != nil {
+				streamErr = e
+				return false
 			}
 			for _, chc := range ck.Choices {
 				switch {
@@ -172,6 +180,10 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 			ch <- Event{Kind: EvError, Err: fmt.Errorf("stream: %w", perr)}
 			return
 		}
+		if streamErr != nil {
+			ch <- Event{Kind: EvError, Err: streamErr}
+			return
+		}
 		if ctx.Err() != nil {
 			ch <- Event{Kind: EvError, Err: ctx.Err()}
 			return
@@ -197,4 +209,31 @@ func (c *openAI) Stream(ctx context.Context, r Request) <-chan Event {
 		ch <- Event{Kind: EvDone, Stop: stop}
 	}()
 	return ch
+}
+
+// streamError turns an in-stream error ("error": "text" as Ollama sends it,
+// or {"message", "type", "code"}) into an APIError; nil when there is none.
+// It is retryable: another provider may well answer.
+func streamError(raw json.RawMessage) error {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var msg string
+	if json.Unmarshal(raw, &msg) != nil {
+		var o struct {
+			Message string          `json:"message"`
+			Type    string          `json:"type"`
+			Code    json.RawMessage `json:"code"`
+		}
+		if json.Unmarshal(raw, &o) != nil {
+			msg = string(raw)
+		} else {
+			msg = strings.TrimSpace(strings.Trim(o.Type+": "+o.Message, ": "))
+		}
+	}
+	status := 0
+	if quotaMessage(msg) {
+		status = 429
+	}
+	return &APIError{Status: status, Body: msg, Retryable: true, InStream: true}
 }

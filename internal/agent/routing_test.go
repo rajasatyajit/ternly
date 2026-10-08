@@ -209,3 +209,55 @@ func TestWatchdogSecondsFollowExpectation(t *testing.T) {
 		t.Fatalf("a 1.5 s step of a model expected at ~3 s was cut: %q %+v", rec.text(EvStatus), a.Stats())
 	}
 }
+
+// limited is a provider that signals a usage limit: a status with a body, or
+// an error inside a 200 stream (the shapes Ollama documents; no real
+// exhaustion has been recorded).
+func limited(t *testing.T, status int, retryAfter, body string) string {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if retryAfter != "" {
+			w.Header().Set("Retry-After", retryAfter)
+		}
+		if status == 200 {
+			w.Header().Set("Content-Type", "text/event-stream")
+			fmt.Fprintf(w, "data: %s\n\n", body)
+			return
+		}
+		http.Error(w, body, status)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func TestV2QuotaSignals(t *testing.T) {
+	for _, c := range []struct {
+		name, retryAfter, body string
+		status                 int
+		cooldown               time.Duration // 0: not exhausted
+	}{
+		{"429 with Retry-After", "120", `{"error":"you have reached your weekly usage limit"}`, 429, 2 * time.Minute},
+		{"429 without", "", `{"error":"too many requests"}`, 429, quotaCooldown},
+		{"in-stream usage limit", "", `{"error":"you have reached your usage limit, upgrade for more"}`, 200, quotaCooldown},
+		{"503 overloaded", "90", `{"error":"server overloaded"}`, 503, 0},
+		{"402 out of credits", "", `{"error":"insufficient balance: out of credits"}`, 402, quotaCooldown}, // not retryable, still a quota
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			backup := newFake(t, reply{text: "done locally"})
+			g := cloudModel(limited(t, c.status, c.retryAfter, c.body), "glm-5.3:cloud", 3)
+			q := localModel(backup.URL, "qwen3.6:latest", 3)
+			a, rec, _ := v2Agent(t, []*discover.Model{g}, g, q)
+			t0 := time.Now()
+			a.Run(bg, "say hi")
+			if len(backup.requests()) == 0 || !strings.Contains(rec.text(EvStatus), "failing over") || rec.text(EvError) != "" {
+				t.Fatalf("no failover: local %d, status %q, errors %q", len(backup.requests()), rec.text(EvStatus), rec.text(EvError))
+			}
+			until := a.Router.ExhaustedUntil(g.Key())
+			switch {
+			case c.cooldown == 0 && !until.IsZero():
+				t.Fatalf("a transient error took the model out until %v", until)
+			case c.cooldown > 0 && (until.Before(t0.Add(c.cooldown)) || until.After(time.Now().Add(c.cooldown))):
+				t.Fatalf("out until %v, want ~%v from now", until.Sub(t0).Round(time.Second), c.cooldown)
+			}
+		})
+	}
+}

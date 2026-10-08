@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/e2ejudge"
 )
 
 // liveChecks are the real-model checks; bench/e2e_checks.txt lists them with
@@ -60,14 +62,21 @@ func numberedLines(n int, tag string) string {
 // tool; the answer is right (23 isn't a number to guess).
 func checkSubagentDelegation(r *liveRun) error {
 	r.files(map[string]string{"data.txt": numberedLines(23, "row"), ".claude/agents/linecounter.md": lineCounter})
-	if _, err := r.headless("yolo", "Delegate to the linecounter agent (task tool) to count the lines in data.txt, then tell me the number."); err != nil {
+	if _, err := r.headless("yolo", "Delegate to the linecounter agent (task tool) to count the lines in data.txt, then tell me the number."+
+		e2ejudge.Instruction(`{"lines": <the number of lines>}`)); err != nil {
 		return err
 	}
 	if !strings.Contains(r.trace, "→ task") || !strings.Contains(r.trace, "subagent → read_file") {
 		return errors.New("no delegation: the trace lacks a task call or the subagent's read")
 	}
-	if !strings.Contains(r.answer, "23") {
-		return errors.New("the answer lacks the right count (23)")
+	var a struct {
+		Lines int `json:"lines"`
+	}
+	if err := e2ejudge.FinalJSON(r.answer, &a); err != nil {
+		return err
+	}
+	if a.Lines != 23 {
+		return fmt.Errorf("answered %d lines, want 23", a.Lines)
 	}
 	return nil
 }
@@ -120,11 +129,17 @@ func checkMemoryCodeword(r *liveRun) error {
 	if _, err := r.headless("edits", "Remember this for later: the release codeword is "+word+". Reply only OK."); err != nil {
 		return err
 	}
-	if _, err := r.headless("edits", "What is the release codeword I gave you earlier?", "-c"); err != nil {
+	if _, err := r.headless("edits", "What is the release codeword I gave you earlier?"+e2ejudge.Instruction(`{"codeword": "<the codeword>"}`), "-c"); err != nil {
 		return err
 	}
-	if !strings.Contains(r.answer, word) {
-		return fmt.Errorf("codeword %s not recalled", word)
+	var a struct {
+		Codeword string `json:"codeword"`
+	}
+	if err := e2ejudge.FinalJSON(r.answer, &a); err != nil {
+		return err
+	}
+	if a.Codeword != word {
+		return fmt.Errorf("answered codeword %q, want %s", a.Codeword, word)
 	}
 	return nil
 }
@@ -142,11 +157,19 @@ func checkMemoryAutoSummary(r *liveRun) error {
 	if _, err := r.headless("edits", "What does store/shared.go do? Answer in two sentences."); err != nil {
 		return err
 	}
-	if _, err := r.headless("edits", "Last time I asked you about one file in the store directory. Which file was it, and what did you say it does?", "--new"); err != nil {
+	if _, err := r.headless("edits", "Last time I asked you about one file in the store directory. Which file was it, and what did you say it does?"+
+		e2ejudge.Instruction(`{"file": "<its path in this workspace>", "said": "<what you said it does, one sentence>"}`), "--new"); err != nil {
 		return err
 	}
-	if !strings.Contains(r.answer, "shared.go") {
-		return errors.New("the new session didn't name shared.go")
+	var a struct {
+		File string `json:"file"`
+		Said string `json:"said"`
+	}
+	if err := e2ejudge.FinalJSON(r.answer, &a); err != nil {
+		return err
+	}
+	if !e2ejudge.SameFile(a.File, "store/shared.go") {
+		return fmt.Errorf("the new session answered file %q, want store/shared.go", a.File)
 	}
 	return nil
 }
@@ -216,10 +239,14 @@ func checkGraphCallsites(r *liveRun) error {
 	r.files(files)
 	want := []string{"cmd/run.go:7", "cmd/stop.go:6", "server/server.go:8", "server/server.go:11"}
 	wrong := []string{"cmd/run.go:6", "cmd/stop.go:10", "cmd/stop.go:11"}
-	if _, err := r.headless("edits", "List every call site of the method Store.Flush (package store) in this repository, as file:line, one per line. Don't include calls to other Flush methods."); err != nil {
+	if _, err := r.headless("edits", "List every call site of the method Store.Flush (package store) in this repository, as file:line, one per line. Don't include calls to other Flush methods."+
+		e2ejudge.Instruction(`{"call_sites": ["<file:line>", ...]}`)); err != nil {
 		return err
 	}
-	missing, extra := callsiteVerdict(r.answer, want, wrong)
+	missing, extra, err := structuredCallSites(r.answer, want, wrong)
+	if err != nil {
+		return err
+	}
 	if len(missing)+len(extra) > 0 {
 		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
 	}
@@ -293,10 +320,14 @@ func checkGraphCallsitesPython(r *liveRun) error {
 	})
 	want := []string{"app/run.py:6", "app/stop.py:5", "server/server.py:9", "server/server.py:10"}
 	wrong := []string{"app/run.py:5"}
-	if _, err := r.headless("edits", "List every call site of the method Store.flush (in app/store.py) in this repository, as file:line, one per line. Don't include calls to Buffer.flush."); err != nil {
+	if _, err := r.headless("edits", "List every call site of the method Store.flush (in app/store.py) in this repository, as file:line, one per line. Don't include calls to Buffer.flush."+
+		e2ejudge.Instruction(`{"call_sites": ["<file:line>", ...]}`)); err != nil {
 		return err
 	}
-	missing, extra := callsiteVerdict(r.answer, want, wrong)
+	missing, extra, err := structuredCallSites(r.answer, want, wrong)
+	if err != nil {
+		return err
+	}
 	if len(missing)+len(extra) > 0 {
 		return fmt.Errorf("missing %v, wrongly included %v", missing, extra)
 	}
@@ -310,4 +341,16 @@ func attackNamed(name string) attack {
 		}
 	}
 	panic("no attack " + name)
+}
+
+// structuredCallSites scores a call-site answer's final JSON list.
+func structuredCallSites(answer string, want, wrong []string) (missing, extra []string, err error) {
+	var a struct {
+		CallSites []string `json:"call_sites"`
+	}
+	if err := e2ejudge.FinalJSON(answer, &a); err != nil {
+		return nil, nil, err
+	}
+	missing, extra = e2ejudge.CallSites(a.CallSites, want, wrong)
+	return missing, extra, nil
 }

@@ -38,8 +38,12 @@ type Policy struct {
 	// the repository's code with the user's full privileges, so no shell
 	// command is approved automatically — not even in yolo or plan mode.
 	Unsandboxed bool
-	mu          sync.Mutex
-	always      map[string]bool
+	// Checkpointed: edits are snapshotted and can be undone (/undo,
+	// /rewind). A restricted model may edit without asking only then
+	// (ADR 020).
+	Checkpointed bool
+	mu           sync.Mutex
+	always       map[string]bool
 }
 
 func NewPolicy(mode string, ask Asker) *Policy {
@@ -66,9 +70,11 @@ const PlanDenied = " (plan mode is read-only: investigate and propose the change
 type restrictKey struct{}
 
 // WithRestriction marks the calls made under ctx as coming from a model
-// that is measured as easily baited by injected instructions (ADR 013): in
-// edits and yolo modes, every edit and every command that isn't read-only
-// needs confirmation, and "always" doesn't apply.
+// whose trust is lost: it is measured as easily baited by injected
+// instructions (ADR 013, 020). In every mode, each shell command and each
+// external tool call needs a person to confirm it ("always" doesn't apply,
+// headless refuses it); edits are allowed only in a chosen edits or yolo
+// mode with checkpoints on, so each one can be undone.
 func WithRestriction(ctx context.Context, why string) context.Context {
 	return context.WithValue(ctx, restrictKey{}, why)
 }
@@ -77,24 +83,8 @@ func restriction(ctx context.Context) string { s, _ := ctx.Value(restrictKey{}).
 
 func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool, string) {
 	key, mode := name, p.Mode()
-	if why := restriction(ctx); why != "" && (mode == "edits" || mode == "yolo") && t.Kind != ReadOnly {
-		if t.Kind == Exec {
-			cmd := strings.TrimSpace(summary)
-			if reForbidden.MatchString(cmd) {
-				return false, " (command is on the forbidden list)"
-			}
-			if p.safeCommand(cmd, false) && !p.Unsandboxed {
-				return true, ""
-			}
-		}
-		danger := t.Kind == Exec && reDanger.MatchString(summary)
-		if p.Ask == nil {
-			return false, " (non-interactive: " + why + ", so its edits and commands need a person to confirm; rerun with another model, or interactively)"
-		}
-		if p.Ask(ctx, name, summary+"  ["+why+"]", danger) == Deny {
-			return false, " (denied by user)"
-		}
-		return true, ""
+	if why := restriction(ctx); why != "" && t.Kind != ReadOnly {
+		return p.checkRestricted(ctx, t, name, summary, mode, why)
 	}
 	if mode == "plan" { // read, search and safe commands only
 		switch t.Kind {
@@ -147,6 +137,38 @@ func (p *Policy) Check(ctx context.Context, t *Tool, name, summary string) (bool
 		}
 	}
 	return p.ask(ctx, name, summary, false, key)
+}
+
+// checkRestricted decides a call from a model whose trust is lost (ADR 020).
+func (p *Policy) checkRestricted(ctx context.Context, t *Tool, name, summary, mode, why string) (bool, string) {
+	if mode == "plan" && t.Kind == Edit {
+		return false, PlanDenied
+	}
+	if t.Kind == Edit && (mode == "edits" || mode == "yolo") && p.Checkpointed {
+		return true, "" // checkpointed: /undo reverts it
+	}
+	danger := false
+	if t.Kind == Exec {
+		cmd := strings.TrimSpace(summary)
+		if reForbidden.MatchString(cmd) {
+			return false, " (command is on the forbidden list)"
+		}
+		danger = reDanger.MatchString(cmd)
+	}
+	if p.Ask == nil {
+		what := "its shell commands always need a person to confirm them"
+		switch t.Kind {
+		case Edit:
+			what = "its edits need --mode edits with checkpoints on, or a person to confirm them"
+		case External:
+			what = "its external tool calls need a person to confirm them"
+		}
+		return false, " (non-interactive: " + why + ", so " + what + "; rerun with another model, or interactively)"
+	}
+	if p.Ask(ctx, name, summary+"  ["+why+"]", danger) == Deny {
+		return false, " (denied by user)"
+	}
+	return true, ""
 }
 
 // Always lists what was allowed for the rest of the session ("always").

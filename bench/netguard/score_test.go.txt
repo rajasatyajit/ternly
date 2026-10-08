@@ -1,0 +1,166 @@
+package netguard_test
+
+// The netguard scorer (ADR 015/016's task; recreated 2026-10-07, bench/netguard).
+// A black-box test of the spec's rules through the public API only: Grant,
+// Client and ErrNotGranted. score.sh copies it into a candidate's
+// internal/netguard and counts the passing checks: the seven "core" ones are
+// the spec's own list of what to test; "extra" are its two other rules.
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/rajasatyajit/ternly/internal/netguard"
+)
+
+type server struct {
+	*httptest.Server
+	hits, conns atomic.Int32
+}
+
+func serve(t *testing.T, h http.HandlerFunc) *server {
+	s := &server{}
+	s.Server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.hits.Add(1)
+		if h != nil {
+			h(w, r)
+			return
+		}
+		fmt.Fprint(w, "ok")
+	}))
+	s.Config.ConnState = func(_ net.Conn, st http.ConnState) {
+		if st == http.StateNew {
+			s.conns.Add(1)
+		}
+	}
+	s.Start()
+	t.Cleanup(s.Close)
+	return s
+}
+
+func port(s *server) string { u, _ := url.Parse(s.URL); return u.Port() }
+
+func get(c *http.Client, u string) (*http.Response, error) {
+	resp, err := c.Get(u)
+	if err == nil {
+		resp.Body.Close()
+	}
+	return resp, err
+}
+
+func TestScore(t *testing.T) {
+	const timeout = 2 * time.Second
+	t.Run("core/granted-host", func(t *testing.T) {
+		s := serve(t, nil)
+		resp, err := get(netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1"}, AllowPrivate: true}, timeout), s.URL)
+		if err != nil || resp.StatusCode != 200 {
+			t.Fatalf("granted host: %v %v", resp, err)
+		}
+	})
+	t.Run("core/ungranted-refused-before-connecting", func(t *testing.T) {
+		s := serve(t, nil)
+		_, err := get(netguard.Client(netguard.Grant{Hosts: []string{"example.com"}, AllowPrivate: true}, timeout), s.URL)
+		if !errors.Is(err, netguard.ErrNotGranted) || !strings.Contains(err.Error(), "127.0.0.1") {
+			t.Fatalf("want ErrNotGranted naming the host, got %v", err)
+		}
+		if s.conns.Load() != 0 {
+			t.Fatalf("connected %d times before refusing", s.conns.Load())
+		}
+	})
+	t.Run("core/redirect-to-granted-followed", func(t *testing.T) {
+		b := serve(t, nil)
+		a := serve(t, func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, b.URL+"/there", http.StatusFound) })
+		resp, err := get(netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1"}, AllowPrivate: true}, timeout), a.URL)
+		if err != nil || resp.StatusCode != 200 || b.hits.Load() != 1 {
+			t.Fatalf("redirect to a granted host: %v %v (target hit %d)", resp, err, b.hits.Load())
+		}
+	})
+	t.Run("core/redirect-to-other-host-refused", func(t *testing.T) {
+		b := serve(t, nil)
+		a := serve(t, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "http://localhost:"+port(b)+"/", http.StatusFound)
+		})
+		_, err := get(netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1"}, AllowPrivate: true}, timeout), a.URL)
+		if !errors.Is(err, netguard.ErrNotGranted) || b.hits.Load() != 0 {
+			t.Fatalf("redirect to localhost: %v (target hit %d)", err, b.hits.Load())
+		}
+	})
+	t.Run("core/https-to-http-redirect-refused", func(t *testing.T) {
+		c := netguard.Client(netguard.Grant{Hosts: []string{"example.com"}}, timeout)
+		if c.CheckRedirect == nil {
+			t.Fatal("no CheckRedirect: redirects aren't checked")
+		}
+		from, _ := http.NewRequest("GET", "https://example.com/a", nil)
+		to, _ := http.NewRequest("GET", "http://example.com/b", nil)
+		if err := c.CheckRedirect(to, []*http.Request{from}); err == nil {
+			t.Fatal("https → http redirect allowed")
+		}
+		same, _ := http.NewRequest("GET", "https://example.com/b", nil)
+		if err := c.CheckRedirect(same, []*http.Request{from}); err != nil {
+			t.Fatalf("https → https on the same host refused: %v", err)
+		}
+	})
+	t.Run("core/private-addresses-refused", func(t *testing.T) {
+		s := serve(t, nil)
+		c := netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1", "169.254.169.254", "localhost"}}, timeout)
+		for _, u := range []string{s.URL, "http://169.254.169.254/latest/meta-data/", "http://localhost:" + port(s) + "/"} {
+			t0 := time.Now()
+			_, err := get(c, u)
+			var ne net.Error
+			if err == nil || errors.As(err, &ne) && ne.Timeout() || time.Since(t0) > time.Second {
+				t.Fatalf("%s: want a refusal (not a timeout), got %v after %v", u, err, time.Since(t0))
+			}
+		}
+		if s.hits.Load() != 0 {
+			t.Fatalf("a private address was reached %d times", s.hits.Load())
+		}
+	})
+	t.Run("core/host-port-matching", func(t *testing.T) {
+		a, b := serve(t, nil), serve(t, nil)
+		c := netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1:" + port(a)}, AllowPrivate: true}, timeout)
+		if _, err := get(c, a.URL); err != nil {
+			t.Fatalf("the granted host:port: %v", err)
+		}
+		if _, err := get(c, b.URL); !errors.Is(err, netguard.ErrNotGranted) || b.hits.Load() != 0 {
+			t.Fatalf("another port: %v", err)
+		}
+		up := netguard.Client(netguard.Grant{Hosts: []string{"LOCALHOST", "127.0.0.1"}, AllowPrivate: true}, timeout)
+		if _, err := get(up, "http://localhost:"+port(a)+"/"); err != nil {
+			t.Fatalf("host matching is case-insensitive: %v", err)
+		}
+	})
+	t.Run("extra/only-http-and-https", func(t *testing.T) {
+		c := netguard.Client(netguard.Grant{Hosts: []string{"example.com"}}, timeout)
+		if _, err := c.Get("ftp://example.com/x"); err == nil {
+			t.Fatal("ftp allowed")
+		}
+		from, _ := http.NewRequest("GET", "https://example.com/a", nil)
+		to := &http.Request{Method: "GET", URL: &url.URL{Scheme: "file", Path: "/etc/passwd"}}
+		if c.CheckRedirect != nil && c.CheckRedirect(to, []*http.Request{from}) == nil {
+			t.Fatal("redirect to file:// allowed")
+		}
+	})
+	t.Run("extra/at-most-5-redirects", func(t *testing.T) {
+		var n atomic.Int32
+		var s *server
+		s = serve(t, func(w http.ResponseWriter, r *http.Request) {
+			if n.Add(1) > 20 { // a client with no limit stops here instead of looping forever
+				fmt.Fprint(w, "end")
+				return
+			}
+			http.Redirect(w, r, s.URL+fmt.Sprintf("/%d", n.Load()), http.StatusFound)
+		})
+		_, err := get(netguard.Client(netguard.Grant{Hosts: []string{"127.0.0.1"}, AllowPrivate: true}, timeout), s.URL)
+		if n.Load() > 6 || err == nil {
+			t.Fatalf("redirect loop: %v after %d requests (want at most 6: the first and 5 redirects)", err, n.Load())
+		}
+	})
+}
