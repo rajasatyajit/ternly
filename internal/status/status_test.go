@@ -188,8 +188,8 @@ func TestReconnect(t *testing.T) {
 	if err := c.Reconnect(context.Background(), "anthropic"); err != nil || calls != 1 {
 		t.Fatalf("reconnect: %v", err)
 	}
-	if p := r.Pinned(); p == nil || p.Key() != "anthropic/claude-x" {
-		t.Fatalf("pin lost: %v", p)
+	if p := r.Pinned(); p == nil || p.Key() != "anthropic/claude-x" || p != r.Models()[2] {
+		t.Fatalf("pin lost, or left on the old model object: %v", p) // SetModels keeps a stale pointer
 	}
 	state = "error"
 	if err := c.Reconnect(context.Background(), "anthropic"); err == nil || !strings.Contains(err.Error(), "refused") {

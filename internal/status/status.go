@@ -7,7 +7,6 @@ package status
 import (
 	"context"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -197,8 +196,7 @@ func (c *Core) Explain(difficulty, contextTokens int) surface.Explanation {
 		e.Rows = append(e.Rows, surface.Estimate{Key: x.Model.Key(), Eligible: x.Eligible, Why: x.Why, P: x.P, Seconds: x.Seconds,
 			Money: x.Money, Quota: x.Quota, Score: x.Score, PBasis: x.PBasis, Speed: x.SpeedBasis})
 	}
-	sort.SliceStable(e.Rows, func(i, j int) bool { return e.Rows[i].Eligible && !e.Rows[j].Eligible })
-	return e
+	return e // the router orders them: eligible first, best first
 }
 
 // Reconnect implements surface.Actions: discovery runs again (every
