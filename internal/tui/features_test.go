@@ -194,3 +194,33 @@ func TestFocusAndWheel(t *testing.T) {
 		t.Fatal("mouse support on: no mouse mode")
 	}
 }
+
+// The @ picker's listing arrives asynchronously: on a loaded machine it can
+// open between typing a complete path and pressing Enter. Enter then must
+// send the prompt, not swallow the keystroke by inserting the same path
+// again (main's CI: TestTUIArchitectTestMention timed out under load).
+func TestEnterSubmitsWhenPickerOpensLate(t *testing.T) {
+	m := testModel(t)
+	root := m.App.Reg.Root
+	_ = os.WriteFile(filepath.Join(root, "a.go"), []byte("package a\n"), 0o644)
+	m.discovering = false
+	typeText(m, "what is in @a.go")
+	m.Update(filesMsg{q: "a.go", hits: []string{"a.go"}}) // the listing lands now
+	if m.comp == nil || !m.comp.file {
+		t.Fatal("test premise: the picker should be open")
+	}
+	_, c := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.ta.Value() != "" || c == nil {
+		t.Fatalf("Enter didn't send the prompt; input %q", m.ta.Value())
+	}
+	if m.comp != nil {
+		t.Fatal("the picker stayed open after sending")
+	}
+	// a partial token still picks the file (Enter inserts, as before)
+	typeText(m, "and @a")
+	m.Update(filesMsg{q: "a", hits: []string{"a.go", "b/a.txt"}})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if v := m.ta.Value(); v != "and @a.go " {
+		t.Fatalf("a partial token: %q", v)
+	}
+}

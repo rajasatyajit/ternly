@@ -1413,6 +1413,13 @@ func (m *Model) updateCompletion() {
 func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	c := m.comp
 	if c.file {
+		if k.String() == "enter" { // the token already names the highlighted path: send, don't re-insert it
+			if q, ok := atToken(m.ta.Value()); ok && q == c.items[c.sel].name {
+				m.comp, m.fileQ = nil, "\x00"
+				m.layout()
+				return nil, false
+			}
+		}
 		switch k.String() {
 		case "tab", "enter": // replace the @token being typed with the chosen path
 			v := m.ta.Value()
