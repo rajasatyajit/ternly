@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 // Surface is what a plugin would execute, in a form a person can review:
@@ -595,7 +597,7 @@ func gitFetch(ctx context.Context, url, ref, dir string) (string, error) {
 		defer cancel()
 		c := exec.CommandContext(cctx, "git", append([]string{"-C", dir, "-c", "core.hooksPath=/dev/null", "-c", "core.symlinks=false",
 			"-c", "submodule.recurse=false", "-c", "core.fsmonitor=false", "-c", "protocol.ext.allow=never"}, args...)...)
-		c.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1")
+		c.Env = append(gitenv.Workspace(os.Environ()), "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1") // an inherited GIT_DIR would fetch into that repository (ADR 024)
 		out, err := c.CombinedOutput()
 		if err != nil {
 			return "", fmt.Errorf("git %s: %v: %s", args[0], err, strings.TrimSpace(string(out)))

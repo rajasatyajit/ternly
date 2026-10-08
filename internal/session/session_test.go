@@ -13,6 +13,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/testutil"
 	"github.com/rajasatyajit/ternly/internal/tools"
@@ -148,7 +149,7 @@ func TestMovedRepoAdoptsSessions(t *testing.T) {
 	a := filepath.Join(base, "proj")
 	_ = os.MkdirAll(a, 0o755)
 	git := func(dir string, args ...string) {
-		if out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput(); err != nil {
+		if out, err := gitenv.Command(context.Background(), append([]string{"-C", dir, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %s", args, out)
 		}
 	}

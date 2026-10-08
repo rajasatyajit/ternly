@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/rootfs"
 	"github.com/rajasatyajit/ternly/internal/tools"
@@ -922,7 +924,9 @@ Language for code you write:
 - Use concurrency only where it pays (I/O fan-out, independent CPU-bound work), bounded by worker pools, contexts and cancellation; no goroutines that only add overhead.
 `)
 	fmt.Fprintf(&sb, "\nEnvironment: %s/%s, workspace %s, date %s.\n", runtime.GOOS, runtime.GOARCH, root, time.Now().Format("2006-01-02"))
-	if br, err := exec.Command("git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+	brc := exec.Command("git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD")
+	brc.Env = gitenv.Workspace(os.Environ()) // the workspace's own repository, not an inherited GIT_DIR (ADR 024)
+	if br, err := brc.Output(); err == nil {
 		fmt.Fprintf(&sb, "Git branch: %s\n", strings.TrimSpace(string(br)))
 	}
 	if v := DetectVerify(root); v != "" {

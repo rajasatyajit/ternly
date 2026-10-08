@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/logstore"
 	"github.com/rajasatyajit/ternly/internal/tools"
 )
@@ -57,7 +58,9 @@ func Key(root string) string {
 
 // rootCommit returns the repository's first commit ("" when not a git repo or empty).
 func rootCommit(root string) string {
-	out, err := exec.Command("git", "-C", root, "rev-list", "--max-parents=0", "HEAD").Output()
+	c := exec.Command("git", "-C", root, "rev-list", "--max-parents=0", "HEAD")
+	c.Env = gitenv.Workspace(os.Environ()) // the workspace's own repository, not an inherited GIT_DIR (ADR 024)
+	out, err := c.Output()
 	if err != nil {
 		return ""
 	}

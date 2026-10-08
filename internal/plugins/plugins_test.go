@@ -3,12 +3,12 @@ package plugins
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 	"github.com/rajasatyajit/ternly/internal/testutil"
 )
 
@@ -146,7 +146,7 @@ func gitRepo(t *testing.T, files map[string]string) (string, func(map[string]str
 	t.Helper()
 	dir := t.TempDir()
 	git := func(args ...string) string {
-		out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput()
+		out, err := gitenv.Command(context.Background(), append([]string{"-C", dir, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %v: %v %s", args, err, out)
 		}
@@ -230,7 +230,7 @@ func TestSymlinkNeutralised(t *testing.T) {
 	_ = os.WriteFile(secret, []byte("PRIVATE-KEY"), 0o600)
 	_ = os.Remove(filepath.Join(repo, "skills/x/SKILL.md"))
 	_ = os.Symlink(secret, filepath.Join(repo, "skills/x/SKILL.md"))
-	out, err := exec.Command("git", "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qam", "link").CombinedOutput()
+	out, err := gitenv.Command(context.Background(), "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qam", "link").CombinedOutput()
 	if err != nil {
 		t.Fatalf("%v %s", err, out)
 	}
