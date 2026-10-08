@@ -65,8 +65,7 @@ func TestFilePicker(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(root, f), []byte("x"), 0o644)
 	}
 	typeText(m, "fix @rou")
-	var c tea.Cmd
-	c = key(m, "t") // "@rout"
+	c := key(m, "t") // "@rout"
 	msg := runAll(c)
 	if msg == nil {
 		t.Fatal("no file listing requested")

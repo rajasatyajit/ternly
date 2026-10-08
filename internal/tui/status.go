@@ -147,12 +147,9 @@ func (m *Model) connectionLines() []string {
 	}
 	out := []string{"connections"}
 	for _, c := range m.snap.Connections {
-		state := c.State
-		switch c.State {
-		case "connected":
+		state := sWarn.Render("○") + " " + untrusted(c.State)
+		if c.State == "connected" {
 			state = sOK.Render("●") + " connected"
-		default:
-			state = sWarn.Render("○") + " " + untrusted(c.State)
 		}
 		line := fmt.Sprintf("  %-34s %s · %s · %d models", untrusted(c.Label), state, untrusted(c.How), c.Models)
 		if c.Quota != nil {
