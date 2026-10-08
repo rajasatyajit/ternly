@@ -154,3 +154,28 @@ func (m *Model) reviewHeight() int {
 	}
 	return strings.Count(m.reviewView(), "\n") + 1
 }
+
+// reviewViewPlain is the review dialog for the accessible mode: no borders,
+// the whole question in words.
+func (m *Model) reviewViewPlain() string {
+	if m.review == nil {
+		return ""
+	}
+	r := m.review
+	var b strings.Builder
+	fmt.Fprintf(&b, "Edit %s: hunk %d of %d, %s.", untrusted(r.p.Path), r.cur+1, len(r.p.Hunks), map[bool]string{true: "selected", false: "not selected"}[r.sel[r.cur]])
+	if r.p.Why != "" {
+		b.WriteString(" " + untrusted(r.p.Why) + ".")
+	}
+	b.WriteString("\n")
+	for i, l := range r.p.Hunks[r.cur].Lines {
+		if i == reviewRows {
+			fmt.Fprintf(&b, "%d more lines in this hunk.\n", len(r.p.Hunks[r.cur].Lines)-reviewRows)
+			break
+		}
+		word := map[byte]string{'+': "added: ", '-': "removed: ", ' ': "unchanged: "}[untrusted(l)[0]]
+		b.WriteString(word + untrusted(l)[1:] + "\n")
+	}
+	b.WriteString("y applies the selected hunks, a also stops asking, n declines; Space toggles this hunk, arrows move between hunks.")
+	return b.String()
+}

@@ -97,6 +97,7 @@ func run() int {
 		localOnly  = flag.Bool("local-only", false, "use only local models (zero cost, fully offline)")
 		noLocal    = flag.Bool("no-local", false, "ignore local model servers")
 		noSandbox  = flag.Bool("no-sandbox", false, "run shell commands without bubblewrap")
+		accessible = flag.Bool("accessible", false, "screen-reader mode: linear output, plain text, nothing animates (also TERNLY_SCREEN_READER=1)")
 		noNet      = flag.Bool("no-net", false, "deny network to shell commands (bubblewrap)")
 		projectMCP = flag.Bool("project-mcp", false, "also start MCP servers from ./.mcp.json (untrusted repo config)")
 		listModels = flag.Bool("models", false, "list discovered models and exit")
@@ -653,7 +654,7 @@ func run() int {
 		return code
 	}
 
-	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: tui.AccessFromEnv(), Discover: func() ([]*discover.Model, []string) {
+	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Discover: func() ([]*discover.Model, []string) {
 		ms, w := discoverFn()
 		if pin != "" {
 			router.SetModels(ms)
@@ -1023,4 +1024,13 @@ func noCodeReason(p *tools.Policy) string {
 		return "there is no sandbox on macOS yet (experimental; v0.2)"
 	}
 	return "shell commands run unsandboxed (bubblewrap missing or --no-sandbox)"
+}
+
+// accessFrom is the TUI's access settings: the environment, plus --accessible.
+func accessFrom(accessible bool) tui.Access {
+	a := tui.AccessFromEnv()
+	if accessible {
+		a.ScreenReader, a.ReducedMotion = true, true
+	}
+	return a
 }

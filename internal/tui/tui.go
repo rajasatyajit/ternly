@@ -170,6 +170,7 @@ type Model struct {
 	expanded      bool         // tool output shown in full (Ctrl+O)
 	answered      bool         // the current turn has shown answer text
 	review        *reviewState // an edit under per-hunk review
+	printed       int          // accessible mode: blocks already printed to the scrollback
 	fileQ         string       // the @ query the picker shows or awaits
 	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
@@ -250,7 +251,7 @@ func (m *Model) setTheme(dark bool) {
 	st.Focused.Placeholder = sDim
 	m.ta.SetStyles(st)
 	if m.w > 0 {
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.style), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
 	}
 	for _, b := range m.blocks {
 		b.rendered = ""
@@ -295,7 +296,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.style), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
 		for _, b := range m.blocks {
 			b.rendered = ""
 		}
@@ -455,6 +456,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if lc := min(8, max(1, m.ta.LineCount())); lc != m.ta.Height() {
 		m.ta.SetHeight(lc)
 		m.layout()
+	}
+	if c := m.flushLinear(); c != nil {
+		cmds = append(cmds, c)
 	}
 	if !m.ticking && m.animating() { // idle costs ~0% CPU: no ticker unless something moves
 		m.ticking = true
@@ -1118,14 +1122,18 @@ func (m *Model) renderBlock(b *block) string {
 func (m *Model) View() tea.View {
 	s, boxTop := m.render()
 	v := tea.NewView(safeFrame(s))
-	v.AltScreen = true   // basic key disambiguation (shift+enter) is requested by default
-	v.ReportFocus = true // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
+	v.AltScreen = !m.linear() // the accessible mode is linear: inline, finished text in the scrollback
+	v.ReportFocus = true      // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
 	if m.App.Access.Mouse {
 		v.MouseMode = tea.MouseModeCellMotion
 	}
 	if c := m.ta.Cursor(); c != nil && boxTop >= 0 && m.perm == nil && m.review == nil {
-		c.Y += boxTop + 1 // the box's top border
-		c.X += 2          // its left border and padding
+		if m.linear() {
+			c.Y += boxTop // the "> " line
+		} else {
+			c.Y += boxTop + 1 // the box's top border
+		}
+		c.X += 2 // the box's left border and padding, or "> "
 		c.Blink = !m.App.Access.ReducedMotion
 		v.Cursor = c
 	}
@@ -1136,6 +1144,9 @@ func (m *Model) View() tea.View {
 func (m *Model) render() (string, int) {
 	if !m.ready {
 		return "\n  " + m.moving("ternly"), -1
+	}
+	if m.linear() {
+		return m.renderLinear()
 	}
 	var sb strings.Builder
 	sb.WriteString(m.header() + "\n")
@@ -1178,6 +1189,18 @@ func (m *Model) header() string {
 	mid := sDim.Render("  " + cwd)
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right
+}
+
+// permViewPlain is the permission question for the accessible mode.
+func (m *Model) permViewPlain() string {
+	if m.perm == nil {
+		return ""
+	}
+	q := "Allow " + prettyTool(m.perm.tool) + "?"
+	if m.perm.danger {
+		q = "Warning, potentially destructive. Allow " + prettyTool(m.perm.tool) + "?"
+	}
+	return q + " " + m.perm.summary + "\ny yes, a always, n no."
 }
 
 func (m *Model) permView() string {

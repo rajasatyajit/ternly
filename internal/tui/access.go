@@ -1,6 +1,11 @@
 package tui
 
-import "os"
+import (
+	"os"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 // Access settings (ADR 023): reduced motion (no shimmer, spinner or cursor
 // blink, so nothing redraws on a timer) and a screen-reader mode (also
@@ -47,4 +52,91 @@ func (m *Model) moving(text string) string {
 		return sAccent.Render(text)
 	}
 	return shine(text, m.frame)
+}
+
+// linear: the accessible mode (ADR 023), inside the same renderer — no
+// alternate screen; finished blocks are printed once into the terminal's
+// scrollback (a screen reader reads them once, in order) and the live frame
+// holds only what still changes plus a plain "> " input line; no box
+// drawing, ASCII markdown, words for states, nothing animates.
+func (m *Model) linear() bool { return m.App.Access.ScreenReader }
+
+// mdStyle is the markdown style: ASCII in the accessible mode.
+func (m *Model) mdStyle() string {
+	if m.linear() {
+		return "ascii"
+	}
+	return m.style
+}
+
+// final: the block won't change again (it can go to the scrollback).
+func (m *Model) final(i int) bool {
+	b := m.blocks[i]
+	switch {
+	case i == 0 && m.discovering: // the welcome block is rewritten once discovery ends
+		return false
+	case b.kind == bTool && b.state == 0:
+		return false
+	case b.kind == bAssistant && m.busy && i == len(m.blocks)-1: // still streaming
+		return false
+	}
+	return true
+}
+
+// flushLinear prints the blocks that became final since the last call.
+func (m *Model) flushLinear() tea.Cmd {
+	if !m.linear() || !m.ready {
+		return nil
+	}
+	m.printed = min(m.printed, len(m.blocks)) // the transcript was cleared or replaced
+	k := m.printed
+	for k < len(m.blocks) && m.final(k) {
+		k++
+	}
+	if k == m.printed {
+		return nil
+	}
+	var parts []string
+	for _, b := range m.blocks[m.printed:k] {
+		if b.rendered == "" {
+			b.rendered = m.renderBlock(b)
+		}
+		parts = append(parts, b.rendered)
+	}
+	m.printed = k
+	text := safeFrame(strings.Join(parts, "\n"))
+	return tea.Println(text)
+}
+
+// renderLinear is the live frame in the accessible mode; the second value is
+// the row of the input line.
+func (m *Model) renderLinear() (string, int) {
+	var sb strings.Builder
+	for _, b := range m.blocks[min(m.printed, len(m.blocks)):] {
+		if b.rendered == "" || b.kind == bTool && b.state == 0 {
+			b.rendered = m.renderBlock(b)
+		}
+		sb.WriteString(b.rendered + "\n")
+	}
+	switch {
+	case m.busy && (m.perm != nil || m.review != nil):
+		sb.WriteString("Waiting for your answer.\n")
+	case m.busy:
+		sb.WriteString(m.activity + "…  (Esc interrupts)\n")
+	}
+	for _, v := range []string{m.permViewPlain(), m.reviewViewPlain()} {
+		if v != "" {
+			sb.WriteString(v + "\n")
+		}
+	}
+	if m.picker != nil {
+		sb.WriteString(m.pickerView() + "\n")
+	}
+	if m.comp != nil {
+		sb.WriteString(m.compView() + "\n")
+	}
+	row := strings.Count(sb.String(), "\n")
+	sb.WriteString("> " + m.ta.View() + "\n")
+	sb.WriteString(m.statusBar())
+	return sb.String(), row
 }
