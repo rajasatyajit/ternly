@@ -1,0 +1,26 @@
+package eval
+
+import (
+	"math"
+	"testing"
+)
+
+func TestOracleWilson(t *testing.T) {
+	for _, c := range []struct {
+		bad, n int
+		lo, hi float64
+	}{
+		{5, 10, 0.2366, 0.7634},
+		{0, 10, 0, 0.2775},
+		{2, 9, 0.0632, 0.5474},
+		{20, 20, 0.8389, 1},
+	} {
+		lo, hi := Counts{c.bad, c.n}.Wilson()
+		if math.Abs(lo-c.lo) > 0.001 || math.Abs(hi-c.hi) > 0.001 {
+			t.Errorf("%d/%d: [%.4f, %.4f], want [%.4f, %.4f]", c.bad, c.n, lo, hi, c.lo, c.hi)
+		}
+	}
+	if lo, hi := (Counts{}).Wilson(); lo != 0 || hi != 1 {
+		t.Errorf("empty: [%v, %v]", lo, hi)
+	}
+}
