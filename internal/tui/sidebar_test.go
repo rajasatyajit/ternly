@@ -1,8 +1,11 @@
 package tui
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -116,5 +119,33 @@ func TestSidebarNarrowAndLinear(t *testing.T) {
 	l.Update(ctrl('b'))
 	if l.side != nil || !strings.Contains(stripANSI(l.View().Content), "/resume") {
 		t.Fatal("accessible mode: the sidebar should point to /resume")
+	}
+}
+
+// With the sidebar open over a 10k-line transcript, a keystroke still
+// renders well inside the frame budget (ADR 023).
+func TestSidebarFrameBudget(t *testing.T) {
+	if raceEnabled || testing.Short() {
+		t.Skip("timing: not under the race detector or -short")
+	}
+	m := sessionsModel(t, 160)
+	for i := range 1000 {
+		m.blocks = append(m.blocks, &block{kind: bUser, text: fmt.Sprintf("turn %d", i)},
+			&block{kind: bAssistant, text: "an answer\n\n- one\n- two"})
+	}
+	m.Update(ctrl('b'))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEsc}) // back to the input, sidebar shown
+	m.refresh(true)
+	var ds []time.Duration
+	for range 100 {
+		t0 := time.Now()
+		m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+		_ = m.View()
+		ds = append(ds, time.Since(t0))
+	}
+	sort.Slice(ds, func(i, j int) bool { return ds[i] < ds[j] })
+	t.Logf("keystroke to frame with the sidebar: median %v, p95 %v", ds[50], ds[95])
+	if ds[95] > 16*time.Millisecond {
+		t.Fatalf("p95 %v, budget 16 ms", ds[95])
 	}
 }

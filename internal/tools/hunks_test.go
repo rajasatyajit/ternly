@@ -225,3 +225,17 @@ func TestReviewEditFileAndNewFile(t *testing.T) {
 		t.Fatal("accepted edit_file not applied")
 	}
 }
+
+// A file changed while its edit was under review isn't overwritten by the
+// composed partial content.
+func TestReviewFileChangedMeanwhile(t *testing.T) {
+	r, core, nw := reviewRegistry(t, "ask", true)
+	core.Decide = func(p surface.EditProposal) surface.EditDecision {
+		_ = os.WriteFile(filepath.Join(r.Root, "a.txt"), []byte("the user's own change\n"), 0o644) // meanwhile
+		return surface.EditDecision{Apply: []bool{true, false, true}}
+	}
+	res := r.Call(context.Background(), writeCall(nw))
+	if got := fileText(r); got != "the user's own change\n" || !res.IsErr || !strings.Contains(res.Out, "changed while the edit was being reviewed") {
+		t.Fatalf("file %q, result %s", got, res.Out)
+	}
+}

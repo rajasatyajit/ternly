@@ -67,7 +67,7 @@ jobs:
       - name: TUI budgets — startup, idle CPU, frame times (ADR 023; without -race, which distorts timing)
         run: |
           go test -count=1 -run '^(TestTUIStartupBudget|TestTUIIdleCPU)$' -v .
-          go test -count=1 -run '^TestFrameBudgets$' -v ./internal/tui
+          go test -count=1 -run '^(TestFrameBudgets|TestSidebarFrameBudget)$' -v ./internal/tui
       - name: static build
         run: |
           CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ternly .

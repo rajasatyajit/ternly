@@ -2,7 +2,9 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"strings"
 
 	"github.com/rajasatyajit/ternly/internal/surface"
@@ -195,6 +197,7 @@ type editReview struct {
 	ops      []diffOp
 	owner    []int
 	path     string // resolved
+	old      string // the file when the edit was proposed
 	decision *surface.EditDecision
 }
 
@@ -247,6 +250,16 @@ func allTrue(bs []bool) bool {
 // writePartial writes the file with only the accepted hunks and tells the
 // model which ones were declined, so it doesn't silently re-apply them.
 func (r *Registry) writePartial(rv *editReview) (string, error) {
+	// the review may have waited a while: hunks are composed from the file
+	// as proposed, so a change since (the user's, another tool's) must not
+	// be overwritten
+	now, err := r.readRegular(r.inRoot(rv.path))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	if string(now) != rv.old {
+		return "", fmt.Errorf("%s changed while the edit was being reviewed; nothing was written — read it again before editing", rv.proposal.Path)
+	}
 	content := composeHunks(rv.ops, rv.owner, rv.decision.Apply)
 	if _, err := r.write(rv.path, content); err != nil {
 		return "", err

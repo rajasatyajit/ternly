@@ -76,8 +76,13 @@
   - `TERNLY_MOUSE=1`: wheel scrolling;
   - `NO_COLOR` is honoured;
   - the theme follows a light/dark switch when the window regains focus.
-- **Budgets in CI:** startup ≤ 100 ms, idle CPU ≤ 0.8 %, frame time < 16 ms at 10k lines, and no
-  flicker.
+- **Edits that ask are reviewed hunk by hunk.** ↑↓ move, Space toggles, y applies the selection.
+  Only what you accept is written, and the model is told what you declined.
+- **The session sidebar:** Ctrl+B.
+- **`--accessible`:** linear output for screen readers (no alternate screen, plain text, nothing
+  animates).
+- **Budgets in CI:** startup ≤ 100 ms, frame time < 16 ms at 10k lines (with or without the
+  sidebar), no flicker, and an idle-CPU guard.
 
 ### Judges score structured answers (ADR 019)
 **The class of bug:** judges that searched the model's prose. They failed right answers worded

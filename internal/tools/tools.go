@@ -255,7 +255,7 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 		if p, old, nw, err := t.Propose(args); err == nil && old != nw { // an invalid edit errors in Run as before
 			ops := lineDiff(splitLines(old), splitLines(nw))
 			hunks, owner := diffHunks(ops)
-			rv = &editReview{proposal: surface.EditProposal{Tool: tc.Name, Path: r.rel(p), NewFile: old == "", Hunks: hunks}, ops: ops, owner: owner, path: p}
+			rv = &editReview{proposal: surface.EditProposal{Tool: tc.Name, Path: r.rel(p), NewFile: old == "", Hunks: hunks}, ops: ops, owner: owner, path: p, old: old}
 			ctx = withReview(ctx, rv)
 		}
 	}

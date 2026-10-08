@@ -1,6 +1,6 @@
 # ADR 023 — Phase F: a measured rubric for the TUI, budgets in CI, and what was built
 
-Status: proposed (Phase F, Track 2; review before merge).
+Status: accepted with decisions (Phase F review, 2026-10-08); the decisions below are built.
 
 ## Problem
 The plan asks for "the best terminal UI available as of October 2026", and says to make "best"
@@ -206,23 +206,63 @@ model money was spent; Ollama cloud quota was used.
 
 ternly's meter shows context only once Phase B's adapter feeds the surface.
 
-## Open decisions (for review)
-1. **Per-hunk accept/reject for edits.**
-   - **Why it can't be built today:** `tools.Asker` receives a one-line summary, not the proposed
-     change. Per-hunk review needs the permission prompt to carry the edit's hunks and to return a
-     subset.
-   - **What it changes:** the core's permission interface (tools, agent). That is a contract change
-     to agree with Track 1 (ADR 021 §2), not something Track 2 can do alone.
-   - **Proposal:** `Asker` gains an optional `Preview` (unified diff hunks) and a reply listing the
-     hunks to apply. The edit tool applies only those, and checkpoints record what was applied.
-2. **A linear plain mode,** like Claude Code's `--ax-screen-reader`: no alternate screen, no
-   redraws, typed y/n answers. The screen-reader setting here only changes glyphs. A full linear
-   mode is a second renderer, worth a decision before building it.
-3. **Session sidebar and plan panel.** Not built: there is no todo/plan data in the agent today
-   (the plan panel needs it through `surface.Snapshot.Plan`). The sidebar trades transcript width
-   for something `/resume` already offers.
-4. **Image paste.** Not built: it needs multimodal requests in `internal/llm` (core), and a
-   clipboard reader (`wl-paste`/`xclip`) run as a subprocess.
+## Decisions (Phase F review, 2026-10-08)
+
+**1. Per-hunk accept/reject: yes, through an ADR 021 amendment.** Built:
+- **Contract:** ADR 021 amendment 1 adds `EditProposal`, `Hunk`, `EditDecision` and `Reviewer` to
+  `internal/surface`, plus `fake.Core.Review`. It's its own PR (#22).
+- **Core (`internal/tools`):**
+  - `edit_file` and `write_file` propose the file before and after;
+  - `Registry.Call` diffs it into hunks (LCS line diff, 3 lines of context, deletions first);
+  - the policy calls the reviewer where it would ask yes/no today;
+  - only accepted hunks are written, byte-exact, and refused if the file changed while under
+    review (`TestReviewFileChangedMeanwhile`), so a change made meanwhile is never clobbered;
+  - the model is told which hunks were declined.
+- **ADR 020 holds:**
+  - never headless;
+  - plan mode refuses first;
+  - edits/yolo don't start asking;
+  - a restricted model is reviewed with the reason, and its "always" neither sticks nor carries
+    over to a later trusted edit.
+- **TUI:** the review dialog shows the hunk under the cursor (escaped, coloured) with a row of
+  marks. Space toggles a hunk, ↑↓ move, y applies the selection, a also stops asking, n/Esc
+  declines.
+- **Proof:**
+  - core guards 8/8;
+  - TUI guards 4/4;
+  - `TestComposeHunks` (300 random edits, every subset exact);
+  - `TestTUIPerHunkReview` (real binary: declining hunk 2 of 3 writes 1 and 3, and the model is
+    told).
+
+**2. Accessible mode inside the existing renderer: no second renderer.** Built as the linear mode
+of `TERNLY_SCREEN_READER=1` / `--accessible`:
+- no alternate screen;
+- finished blocks are printed once to the terminal's scrollback, through the frame filter;
+- the live frame holds only what still changes, plus a plain `> ` input line;
+- ASCII markdown and no box drawing;
+- questions as sentences ("removed: …", "added: …");
+- nothing animates.
+
+Guards: 6/6, and `TestTUIAccessibleMode` (real binary: no `?1049h`, no box drawing).
+
+**3. Session sidebar: built.** Ctrl+B toggles it:
+- the project's sessions beside the transcript; ↑↓ and Enter switch, Esc returns to the input;
+- it needs 100 columns, and the transcript re-wraps;
+- the list is re-read on opening, after a switch and when a turn ends, never per frame;
+- a keystroke with it open over 10k lines: p95 2.2 ms (`TestSidebarFrameBudget`, in CI's budget
+  step).
+
+Guards: 6/6.
+
+**4. Plan panel: after Phase C produces plan data.** Not built.
+
+**5. Image paste: deferred** until `internal/llm` supports images.
+
+**Rubric after these:**
+- **Diff and review:** 2 → 4.
+- **Accessibility:** 3 → 4.
+- **Density without clutter:** 3, unchanged until the plan panel. The sidebar adds session context
+  on demand, not by default.
 
 ## Findings outside Track 2 (reported, not changed)
 - **Capability catalog refresh CPU.** On every start, `capability.(*Catalog).Refresh` →
