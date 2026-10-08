@@ -24,9 +24,17 @@ Status, routing, quota, trust and connection data come only through `internal/su
 | Measure | ternly before | **ternly after** | Claude Code | Codex CLI | OpenCode | Crush |
 |---|---|---|---|---|---|---|
 | First paint (tmux, median of 5) | 108 ms | ≈100 ms (tmux); **45 ms** pty to input box | 412 ms | 323 ms | 1.20 s | 1.63 s |
-| Key echo, typed char to screen (tmux path, median of 20) | 10.6 ms | IDLE_HEAD | 6.4 ms | CODEX_KEY | 11.0 ms | 43.8 ms (provider picker) |
-| Idle CPU, 20 s after settling | 2.7 % | **0.30–0.65 %** | CLAUDE_IDLE | CODEX_IDLE | 0.55 % | 0.30 % |
-| `NO_COLOR=1` honoured (colour SGR on first screen) | NOCOLOR_TERNLY | | NOCOLOR_CLAUDE | NOCOLOR_CODEX | NOCOLOR_OPENCODE | NOCOLOR_CRUSH |
+| Key echo, typed char to screen (tmux path, median of 20) | 10.6 ms | 10.9 ms | 6.4 ms | not measured¹ | 11.0 ms | 43.8 ms (provider picker) |
+| Idle CPU, 20 s after settling | 2.7 % | **0.30–0.65 %** | 17 %² | not measured¹ | 0.55 % | 0.30 % |
+| `NO_COLOR=1` honoured (colour SGR codes on the first screen) | — | yes (0) | **no** (31) | not measured¹ | **no** (81) | yes (0) |
+
+¹ Codex opens with an update prompt, then a folder-trust prompt in any directory it hasn't been
+told to trust. Esc on the update prompt exited it. Getting past either would write to its config.
+
+² Claude Code, 20 s after a 20 s settle, in a repository that runs the user's SessionStart hooks.
+The figure is the product's own background work as configured, not its renderer alone. Likewise
+ternly in a default-config home reads 2.5 %, the capability catalog refresh reported under
+Findings. The table's ternly figure is with that service off.
 
 **What each harness shows before work can start:**
 - **Claude Code and Codex:** a folder-trust prompt in an untrusted directory.
@@ -55,7 +63,7 @@ Status, routing, quota, trust and connection data come only through `internal/su
 | Density without clutter | first screen useful; status in one line | OpenCode, Claude: 3 | 3 | 3: meter adds context, quota and trust only when known | 4 (session sidebar, plan panel: not built) |
 | Discoverability | palette, inline hints, help | OpenCode, Claude: 3 | 2: `/help`, slash completion | **3**: Ctrl+K palette over every command, `@` file picker, keys on the welcome line | 4 |
 | Diff and review | inline diff, per-hunk accept/reject | Claude Code: 3 | 2: `/diff` coloured | 2: `/diff` escaped and coloured | 4 (needs a contract change: see open decisions) |
-| Error clarity | actionable, never raw provider markup | (not scored without the recordings) | 3 | 3 | 4 |
+| Error clarity | actionable, never raw provider markup; waiting or empty states said plainly | OpenCode: 3 (per-answer model/time/tok/s) | 2: an 8-minute "Running…" while waiting on the user; empty answers silent | **3**: "Waiting for your answer", "ended without an answer", provider text escaped | 4 |
 | Accessibility | screen reader, reduced motion, no colour | Claude Code, Gemini: 3 | 1 | **3**: screen-reader words, reduced motion, real cursor, NO_COLOR | 4 (a linear plain mode like Claude Code's) |
 | Terminal compatibility | modern terminals, tmux, degraded terminals | (no harness publishes a matrix) | 2: untested | **3**: matrix below | 4 (kitty, WezTerm, SSH untested) |
 | Security of the screen (added) | outside text can't drive the terminal | — (no harness documents it) | **0** | **4**: three layers, tested | 4 |
@@ -162,7 +170,41 @@ exited cleanly on SIGTERM in all five. Results are in `bench/dogfood/phase-f-sur
   - SSH: no SSH server runs here, and starting one would change system configuration.
 
 ## Recordings
-RECORDINGS
+Three tasks were run in a small Go repository (`bench/dogfood/phase-f-tasks/`: the driver, the
+template, and per run a one-frame-per-second timeline plus the final screen):
+- **explain:** what `Total` does, and is it correct;
+- **fix:** make the failing tests pass, then run them;
+- **review:** an uncommitted change with two seeded bugs.
+
+ternly and OpenCode used the same model (`kimi-k2.6:cloud` through the signed-in Ollama daemon) with
+auto-approval: ternly `--mode yolo`, OpenCode `--auto`. That makes the comparison about the UI.
+
+**Claude Code and Codex couldn't be recorded without changing their configuration.** Both ask to
+trust each new folder, including one under the user's workspace, and accepting writes to their
+config. Crush needs a provider chosen on first run. So OpenCode is the only second harness. No
+model money was spent; Ollama cloud quota was used.
+
+| Task | ternly | OpenCode |
+|---|---|---|
+| explain | ✓ 15 s: names the `+` that should be `*` | ✓ 13 s: same finding |
+| fix | ✓ 29 s, tests pass | ✓ 25 s, tests pass |
+| review | ✓ 26–34 s (2 runs): both seeded bugs, with line numbers | ✓ 19 s: both seeded bugs |
+
+**What recording found in ternly, now fixed:**
+- **A crash in the new virtualised transcript** (index out of range when streamed text re-rendered
+  a block between counting and drawing). It ended two review runs mid-turn.
+  `TestTranscriptStableBetweenSetAndView` reproduces the exact panic.
+- **A waiting dialog looked busy.** With a permission dialog open, the spinner spun and the activity
+  line said "Running Bash…" for 8 minutes. Now: "Waiting for your answer · y · a · n", and nothing
+  moves.
+- **A silent end.** A turn that ended with an empty answer (the model's final message had no text)
+  ended in silence. Now it says so and suggests `/model` or `/why`.
+
+**What OpenCode does that ternly doesn't yet:**
+- shows per-answer model, time and tokens/s;
+- has a context-percentage sidebar.
+
+ternly's meter shows context only once Phase B's adapter feeds the surface.
 
 ## Open decisions (for review)
 1. **Per-hunk accept/reject for edits.**
