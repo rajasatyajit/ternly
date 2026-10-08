@@ -781,6 +781,7 @@ func readResults(paths []string) ([]Result, error) {
 }
 
 type agg struct {
+	pinBroken  int // pinned runs that failed over to another model: excluded from pass/n (not a measurement of the pin)
 	pass, n    int
 	secs       []float64
 	cost       float64
@@ -798,12 +799,17 @@ func report(w *os.File, paths []string) error {
 	groups := map[string]*agg{}
 	key := func(r Result, class string) string { return r.Model + "\t" + r.Arm + "\t" + class }
 	for _, r := range rs {
+		pinBroken := r.Model != "auto" && len(r.Models) > 0 && (len(r.Models) > 1 || r.Models[0] != r.Model)
 		for _, class := range []string{r.Class, "all"} {
 			k := key(r, class)
 			a := groups[k]
 			if a == nil {
 				a = &agg{outcomes: map[string]int{}, firstModel: map[string]int{}}
 				groups[k] = a
+			}
+			if pinBroken { // ternly failed over away from the pinned model (ADR 018/028)
+				a.pinBroken++
+				continue
 			}
 			a.n++
 			if r.Pass {
@@ -846,6 +852,13 @@ func report(w *os.File, paths []string) error {
 		}
 		if a.esc > 0 {
 			extra += fmt.Sprintf("; switched model %d", a.esc)
+		}
+		if a.pinBroken > 0 {
+			extra += fmt.Sprintf("; %d run(s) excluded: failed over away from the pin", a.pinBroken)
+		}
+		if a.n == 0 {
+			fmt.Fprintf(w, "%-30s %-14s %-8s   (no runs that kept the pin)%s\n", f[0], orDash(f[1]), f[2], extra)
+			continue
 		}
 		fmt.Fprintf(w, "%-30s %-14s %-8s %3d/%-3d %.2f [%.2f, %.2f] %8.0f %8.4f %10.2f %10.3f  %s%s\n",
 			f[0], orDash(f[1]), f[2], a.pass, a.n, float64(a.pass)/float64(a.n), lo, hi, median(a.secs), a.cost, float64(a.in)/1e6, float64(a.out)/1e6, strings.Join(oc, ", "), extra)
