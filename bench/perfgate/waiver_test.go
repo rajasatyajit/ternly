@@ -126,3 +126,28 @@ func TestFailuresFile(t *testing.T) {
 		t.Fatalf("failures file %q (%v)", b, err)
 	}
 }
+
+// A benchmark failing in several units is attributed once.
+func TestFailuresOncePerBenchmark(t *testing.T) {
+	csv := frameCSV + ",base.txt,,head.txt,,,\n,B/op,CI,B/op,CI,vs base,P\nFrame-4,9593,0%,15367,0%,+60.19%,p=0.000 n=10\ngeomean,1,,1,,+0.00%,\n"
+	p := filepath.Join(t.TempDir(), "ab.csv")
+	f := filepath.Join(t.TempDir(), "failures.tsv")
+	if err := os.WriteFile(p, []byte(csv), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := readRows(p)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("rows %v (%v)", rows, err)
+	}
+	var out strings.Builder
+	if _, err := checkWith(&out, config{BudgetPct: 5, Alpha: 0.05, BinaryBudgetPct: 5}, rows, "", checkOpts{failures: f,
+		attr: attributions{"internal/tools BenchmarkFrame": clean()}}); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(f); strings.Count(string(b), "\n") != 1 {
+		t.Fatalf("failures file %q: want one line", b)
+	}
+	if n := strings.Count(out.String(), "- BenchmarkFrame:"); n != 1 {
+		t.Fatalf("%d attribution lines, want 1:\n%s", n, out.String())
+	}
+}

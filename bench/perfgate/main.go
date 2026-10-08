@@ -324,6 +324,7 @@ func waive(cfg config, o checkOpts, r row) (honoured *waiver, why string) {
 func checkWith(w io.Writer, cfg config, rows []row, size string, o checkOpts) (bool, error) {
 	failed := false
 	var failing, notes []string
+	noted := map[string]bool{} // one attribution line per benchmark, not per unit
 	fmt.Fprintf(w, "### Performance gate (budget %g%%, alpha %g)\n\n| benchmark | unit | base | head | change | verdict |\n|---|---|---|---|---|---|\n", cfg.BudgetPct, cfg.Alpha)
 	for _, r := range rows {
 		c := append(r.cells, make([]string, 6)...)[:6] // a benchmark only one side has: trailing cells are dropped
@@ -352,9 +353,12 @@ func checkWith(w io.Writer, cfg config, rows []row, size string, o checkOpts) (b
 				return false, fmt.Errorf("%s %s: delta %q", r.name, r.unit, delta)
 			}
 			if pct > lim {
-				failing = append(failing, r.pkg+"\t"+r.name)
-				if a, ok := o.attr[attrKey(modRel(r.pkg), r.name)]; ok {
-					notes = append(notes, fmt.Sprintf("- %s %s: %s", r.name, r.unit, a.line()))
+				if k := r.pkg + "\t" + r.name; !noted[k] {
+					noted[k] = true
+					failing = append(failing, k)
+					if a, ok := o.attr[attrKey(modRel(r.pkg), r.name)]; ok {
+						notes = append(notes, fmt.Sprintf("- %s: %s", r.name, a.line()))
+					}
 				}
 				if wv, why := waive(cfg, o, r); wv != nil {
 					verdict = fmt.Sprintf("**WAIVED (%s, ADR %s, until the release after %s): +%.1f%% > %g%%**", wv.ID, wv.ADR, wv.Release, pct, lim)
