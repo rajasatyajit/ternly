@@ -11,7 +11,8 @@
     {"pkg": "internal/graph", "bench": "^BenchmarkGraphLoad$", "benchtime": "300x", "_doc": "sub-millisecond: at 20x a round was ~10 ms and one GC or background task doubled it (bimodal on 4 CPUs; PR #16 failed identical code)"},
     {"pkg": "internal/tools", "bench": "^Benchmark(ReadFile|EditFile|Grep|Validate|Frame)$", "benchtime": "200ms"},
     {"pkg": "internal/tui", "bench": "^Benchmark(Keystroke|Redraw10k|RenderAnswer)$", "benchtime": "50x"},
-    {"pkg": "internal/discover", "bench": "^BenchmarkPick$", "benchtime": "200ms"}
+    {"pkg": "internal/discover", "bench": "^BenchmarkPick$", "benchtime": "200ms"},
+    {"pkg": "internal/status", "bench": "^BenchmarkSnapshot$", "benchtime": "200ms", "_doc": "ADR 021 §3: the UI calls Snapshot on redraws; budget 50 µs for 50 models and 10 connections"}
   ],
   "budgets": {}
 }

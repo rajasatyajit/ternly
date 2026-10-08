@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -94,7 +95,9 @@ type Measurement struct {
 	Tier, Runs     int
 	PassLo, PassHi float64 // 95% interval of the pass rate; Tier is decided on PassLo
 	Autonomy       string  // memory autonomy: full, verify, off
-	Baitable       bool    // took injection bait: edits and commands always need confirmation
+	Baitable       bool    // trust lost (ADR 020): shell commands always need confirmation
+	TrustClean     int     // consecutive clean bait trials (ADR 020)
+	TrustNeeded    int     // clean trials in a row that regain trust
 	Measured       time.Time
 	Fabrication    float64
 	MemoryMisuse   float64
@@ -200,11 +203,20 @@ type Options struct {
 	Overrides map[string]int         // model key → tier
 	Measured  map[string]Measurement // model key → measured capability (beats the name table)
 	Hardware  *Hardware              // nil: detect (tests replay a recorded machine)
+	// NoNet: no request beyond model listing (--no-net): no usage lookups.
+	NoNet bool
 }
 
 var skipModel = regexp.MustCompile(`(?i)embed|whisper|tts|dall-?e|image|moderation|rerank|audio|realtime|transcri|guard|speech|vision-preview|search-preview|omni-moderation|sora|veo|imagen|lyria|aqa`)
 
 func Discover(ctx context.Context, o Options) ([]*Model, []string) {
+	ms, _, warn := DiscoverAll(ctx, o)
+	return ms, warn
+}
+
+// DiscoverAll is Discover with the connection each model came through
+// (ADR 021, 022): every configured source, working or not, and why not.
+func DiscoverAll(ctx context.Context, o Options) ([]*Model, []Connection, []string) {
 	provs := make([]*Provider, 0, len(Builtins)+len(o.Extra))
 	for _, p := range append(append([]Provider{}, Builtins...), o.Extra...) {
 		p := p
@@ -237,10 +249,11 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 	}
 
 	var (
-		mu     sync.Mutex
-		models []*Model
-		warn   []string
-		wg     sync.WaitGroup
+		mu      sync.Mutex
+		models  []*Model
+		warn    []string
+		wg      sync.WaitGroup
+		results = map[*Provider]error{}
 	)
 	var cat catalog
 	wg.Add(1)
@@ -252,6 +265,7 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 			ms, err := listModels(ctx, p)
 			mu.Lock()
 			defer mu.Unlock()
+			results[p] = err
 			if err != nil {
 				if !p.Local { // local servers simply not running is normal
 					warn = append(warn, fmt.Sprintf("%s: %v", p.Name, err))
@@ -283,13 +297,38 @@ func Discover(ctx context.Context, o Options) ([]*Model, []string) {
 	}
 	SetReasoning(out)
 	placeAll(ctx, out, o.Hardware)
+	conns := connections(provs, results, out, o.Keys)
+	if k := o.Keys["OLLAMA_API_KEY"]; k != "" && !o.NoNet && !o.LocalOnly {
+		for i := range conns {
+			if conns[i].ID == "ollama-cloud" {
+				if q, err := OllamaBalance(ctx, k); err == nil {
+					conns[i].Quota = q
+				} else {
+					conns[i].Detail = "usage unknown: ollama.com/api/balance failed (" + firstWord(err) + ")"
+				}
+			}
+		}
+	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Tier != out[j].Tier {
 			return out[i].Tier > out[j].Tier
 		}
 		return out[i].Blended() < out[j].Blended()
 	})
-	return out, warn
+	return out, conns, warn
+}
+
+// firstWord is the start of an error, enough to classify it without echoing
+// a server's text.
+func firstWord(err error) string {
+	s := err.Error()
+	if m := reHTTPStatus.FindString(s); m != "" {
+		return m
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timed out"
+	}
+	return "network error"
 }
 
 func listModels(ctx context.Context, p *Provider) ([]*Model, error) {

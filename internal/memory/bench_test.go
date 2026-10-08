@@ -1,6 +1,9 @@
 package memory
 
 import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"math/rand/v2"
@@ -13,11 +16,45 @@ import (
 	"time"
 )
 
-// corpusWords is a Zipf-ish vocabulary taken from this repository's own Go
-// source (identifiers and comment words), so synthetic items have realistic
-// term statistics.
+// corpusWords is a Zipf-ish vocabulary (identifiers and comment words, by
+// frequency) and a list of file paths, frozen in testdata/corpus.txt.gz so
+// the benchmarks' input never changes: it was taken from this repository's
+// own source at d12fe4d, and reading the live tree made BenchmarkSearch10k
+// move whenever a PR added files (PR #20: +5% B/op on unchanged code).
+// TERNLY_REGEN_CORPUS=<checkout> go test -run TestRegenCorpus ./internal/memory
+// rebuilds it from a checkout.
 func corpusWords(t testing.TB) ([]string, []string) {
-	root := "../.."
+	f, err := os.Open(filepath.Join("testdata", "corpus.txt.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var words, files []string
+	sc := bufio.NewScanner(zr)
+	for sc.Scan() {
+		kind, v, _ := strings.Cut(sc.Text(), " ")
+		switch kind {
+		case "W":
+			words = append(words, v)
+		case "F":
+			files = append(files, v)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(words) < 1000 || len(files) == 0 {
+		t.Fatalf("corpus too small: %d words, %d files", len(words), len(files))
+	}
+	return words, files
+}
+
+// walkCorpus derives the corpus from a checkout (the regenerator).
+func walkCorpus(t testing.TB, root string) ([]string, []string) {
 	freq := map[string]int{}
 	var files []string
 	re := regexp.MustCompile(`[A-Za-z][A-Za-z0-9]{2,}`)
@@ -49,10 +86,30 @@ func corpusWords(t testing.TB) ([]string, []string) {
 		}
 		return words[i] < words[j]
 	})
-	if len(words) < 1000 {
-		t.Fatalf("vocabulary too small: %d", len(words))
-	}
 	return words, files
+}
+
+func TestRegenCorpus(t *testing.T) {
+	root := os.Getenv("TERNLY_REGEN_CORPUS")
+	if root == "" {
+		t.Skip("set TERNLY_REGEN_CORPUS to a checkout to rebuild testdata/corpus.txt.gz")
+	}
+	words, files := walkCorpus(t, root)
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	for _, f := range files {
+		fmt.Fprintf(zw, "F %s\n", f)
+	}
+	for _, w := range words {
+		fmt.Fprintf(zw, "W %s\n", w)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join("testdata", "corpus.txt.gz"), buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%d words, %d files, %d bytes", len(words), len(files), buf.Len())
 }
 
 func zipf(r *rand.Rand, words []string) string {
