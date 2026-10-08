@@ -7,7 +7,8 @@
   "suites": [
     {"pkg": "internal/session", "bench": "^Benchmark(Record|Resume1000)$", "benchtime": "200ms"},
     {"pkg": "internal/memory", "bench": "^BenchmarkSearch10k$", "benchtime": "200ms"},
-    {"pkg": "internal/graph", "bench": "^BenchmarkGraph(Build|Load|Incremental)$", "benchtime": "20x"},
+    {"pkg": "internal/graph", "bench": "^BenchmarkGraph(Build|Incremental)$", "benchtime": "20x"},
+    {"pkg": "internal/graph", "bench": "^BenchmarkGraphLoad$", "benchtime": "300x", "_doc": "sub-millisecond: at 20x a round was ~10 ms and one GC or background task doubled it (bimodal on 4 CPUs; PR #16 failed identical code)"},
     {"pkg": "internal/tools", "bench": "^Benchmark(ReadFile|EditFile|Grep|Validate|Frame)$", "benchtime": "200ms"},
     {"pkg": "internal/tui", "bench": "^Benchmark(Keystroke|Redraw10k|RenderAnswer)$", "benchtime": "50x"},
     {"pkg": "internal/discover", "bench": "^BenchmarkPick$", "benchtime": "200ms"}
