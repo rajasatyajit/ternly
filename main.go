@@ -35,6 +35,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
 	"github.com/rajasatyajit/ternly/internal/session"
+	"github.com/rajasatyajit/ternly/internal/status"
 	"github.com/rajasatyajit/ternly/internal/tools"
 	"github.com/rajasatyajit/ternly/internal/tui"
 )
@@ -202,11 +203,19 @@ func run() int {
 	defer stop()
 
 	dopts := discover.Options{CacheDir: cacheDir, Keys: keys, Extra: extra, NoLocal: *noLocal || fc.NoLocal, LocalOnly: *localOnly, Overrides: fc.Tiers,
-		Measured: measurements(filepath.Join(dataDir, "capability"))}
-	discoverFn := func() ([]*discover.Model, []string) { return discover.Discover(ctx, dopts) }
+		Measured: measurements(filepath.Join(dataDir, "capability")), NoNet: *noNet}
+	var stc *status.Core // the ADR 021 producer; set once the agent exists
+	discoverAll := func(ctx context.Context) ([]*discover.Model, []discover.Connection, []string) {
+		ms, conns, w := discover.DiscoverAll(ctx, dopts)
+		if stc != nil {
+			stc.SetConnections(conns)
+		}
+		return ms, conns, w
+	}
+	discoverFn := func() ([]*discover.Model, []string) { ms, _, w := discoverAll(ctx); return ms, w }
 
 	if *listModels {
-		ms, w := discoverFn()
+		ms, conns, w := discoverAll(ctx)
 		for _, x := range w {
 			fmt.Fprintln(os.Stderr, "warning:", x)
 		}
@@ -255,6 +264,10 @@ func run() int {
 			fmt.Println("\nrouting v1 (price only); --routing v2 or \"routing\": \"v2\" ranks by expected cost to finish (ADR 018)")
 		} else {
 			fmt.Printf("\nrouting v2: score = (money + quota + $%.0f/h × time) / p(success); /models why <model> in the TUI explains one\n", cm.TimeValue)
+		}
+		fmt.Println() // how each model is reached (ADR 022)
+		for _, l := range status.Lines(status.New(r, nil, conns, nil).Snapshot().Connections, discover.FindCLIs(), time.Now()) {
+			fmt.Println(l)
 		}
 		return 0
 	}
@@ -310,6 +323,7 @@ func run() int {
 	router := discover.NewRouter()
 	var emit func(agent.Event)
 	ag := agent.New(reg, router, func(e agent.Event) { emit(e) })
+	stc = status.New(router, ag, nil, discoverAll)
 	vcmd := agent.DetectVerify(reg.Root)
 	if fc.Verify != nil {
 		vcmd = *fc.Verify
@@ -650,14 +664,15 @@ func run() int {
 		return ms, w
 	}, Notes: notes, Remote: remote, Version: version, Sessions: mgr, Banner: banner, Pick: *resumeID == "?", Memory: mem, Theme: os.Getenv("TERNLY_THEME"),
 		Plugins: prt, Capabilities: caps, ConfigPath: filepath.Join(cfgDir, "config.json"), Status: func() []string {
+			lines := []string{"code graph on (Go): find_symbol, references, callers, … for the model"}
 			if gs == nil {
-				return []string{"code graph off (no go.mod, or code_graph: false)"}
+				lines = []string{"code graph off (no go.mod, or code_graph: false)"}
 			}
-			return []string{"code graph on (Go): find_symbol, references, callers, … for the model"}
+			return append(lines, status.Lines(stc.Snapshot().Connections, discover.FindCLIs(), time.Now())...)
 		}}
 	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
 	p := tea.NewProgram(m, tea.WithContext(ctx))
-	emit = func(e agent.Event) { p.Send(tuiMsg(e)) }
+	emit = func(e agent.Event) { stc.Observe(e); p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
 	if prt != nil {
 		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
