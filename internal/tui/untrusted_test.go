@@ -79,10 +79,10 @@ func TestSafeFrame(t *testing.T) {
 	}
 	for in, want := range map[string]string{
 		"a\x1b]52;c;eA==\x07b": `a\x1b]52;c;eA==\x07b`,
-		"\x1b[2J\x1b[H":         `\x1b[2J\x1b[H`,
-		"\x1b[31mred\x1b[0m":    "\x1b[31mred\x1b[0m",
-		"\x1b[31":               `\x1b[31`,
-		"\u009b31m":             `\x9b31m`,
+		"\x1b[2J\x1b[H":        `\x1b[2J\x1b[H`,
+		"\x1b[31mred\x1b[0m":   "\x1b[31mred\x1b[0m",
+		"\x1b[31":              `\x1b[31`,
+		"\u009b31m":            `\x9b31m`,
 	} {
 		if got := safeFrame(in); got != want {
 			t.Errorf("safeFrame(%q) = %q, want %q", in, got, want)

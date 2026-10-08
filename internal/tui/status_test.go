@@ -21,7 +21,7 @@ func surfaceModel(t *testing.T) (*Model, *fake.Core) {
 			{ID: "claude-cli", Label: "Claude subscription via the claude CLI", Kind: "cli-bridge", How: "claude", State: "signed-out",
 				Detail: "run claude and sign in, then /refresh"},
 		},
-		Models: []surface.Model{{Key: "ollama/kimi-k3:cloud", Connection: "ollama-cloud", Trust: surface.Trust{Lost: true, Needed: 20}}},
+		Models:  []surface.Model{{Key: "ollama/kimi-k3:cloud", Connection: "ollama-cloud", Trust: surface.Trust{Lost: true, Needed: 20}}},
 		Routing: surface.Routing{Version: "v2", Current: "ollama/kimi-k3:cloud"},
 		Meter:   surface.Meter{ContextUsed: 92_000, ContextMax: 100_000},
 	})

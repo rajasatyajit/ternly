@@ -165,9 +165,9 @@ type Model struct {
 	afterTurn     []func() tea.Cmd // run when the current turn ends (/ask, /architect)
 	suggest       *suggestion      // a capability suggestion on screen
 	laterSuggest  *capability.Suggestion
-	lastFailed    bool // the last turn ended with an error
-	ticking       bool // the animation ticker is scheduled (only while something animates)
-	expanded      bool // tool output shown in full (Ctrl+O)
+	lastFailed    bool   // the last turn ended with an error
+	ticking       bool   // the animation ticker is scheduled (only while something animates)
+	expanded      bool   // tool output shown in full (Ctrl+O)
 	fileQ         string // the @ query the picker shows or awaits
 	fileReq       bool   // a file listing for fileQ is wanted
 	snap          surface.Snapshot
@@ -1096,7 +1096,7 @@ func (m *Model) renderBlock(b *block) string {
 func (m *Model) View() tea.View {
 	s, boxTop := m.render()
 	v := tea.NewView(safeFrame(s))
-	v.AltScreen = true // basic key disambiguation (shift+enter) is requested by default
+	v.AltScreen = true   // basic key disambiguation (shift+enter) is requested by default
 	v.ReportFocus = true // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
 	if m.App.Access.Mouse {
 		v.MouseMode = tea.MouseModeCellMotion
