@@ -836,7 +836,7 @@ func report(w *os.File, paths []string) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	fmt.Fprintf(w, "%-30s %-14s %-8s %7s %-16s %8s %8s %10s %10s  %s\n", "model", "arm", "class", "pass", "pass@1 [95%]", "med s", "cost $", "Mtok in", "Mtok out", "outcomes")
+	fmt.Fprintf(w, "%-30s %-14s %-8s %7s %-16s %8s %8s %10s %10s %9s %9s  %s\n", "model", "arm", "class", "pass", "pass@1 [95%]", "med s", "cost $", "Mtok in", "Mtok out", "s/pass", "Mtok/pass", "outcomes")
 	for _, k := range keys {
 		a := groups[k]
 		f := strings.Split(k, "\t")
@@ -860,8 +860,20 @@ func report(w *os.File, paths []string) error {
 			fmt.Fprintf(w, "%-30s %-14s %-8s   (no runs that kept the pin)%s\n", f[0], orDash(f[1]), f[2], extra)
 			continue
 		}
-		fmt.Fprintf(w, "%-30s %-14s %-8s %3d/%-3d %.2f [%.2f, %.2f] %8.0f %8.4f %10.2f %10.3f  %s%s\n",
-			f[0], orDash(f[1]), f[2], a.pass, a.n, float64(a.pass)/float64(a.n), lo, hi, median(a.secs), a.cost, float64(a.in)/1e6, float64(a.out)/1e6, strings.Join(oc, ", "), extra)
+		// cost and time per successful task: everything spent (failures too) over the passes
+		perPass := func(x float64) string {
+			if a.pass == 0 {
+				return "-"
+			}
+			return fmt.Sprintf("%.2f", x/float64(a.pass))
+		}
+		total := 0.0
+		for _, s := range a.secs {
+			total += s
+		}
+		fmt.Fprintf(w, "%-30s %-14s %-8s %3d/%-3d %.2f [%.2f, %.2f] %8.0f %8.4f %10.2f %10.3f %9s %9s  %s%s\n",
+			f[0], orDash(f[1]), f[2], a.pass, a.n, float64(a.pass)/float64(a.n), lo, hi, median(a.secs), a.cost, float64(a.in)/1e6, float64(a.out)/1e6,
+			perPass(total), perPass(float64(a.in+a.out)/1e6), strings.Join(oc, ", "), extra)
 		if f[0] == "auto" && f[2] == "all" {
 			var fm []string
 			for m, n := range a.firstModel {
