@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/rajasatyajit/ternly/internal/surface"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,8 +43,12 @@ type Policy struct {
 	// /rewind). A restricted model may edit without asking only then
 	// (ADR 020).
 	Checkpointed bool
-	mu           sync.Mutex
-	always       map[string]bool
+	// Review shows an edit as hunks where the policy would ask yes or no,
+	// and only accepted hunks are written (ADR 021 amendment 1). Used only
+	// when Ask is set too: headless never reviews.
+	Review surface.Reviewer
+	mu     sync.Mutex
+	always map[string]bool
 }
 
 func NewPolicy(mode string, ask Asker) *Policy {
@@ -165,6 +170,12 @@ func (p *Policy) checkRestricted(ctx context.Context, t *Tool, name, summary, mo
 		}
 		return false, " (non-interactive: " + why + ", so " + what + "; rerun with another model, or interactively)"
 	}
+	if r := reviewFrom(ctx); r != nil && t.Kind == Edit && p.Review != nil {
+		if ok, _ := p.review(ctx, r, why, false); !ok { // "always" never sticks here (ADR 020)
+			return false, " (denied by user)"
+		}
+		return true, ""
+	}
 	if p.Ask(ctx, name, summary+"  ["+why+"]", danger) == Deny {
 		return false, " (denied by user)"
 	}
@@ -196,6 +207,9 @@ func (p *Policy) Confirm(ctx context.Context, what, cmd string) bool {
 func (p *Policy) isAlways(k string) bool { p.mu.Lock(); defer p.mu.Unlock(); return p.always[k] }
 
 func (p *Policy) ask(ctx context.Context, name, summary string, danger bool, key string) (bool, string) {
+	if r := reviewFrom(ctx); r != nil && key == "edit" && p.Review != nil && p.Ask != nil {
+		return p.review(ctx, r, "", true)
+	}
 	if p.Ask == nil {
 		switch {
 		case danger:
