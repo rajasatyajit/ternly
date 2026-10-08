@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/textarea"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
@@ -120,13 +119,15 @@ type block struct {
 	state    int // 0 running, 1 ok, 2 fail, 3 unverified
 	detail   string
 	elapsed  time.Duration
+	lines    []string // rendered, split (the virtualised transcript)
+	linesFor string   // the rendering lines was split from
 }
 
 // ─────────────────────────── model ───────────────────────────
 
 type Model struct {
 	App           *App
-	vp            viewport.Model
+	vp            transcript
 	ta            textarea.Model
 	md            *glamour.TermRenderer
 	style         string
@@ -194,7 +195,7 @@ func New(app *App, dark bool) *Model {
 	ta.CharLimit = 0
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
-	m := &Model{App: app, ta: ta, vp: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)), discovering: true}
+	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true}
 	switch app.Theme {
 	case "dark", "light":
 		dark, m.themeSet = app.Theme == "dark", true
@@ -518,10 +519,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 			return nil, true
 		}
 	case "pgup", "ctrl+u":
-		m.vp.HalfPageUp()
+		m.vp.scroll(-max(1, m.vp.h/2))
 		return nil, true
 	case "pgdown", "ctrl+d":
-		m.vp.HalfPageDown()
+		m.vp.scroll(max(1, m.vp.h/2))
 		return nil, true
 	case "ctrl+l":
 		m.blocks = m.blocks[:1]
@@ -960,36 +961,31 @@ func (m *Model) layout() {
 	if m.suggest != nil {
 		permH += 2*len(m.suggest.s.Candidates) + 4
 	}
-	m.vp.SetWidth(m.w)
-	m.vp.SetHeight(max(3, m.h-1-inputH-1-permH))
+	m.vp.h = max(3, m.h-1-inputH-1-permH)
+	m.vp.clamp()
 }
 
 func (m *Model) refresh(force bool) {
 	if !m.ready {
 		return
 	}
-	atBottom := m.vp.AtBottom() || force
-	var sb strings.Builder
+	if force {
+		m.vp.follow = true
+	}
 	anim := m.busy
 	for _, b := range m.blocks {
 		if b.kind == bTool && b.state == 0 {
 			anim = true
-			sb.WriteString(m.renderBlock(b)) // spinner frame changes every tick
-		} else {
-			if b.rendered == "" {
-				b.rendered = m.renderBlock(b)
-			}
-			sb.WriteString(b.rendered)
+			b.rendered = m.renderBlock(b) // spinner frame changes every tick
+		} else if b.rendered == "" {
+			b.rendered = m.renderBlock(b)
 		}
-		sb.WriteString("\n")
 	}
+	tail := ""
 	if m.busy {
-		sb.WriteString("\n  " + shine(m.activity+"…", m.frame) + sDim.Render("  esc to interrupt") + "\n")
+		tail = "\n  " + shine(m.activity+"…", m.frame) + sDim.Render("  esc to interrupt") + "\n"
 	}
-	m.vp.SetContent(sb.String())
-	if atBottom {
-		m.vp.GotoBottom()
-	}
+	m.vp.set(m.blocks, tail)
 	m.dirty = anim
 }
 
@@ -1047,7 +1043,7 @@ func (m *Model) render() string {
 	}
 	var sb strings.Builder
 	sb.WriteString(m.header() + "\n")
-	sb.WriteString(m.vp.View() + "\n")
+	sb.WriteString(m.vp.view() + "\n")
 	if m.perm != nil {
 		sb.WriteString(m.permView() + "\n")
 	}

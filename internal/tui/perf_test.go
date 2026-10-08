@@ -47,7 +47,7 @@ func BenchmarkKeystroke(b *testing.B) {
 // BenchmarkRedraw10k: a transcript redraw (new output arriving), blocks already rendered.
 func BenchmarkRedraw10k(b *testing.B) {
 	m := benchModel(b, 1000)
-	if n := strings.Count(m.vp.GetContent(), "\n"); n < 10000 {
+	if n := m.vp.total; n < 10000 {
 		b.Fatalf("transcript is %d lines, want ≥ 10k", n)
 	}
 	b.ReportAllocs()
