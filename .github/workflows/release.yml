@@ -20,7 +20,8 @@ jobs:
 
   release:
     needs: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned, as in ci.yml
+    timeout-minutes: 45
     permissions:
       contents: write     # the draft release
       id-token: write     # cosign keyless and attestations (GitHub OIDC)
@@ -64,10 +65,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, arch: amd64, run: native }
-          - { os: ubuntu-latest, arch: arm64, run: qemu }
+          - { os: ubuntu-24.04, arch: amd64, run: native }
+          - { os: ubuntu-24.04, arch: arm64, run: qemu }
           - { os: macos-latest, arch: arm64, run: native }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,13 +91,16 @@ jobs:
           cosign verify-blob dist/checksums.txt --bundle dist/checksums.txt.sigstore.json \
             --certificate-identity-regexp '^https://github.com/rajasatyajit/ternly/\.github/workflows/release\.yml@refs/tags/v' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: qemu
+        if: matrix.run == 'qemu'
+        timeout-minutes: 15
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static
       - name: smoke test the archive
         shell: bash
         run: |
           os=$(go env GOOS)
           tar -xzf dist/ternly_*_${os}_${{ matrix.arch }}.tar.gz -C dist ternly
           if [ "${{ matrix.run }}" = qemu ]; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static
             GOARCH=arm64 CGO_ENABLED=0 go build -o dist/fakeprovider ./bench/fakeprovider
             qemu-aarch64-static dist/ternly --version
             # the fake provider and the turn run under qemu too
@@ -108,7 +113,8 @@ jobs:
   publish:
     needs: smoke
     if: github.ref_type == 'tag'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
