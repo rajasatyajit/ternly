@@ -464,6 +464,9 @@ func (m *Model) animating() bool {
 	if m.App.Access.ReducedMotion { // nothing moves; events redraw by themselves
 		return !m.ready
 	}
+	if m.perm != nil { // waiting for the user, not working: nothing should look busy
+		return false
+	}
 	if !m.ready || m.discovering || m.busy || m.dirty {
 		return true
 	}
@@ -1041,7 +1044,10 @@ func (m *Model) refresh(force bool) {
 		}
 	}
 	tail := ""
-	if m.busy {
+	switch {
+	case m.busy && m.perm != nil:
+		tail = "\n  " + sWarn.Render("Waiting for your answer") + sDim.Render("  y yes · a always · n no") + "\n"
+	case m.busy:
 		tail = "\n  " + m.moving(m.activity+"…") + sDim.Render("  esc to interrupt") + "\n"
 	}
 	m.vp.set(m.blocks, tail)
