@@ -70,3 +70,22 @@ func TestFakeChanges(t *testing.T) {
 		t.Fatal("channel not closed after cancel")
 	}
 }
+
+// The fake reviewer records proposals and accepts every hunk unless told
+// otherwise.
+func TestFakeReview(t *testing.T) {
+	var c fake.Core
+	p := surface.EditProposal{Tool: "edit_file", Path: "a.go", Hunks: make([]surface.Hunk, 3)}
+	if d := c.Review(context.Background(), p); len(d.Apply) != 3 || !d.Apply[0] || !d.Apply[2] || d.Always {
+		t.Fatalf("default decision %+v", d)
+	}
+	c.Decide = func(p surface.EditProposal) surface.EditDecision {
+		return surface.EditDecision{Apply: []bool{true, false, true}}
+	}
+	if d := c.Review(context.Background(), p); d.Apply[1] {
+		t.Fatalf("scripted decision ignored: %+v", d)
+	}
+	if len(c.Proposals) != 2 || c.Proposals[1].Path != "a.go" {
+		t.Fatalf("proposals recorded: %+v", c.Proposals)
+	}
+}

@@ -130,3 +130,40 @@ type PlanItem struct {
 	Text  string
 	State string // "pending", "active", "done"
 }
+
+// ─── Amendment 1 (ADR 021): per-hunk review of edits ───
+//
+// When the permission policy would ask a person about an edit, the core
+// shows the proposed change as hunks and applies only those accepted.
+// Lines are the workspace's and the model's text: a UI must show them as
+// text, never as terminal sequences (ADR 023).
+
+// EditProposal is a change to one file awaiting a person's decision.
+type EditProposal struct {
+	Tool    string // the edit tool: edit_file, write_file
+	Path    string // workspace-relative
+	Why     string // why a person is asked, e.g. the model's trust is lost (ADR 020); "" for the mode's usual ask
+	NewFile bool
+	Hunks   []Hunk
+}
+
+// Hunk is one contiguous change, as in a unified diff.
+type Hunk struct {
+	OldStart, OldLines int      // 1-based, in the file as it is
+	NewStart, NewLines int      // 1-based, in the file as proposed
+	Lines              []string // each starts with ' ' (context), '-' or '+'
+}
+
+// EditDecision answers an EditProposal. Apply has one entry per hunk; none
+// true means the edit is declined. Always allows edits without asking for
+// the rest of the session; the core ignores it where its rules don't allow
+// that (a model whose trust is lost, ADR 020).
+type EditDecision struct {
+	Apply  []bool
+	Always bool
+}
+
+// Reviewer asks a person about an edit. The UI provides it; the core calls
+// it only when a person is there to answer (never headless) and only where
+// it would otherwise ask yes or no.
+type Reviewer func(ctx context.Context, p EditProposal) EditDecision

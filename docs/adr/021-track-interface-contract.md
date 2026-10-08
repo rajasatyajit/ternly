@@ -103,6 +103,38 @@ Each returns an error that the UI shows as is, written for a person.
   - an import of `internal/llm`;
   - a fake buffering two notifications.
 
+## Amendment 1 (2026-10-08): per-hunk review of edits
+
+Decided in the Phase F review: an edit that would ask a person is shown as hunks, and only the
+accepted hunks are applied.
+
+**Contract (`internal/surface`):**
+- `EditProposal{Tool, Path, Why, NewFile, Hunks}`: one file's proposed change. `Why` is set when
+  the ask comes from a rule such as lost trust (ADR 020).
+- `Hunk{OldStart, OldLines, NewStart, NewLines, Lines}`: as in a unified diff. Lines start with
+  space, `-` or `+`.
+- `EditDecision{Apply []bool, Always}`: one entry per hunk. None set means declined.
+- `Reviewer func(ctx, EditProposal) EditDecision`: the UI provides it, the core calls it.
+
+**Rules the core keeps:**
+- **Same places as today.** The reviewer is asked only where the policy would otherwise ask yes or
+  no: an edit in ask mode, or a restricted model's edit outside a checkpointed edits/yolo mode.
+  Nothing that runs without asking today starts asking.
+- **Headless is unchanged.** It is called only when a person is there (an `Asker` is set). Headless
+  refusals stay exactly as they are, including ADR 020's.
+- **"Always" is a request, not a grant.** The core ignores it where its rules forbid it: a model
+  whose trust is lost never gets "always" (ADR 020).
+- **Plan mode still refuses** every edit before anyone is asked.
+- **Only accepted hunks are written,** composed from the file as it is. The tool result tells the
+  model which hunks were declined, so it doesn't silently re-apply them.
+- **Lines are outside text.** A UI shows them as text, never as terminal sequences (ADR 023).
+
+**Ownership:** Track 2 implements both sides within this scope (the permission flow in
+`internal/tools` and the UI), as the review decided. A change beyond it is a new amendment.
+
+**Fake:** `fake.Core.Review` records each proposal and answers with `Decide` (every hunk accepted
+when unset). `TestFakeReview` covers it, and breaking the default answer fails it.
+
 ## Not decided here
 - **Phase B's providers and their terms of service.** Phase B's first step, in its own ADR.
 - **Phase F's rubric and UI design.** Phase F's first step, in its own ADR.
