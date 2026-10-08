@@ -125,9 +125,11 @@ func (c *Catalog) Put(es ...Entry) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	for _, e := range es {
-		c.store.Upsert(toItem(e))
+	items := make([]*memory.Item, len(es))
+	for i, e := range es {
+		items[i] = toItem(e)
 	}
+	c.store.UpsertAll(items) // one lock per page
 	return nil
 }
 
@@ -186,6 +188,7 @@ func (c *Catalog) Refresh(ctx context.Context, progress func(string)) error {
 	if progress == nil {
 		progress = func(string) {}
 	}
+	defer c.store.HoldIndex()() // the index rebuilds at most once per refresh, at the end
 	c.mu.Lock()
 	st := c.state
 	c.mu.Unlock()

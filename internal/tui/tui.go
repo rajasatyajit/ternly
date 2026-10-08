@@ -704,8 +704,8 @@ func (m *Model) legacyCommand(name, arg, v string) tea.Cmd {
 		l, g := m.App.Agent.Ledger(), m.App.Agent.Stats()
 		m.addInfo(fmt.Sprintf("  session: %s  in %s · out %s · cache read %s / write %s (%.0f%% hit) · %d turns",
 			sAccent.Render(fmt.Sprintf("$%.4f", l.Cost)), kfmt(l.Usage.In), kfmt(l.Usage.Out), kfmt(l.Usage.CacheRead), kfmt(l.Usage.CacheWrite), l.CacheRate()*100, l.Turns) +
-			sDim.Render(fmt.Sprintf("\n  guards: %d invalid calls rejected · %d denied · %d injection flags · %d loops stopped · %d claims challenged (%d unbacked) · %d checkpoints",
-				g.Invalid, g.Denied, g.Flagged, g.Loops, g.Challenged, g.Unbacked, g.Checkpoints)))
+			sDim.Render(fmt.Sprintf("\n  guards: %d invalid calls rejected · %d denied · %d injection flags · %d loops stopped · %d claims challenged (%d unbacked) · %d checkpoints · %d failovers · %d empty answers asked again",
+				g.Invalid, g.Denied, g.Flagged, g.Loops, g.Challenged, g.Unbacked, g.Checkpoints, g.Failovers, g.EmptyRetry)))
 	case "/limits":
 		m.addInfo(m.limits(arg))
 	case "/undo":

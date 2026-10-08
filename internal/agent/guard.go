@@ -31,6 +31,8 @@ type Stats struct {
 	Unsupported int // references still unsupported after that
 	Checkpoints int // workspace checkpoints taken
 	Watchdog    int // steps the reasoning watchdog interrupted
+	Failovers   int // switches to another model after an error, a quota hit or empty answers (ADR 018, 025)
+	EmptyRetry  int // empty answers (no text, no tool call) asked again on the same model (ADR 028)
 }
 
 const (
@@ -42,37 +44,40 @@ const (
 // turnState tracks one turn's progress for the guards.
 type turnState struct {
 	factChecked bool // the answer's references were sent back once
-	start       time.Time
-	cost0       float64
-	lim         Limits
-	budget      float64
-	verify      string
-	epoch       int               // advances on every successful edit
-	seen        map[string]int    // epoch|tool|canonical args → count
-	denied      map[string]string // tool|canonical args → the mode it was refused in
-	fails       int               // consecutive failed tool calls
-	loops       int
-	lastEdit    int // step of the last successful edit (-1: none)
-	lastPass    int // step of the last passing verify/build/test (-1: none)
-	lastCheck   string
-	challenged  bool
-	edited      bool
-	tree        string // checkpoint taken before this turn's first mutation
-	prompt      string // for memory
-	answer      string // the model's last text
-	failCmd     string // first failing check this turn, and its first error line
-	failErr     string
-	fix         *Fix            // that check passed later: a verified fix
-	paths       map[string]bool // files edit tools touched (changedSources without checkpoints)
-	shellRan    bool            // a shell command ran since the last verification
-	gapsTold    bool            // the model was told about coverage gaps once
-	effort      string          // reasoning budget for this turn's steps (ADR 015)
-	forceLabel  string          // the watchdog's retry label, sent as is
-	watchdogged bool            // the watchdog interrupted a step this turn
-	Verdict     string          // the last verification's verdict ("" if none ran)
-	diff, ctx   int             // routing: the task's difficulty and context when it started (ADR 018)
-	tried       map[string]bool // models used this turn: escalation and failover go elsewhere
-	toldNowhere bool            // the user was told escalation had nowhere to go
+	// emptyRetried: an empty answer was asked again on the same model;
+	// emptyFailed: a second one failed over. Each at most once a turn (ADR 028).
+	emptyRetried, emptyFailed bool
+	start                     time.Time
+	cost0                     float64
+	lim                       Limits
+	budget                    float64
+	verify                    string
+	epoch                     int               // advances on every successful edit
+	seen                      map[string]int    // epoch|tool|canonical args → count
+	denied                    map[string]string // tool|canonical args → the mode it was refused in
+	fails                     int               // consecutive failed tool calls
+	loops                     int
+	lastEdit                  int // step of the last successful edit (-1: none)
+	lastPass                  int // step of the last passing verify/build/test (-1: none)
+	lastCheck                 string
+	challenged                bool
+	edited                    bool
+	tree                      string // checkpoint taken before this turn's first mutation
+	prompt                    string // for memory
+	answer                    string // the model's last text
+	failCmd                   string // first failing check this turn, and its first error line
+	failErr                   string
+	fix                       *Fix            // that check passed later: a verified fix
+	paths                     map[string]bool // files edit tools touched (changedSources without checkpoints)
+	shellRan                  bool            // a shell command ran since the last verification
+	gapsTold                  bool            // the model was told about coverage gaps once
+	effort                    string          // reasoning budget for this turn's steps (ADR 015)
+	forceLabel                string          // the watchdog's retry label, sent as is
+	watchdogged               bool            // the watchdog interrupted a step this turn
+	Verdict                   string          // the last verification's verdict ("" if none ran)
+	diff, ctx                 int             // routing: the task's difficulty and context when it started (ADR 018)
+	tried                     map[string]bool // models used this turn: escalation and failover go elsewhere
+	toldNowhere               bool            // the user was told escalation had nowhere to go
 }
 
 func newTurnState(cost0 float64) *turnState {

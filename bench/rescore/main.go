@@ -26,8 +26,9 @@ type report struct {
 		Name      string  `json:"name"`
 		Threshold float64 `json:"threshold"`
 		Runs      []struct {
-			Err  string `json:"error"`
-			Tail string `json:"transcript_tail"`
+			Err     string `json:"error"`
+			Failure string `json:"failure"` // format, wrong-answer or other; absent before ADR 028
+			Tail    string `json:"transcript_tail"`
 		} `json:"runs_detail"`
 	} `json:"checks"`
 }
@@ -73,6 +74,7 @@ func main() {
 	sort.Strings(paths)
 	used := map[int]bool{}
 	var changedRuns, flippedChecks, flippedReports int
+	kinds := map[string]int{} // failed runs (as re-scored) by kind (ADR 028)
 	for _, p := range paths {
 		b, err := os.ReadFile(p)
 		if err != nil {
@@ -107,6 +109,8 @@ func main() {
 				}
 				if is {
 					newPass++
+				} else {
+					kinds[failureKind(run.Failure, run.Err)]++
 				}
 				if was != is {
 					changedRuns++
@@ -147,6 +151,23 @@ func main() {
 		}
 	}
 	fmt.Printf("\n%d runs changed, %d check verdicts flipped, %d report verdicts flipped (%d reports)\n", changedRuns, flippedChecks, flippedReports, len(paths))
+	fmt.Printf("failed runs by kind: %d format, %d wrong answer, %d other, %d unclassified (reports before ADR 028 record no kind)\n",
+		kinds[e2ejudge.FailFormat], kinds[e2ejudge.FailWrong], kinds[e2ejudge.FailOther], kinds["unclassified"])
+}
+
+// failureKind is the recorded kind, or for an older report what its error
+// text says for certain: a format failure ("no structured answer"), a
+// timeout or a failed run; anything else can't be told apart after the fact.
+func failureKind(recorded, errText string) string {
+	switch {
+	case recorded != "":
+		return recorded
+	case strings.HasPrefix(errText, "no structured answer"):
+		return e2ejudge.FailFormat
+	case strings.HasPrefix(errText, "timed out"), strings.Contains(errText, "exited with"), strings.HasPrefix(errText, "not run"):
+		return e2ejudge.FailOther
+	}
+	return "unclassified"
 }
 
 // manifestSize is how many checks a full run had when the report was made:

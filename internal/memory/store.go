@@ -344,6 +344,49 @@ func (s *Store) Upsert(it *Item) {
 	s.write(rec{Op: "put", Item: it})
 }
 
+// UpsertAll is Upsert for many items under one lock (a catalog page).
+func (s *Store) UpsertAll(items []*Item) {
+	s.mu.Lock()
+	for _, it := range items {
+		if cur := s.items[it.ID]; cur != nil {
+			it.V = cur.V + 1
+		} else if it.V == 0 {
+			it.V = 1
+		}
+		s.apply(rec{Op: "put", Item: it}, nil)
+	}
+	s.mu.Unlock()
+	for _, it := range items {
+		s.write(rec{Op: "put", Item: it})
+	}
+}
+
+// HoldIndex defers index rebuilds until release is called: a bulk update
+// (the catalog's refresh replaces thousands of entries) then rebuilds the
+// index once, at the end, if anything was replaced or removed, so the index
+// is exact afterwards. Holds nest; meanwhile searches skip dead slots, but
+// BM25 counts their postings in document frequencies (as it always has
+// between rebuilds), so scores drift until release.
+func (s *Store) HoldIndex() (release func()) {
+	s.mu.Lock()
+	s.ix.hold++
+	s.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			s.mu.Lock()
+			if s.ix.hold--; s.ix.hold == 0 && len(s.ix.docs) > s.ix.live {
+				s.ix.rebuild() // once, and exact: dead postings inflate document frequencies (BM25's IDF) until a rebuild
+			}
+			s.mu.Unlock()
+		})
+	}
+}
+
+// IndexRebuilds is how many times the search index was rebuilt since the
+// store opened (diagnostics and tests).
+func (s *Store) IndexRebuilds() int { s.mu.RLock(); defer s.mu.RUnlock(); return s.ix.rebuilds }
+
 // Scored is a search result: BM25, and the share of the query's words found.
 type Scored struct {
 	Item        Item

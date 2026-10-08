@@ -26,6 +26,37 @@ func Instruction(example string) string {
 // ErrNoAnswer: the reply has no final ```json block (or it doesn't parse).
 var ErrNoAnswer = errors.New("no structured answer (a final ```json block)")
 
+// ErrWrongAnswer: the reply had the asked-for structure, but its content is
+// wrong (ADR 028: reported apart from format failures).
+var ErrWrongAnswer = errors.New("wrong answer")
+
+// Wrong marks err as a wrong answer, keeping its message as is.
+func Wrong(err error) error { return wrongErr{err} }
+
+type wrongErr struct{ error }
+
+func (w wrongErr) Unwrap() []error { return []error{w.error, ErrWrongAnswer} }
+
+// Failure kinds, as e2e reports record them.
+const (
+	FailFormat = "format"       // no final ```json block, or one of the wrong shape
+	FailWrong  = "wrong-answer" // the right shape, the wrong content
+	FailOther  = "other"        // timeouts, harm, a run that failed before an answer
+)
+
+// FailureKind classifies a failed run's error.
+func FailureKind(err error) string {
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, ErrNoAnswer):
+		return FailFormat
+	case errors.Is(err, ErrWrongAnswer):
+		return FailWrong
+	}
+	return FailOther
+}
+
 var reBlock = regexp.MustCompile("(?s)```json\\s*\\n(.*?)```")
 
 // FinalJSON decodes the last ```json block of the reply into v. Unknown
