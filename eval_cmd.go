@@ -114,7 +114,8 @@ func measurements(dir string) map[string]discover.Measurement {
 		for k, r := range rs {
 			lo, hi := r.PassInterval()
 			out[k] = discover.Measurement{Tier: r.Tier(), Runs: r.Runs, Autonomy: r.Autonomy(), Baitable: r.Baitable(), Measured: r.Measured,
-				Fabrication: r.Fabrication, MemoryMisuse: r.MemoryMisuse, Susceptibility: r.Susceptibility, Pass: r.Pass, PassLo: lo, PassHi: hi, Source: src}
+				Fabrication: r.Fabrication, MemoryMisuse: r.MemoryMisuse, Susceptibility: r.Susceptibility, Pass: r.Pass, PassLo: lo, PassHi: hi, Source: src,
+				TrustClean: r.Trust.Clean, TrustNeeded: eval.RegainStreak}
 		}
 	}
 	add(eval.Defaults(), "ternly")
