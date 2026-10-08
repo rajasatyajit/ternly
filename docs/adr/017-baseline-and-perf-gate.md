@@ -254,6 +254,19 @@ gate in general.
    stays visible. Cumulative layout drift is still a real effect on the shipped binary, even if no
    single PR causes it.
 
+5. **An A/A run, to find noisy benchmarks before they fail a PR.** PR #16 changed only workflow
+   YAML, so its Go code was identical on both sides, and the gate still failed it: BenchmarkGraphLoad
+   +124%.
+   - Its rounds were bimodal on both sides (about 0.7 and 1.6 ms/op).
+   - Cause 1: the first build's background dependency build overlapped the timed loop.
+   - Cause 2: at `20x`, a sub-millisecond op makes a round of about 10 ms, so one GC cycle doubles
+     it.
+   - Fixed in PR #18, which waits for that work and runs GraphLoad at 300×.
+
+   That class is found cheaply by running the gate with base = head (an A/A run): any benchmark
+   that "regresses" against itself is noisy and gets fixed. Run it weekly on a schedule, and
+   whenever a suite is added or changed. It finds noise without loosening anything.
+
 Not implemented yet: this needs a decision. Items 1 and 2 are about a day of work in
 `bench/perfgate`, with tests that break each rule.
 
