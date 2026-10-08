@@ -250,7 +250,7 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 			b.WriteString(fmt.Sprintf("    %-34s %s\n", "/"+u.Name+" "+u.ArgHint, sDim.Render(u.Description)))
 		}
 	}
-	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output"))
+	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output · Ctrl+B sessions"))
 	m.addInfo(b.String())
 	return nil
 }

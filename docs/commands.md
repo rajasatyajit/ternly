@@ -137,6 +137,17 @@ Markdown files become commands. The file name gives the name, and subdirectories
 Typing `/` opens a list of commands (built-in and user-defined) with descriptions. It filters by
 fuzzy match as you type; Tab completes and ↑/↓ choose.
 
+## Keys (ADR 023)
+- **Ctrl+K:** every command, fuzzy-filtered.
+- **`@`:** pick a workspace file.
+- **Ctrl+O:** a tool's full output.
+- **Ctrl+B:** the session sidebar. ↑↓ select, Enter switches, Esc returns to the input, and Ctrl+B
+  again hides it. It needs 100 columns.
+- **Edit review:** when an edit asks, ↑↓ move between hunks, Space toggles one, y applies the
+  selected hunks, a also stops asking, and n or Esc declines.
+- **`--accessible`** (or `TERNLY_SCREEN_READER=1`): linear output in the terminal's scrollback,
+  plain text, nothing animates.
+
 ## Out of scope (account, cloud and vendor-app features)
 - **CC:** `/login`, `/logout`, `/upgrade`, `/usage-credits`, `/passes`, `/mobile`, `/desktop`,
   `/chrome`, `/remote-control`, `/remote-env`, `/teleport`, `/web-setup`, `/install-github-app`,

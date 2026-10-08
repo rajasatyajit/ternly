@@ -170,6 +170,7 @@ type Model struct {
 	expanded      bool         // tool output shown in full (Ctrl+O)
 	answered      bool         // the current turn has shown answer text
 	review        *reviewState // an edit under per-hunk review
+	side          *sidebar     // the session sidebar (Ctrl+B); nil: hidden
 	printed       int          // accessible mode: blocks already printed to the scrollback
 	fileQ         string       // the @ query the picker shows or awaits
 	fileReq       bool         // a file listing for fileQ is wanted
@@ -251,7 +252,7 @@ func (m *Model) setTheme(dark bool) {
 	st.Focused.Placeholder = sDim
 	m.ta.SetStyles(st)
 	if m.w > 0 {
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.newMarkdown()
 	}
 	for _, b := range m.blocks {
 		b.rendered = ""
@@ -296,7 +297,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
-		m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.w-6)), glamour.WithEmoji())
+		m.newMarkdown()
 		for _, b := range m.blocks {
 			b.rendered = ""
 		}
@@ -403,6 +404,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case switchedMsg:
 		m.queue, m.paused = nil, false
+		m.reloadSidebar()
 		m.loadTranscript(msg.st)
 		title := orStr(m.App.Agent.Title(), m.App.Sessions.Current().ID)
 		if p := msg.st.Settings; p != nil && p.Pin != "" {
@@ -490,6 +492,15 @@ func (m *Model) animating() bool {
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.review != nil {
 		return m.reviewKey(k), true
+	}
+	if k.String() == "ctrl+b" && m.perm == nil && m.picker == nil {
+		m.toggleSidebar()
+		return nil, true
+	}
+	if m.side != nil && m.side.focused && m.perm == nil && m.picker == nil {
+		if c, handled := m.sidebarKey(k); handled {
+			return c, true
+		}
 	}
 	if m.picker != nil && m.perm == nil {
 		return m.pickerKey(k), true
@@ -703,6 +714,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
+		m.reloadSidebar()                           // turns and titles changed
 		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
 			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
 				sDim.Render(" — ask again, or /model to pick another (/why shows the ranking)")})
@@ -1080,7 +1092,7 @@ func (m *Model) renderBlock(b *block) string {
 	}
 	switch b.kind {
 	case bUser:
-		return "\n" + sUser.Render("❯ ") + lipgloss.NewStyle().Width(m.w-4).Render(b.text)
+		return "\n" + sUser.Render("❯ ") + lipgloss.NewStyle().Width(m.cw()-4).Render(b.text)
 	case bAssistant:
 		if m.md == nil {
 			return b.text
@@ -1092,7 +1104,7 @@ func (m *Model) renderBlock(b *block) string {
 		return strings.TrimRight(out, "\n ")
 	case bTool:
 		icon := m.toolIcon(b.state)
-		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.w-30))
+		line := fmt.Sprintf("  %s %s %s", icon, sTool.Render(prettyTool(b.tool)), truncate(b.text, m.cw()-30))
 		if b.elapsed > 0 {
 			line += sDim.Render("  " + dur(b.elapsed))
 		}
@@ -1106,7 +1118,7 @@ func (m *Model) renderBlock(b *block) string {
 				if i == len(ls)-1 && b.full != "" && strings.HasPrefix(l, "… +") { // firstLines' "… +N lines"
 					l += " · ctrl+o expands"
 				}
-				line += "\n" + sDim.Render("    ⎿ "+truncate(l, m.w-10))
+				line += "\n" + sDim.Render("    ⎿ "+truncate(l, m.cw()-10))
 			}
 			if m.expanded && b.full != "" {
 				line += "\n" + sDim.Render("    ⎿ ctrl+o collapses")
@@ -1114,7 +1126,7 @@ func (m *Model) renderBlock(b *block) string {
 		}
 		return line
 	case bError:
-		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.w-6).Render(b.text)
+		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.cw()-6).Render(b.text)
 	}
 	return b.text
 }
@@ -1150,7 +1162,11 @@ func (m *Model) render() (string, int) {
 	}
 	var sb strings.Builder
 	sb.WriteString(m.header() + "\n")
-	sb.WriteString(m.vp.view() + "\n")
+	if m.sideShown() {
+		sb.WriteString(m.besideSidebar(m.vp.view()) + "\n")
+	} else {
+		sb.WriteString(m.vp.view() + "\n")
+	}
 	if m.perm != nil {
 		sb.WriteString(m.permView() + "\n")
 	}
@@ -1370,3 +1386,8 @@ func orStr(s, d string) string {
 
 // AgentMsg wraps an agent event for tea.Program.Send.
 func AgentMsg(e agent.Event) tea.Msg { return agentMsg(e) }
+
+// newMarkdown makes the markdown renderer for the content width.
+func (m *Model) newMarkdown() {
+	m.md, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle()), glamour.WithWordWrap(max(20, m.cw()-6)), glamour.WithEmoji())
+}
