@@ -17,16 +17,20 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,7 +87,7 @@ type Result struct {
 	Arm       string   `json:"arm,omitempty"`
 	Run       int      `json:"run"`
 	Pass      bool     `json:"pass"`
-	Outcome   string   `json:"outcome"` // pass | oracle-fail | timeout | error | no-change
+	Outcome   string   `json:"outcome"` // pass | oracle-fail | timeout | error | no-change | infra (no model ran: not a measurement)
 	Seconds   float64  `json:"seconds"`
 	CostUSD   float64  `json:"cost_usd"`
 	TokensIn  int      `json:"tokens_in"`
@@ -102,6 +106,12 @@ type Result struct {
 	CacheHits int      `json:"cache_hits,omitempty"`     // deterministic mode: responses answered from the cache
 	Plans     int      `json:"plans,omitempty"`          // PlanFirst planning turns
 	Retries   int      `json:"retries,omitempty"`        // BestOf retries from scratch
+	// Provenance: what produced this row. Commit is the checkout the suite
+	// built ternly from ("" when -bin was given); Dirty: it had uncommitted
+	// changes; Binary is the ternly binary's SHA-256 (the resume key).
+	Commit string `json:"commit,omitempty"`
+	Dirty  bool   `json:"dirty,omitempty"`
+	Binary string `json:"binary_sha256,omitempty"`
 }
 
 func main() {
@@ -532,6 +542,7 @@ func (s *suite) runCmd(args []string) error {
 	envs := fl.String("env", "", "comma-separated KEY=VALUE set for ternly in this arm (lever toggles)")
 	bin := fl.String("bin", "", "ternly binary (default: built from this checkout)")
 	extra := fl.String("args", "", "extra ternly arguments, space-separated")
+	resume := fl.Bool("resume", true, "skip task×model×arm×run already in results.jsonl for this binary (rows without a binary hash are attributed to <out>/ternly)")
 	stable := fl.Bool("stable-ws", false, "one workspace path per task×model×arm, reused run after run (identical requests, so a response cache can answer them); forces -parallel 1")
 	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
@@ -544,13 +555,33 @@ func (s *suite) runCmd(args []string) error {
 	if err := os.MkdirAll(filepath.Join(*out, "logs"), 0o755); err != nil {
 		return err
 	}
+	var prov provenance
 	if *bin == "" {
 		*bin = filepath.Join(*out, "ternly")
-		b := exec.Command("go", "build", "-o", *bin, ".")
-		b.Dir, b.Env = s.root, append(gitenv.Clean(os.Environ()), "CGO_ENABLED=0")
-		if o, err := b.CombinedOutput(); err != nil {
-			return fmt.Errorf("build: %v %s", err, o)
+		if _, err := os.Stat(*bin); err == nil && *resume {
+			// resuming: keep the binary the earlier rows were measured with
+		} else {
+			b := exec.Command("go", "build", "-o", *bin, ".")
+			b.Dir, b.Env = s.root, append(gitenv.Clean(os.Environ()), "CGO_ENABLED=0")
+			if o, err := b.CombinedOutput(); err != nil {
+				return fmt.Errorf("build: %v %s", err, o)
+			}
+			prov.Commit, prov.Dirty = checkout(s.root)
+			_ = os.WriteFile(filepath.Join(*out, "ternly.commit"), []byte(fmt.Sprintf("%s dirty=%v\n", prov.Commit, prov.Dirty)), 0o644)
 		}
+	}
+	if b, err := os.ReadFile(filepath.Join(filepath.Dir(*bin), "ternly.commit")); err == nil { // written beside the binary when it was built
+		_, _ = fmt.Sscanf(string(b), "%s dirty=%t", &prov.Commit, &prov.Dirty)
+	}
+	sum, err := fileSHA256(*bin)
+	if err != nil {
+		return err
+	}
+	prov.Binary = sum
+	legacy, _ := fileSHA256(filepath.Join(*out, "ternly")) // the binary rows without a hash came from
+	done := map[string]bool{}
+	if *resume {
+		done = completed(filepath.Join(*out, "results.jsonl"), legacy)
 	}
 	re := regexp.MustCompile(*only)
 	var env []string
@@ -558,16 +589,25 @@ func (s *suite) runCmd(args []string) error {
 		env = strings.Split(*envs, ",")
 	}
 	var jobs []job
+	skipped := 0
 	for r := 0; r < *runs; r++ { // run-major: an interrupted run still covers every task
 		for _, t := range s.Tasks {
 			if !re.MatchString(t.ID) {
 				continue
 			}
 			for _, m := range strings.Split(*models, ",") {
-				jobs = append(jobs, job{t: t, model: strings.TrimSpace(m), run: r, arm: *arm, env: env})
+				j := job{t: t, model: strings.TrimSpace(m), run: r, arm: *arm, env: env}
+				if done[resumeKey(t.ID, j.model, j.arm, r, prov.Binary)] {
+					skipped++
+					continue
+				}
+				jobs = append(jobs, j)
 			}
 		}
 	}
+	st := &runState{Out: *out, Arm: *arm, Binary: prov.Binary, Commit: prov.Commit, Total: len(jobs) + skipped, Skipped: skipped, PID: os.Getpid(), Started: time.Now().UTC()}
+	st.save()
+	fmt.Printf("suite run: %d to run, %d already done (binary %.12s, commit %.12s)\n", len(jobs), skipped, prov.Binary, prov.Commit)
 	f, err := os.OpenFile(filepath.Join(*out, "results.jsonl"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -585,10 +625,20 @@ func (s *suite) runCmd(args []string) error {
 		go func() {
 			defer wg.Done()
 			for j := range ch {
+				mu.Lock()
+				st.Running = append(st.Running, j.t.ID+" "+j.model+" run "+fmt.Sprint(j.run))
+				st.save()
+				mu.Unlock()
 				res := s.one(j, *bin, *out, *timeout, strings.Fields(*extra))
+				res.Commit, res.Dirty, res.Binary = prov.Commit, prov.Dirty, prov.Binary
 				b, _ := json.Marshal(res)
 				mu.Lock()
 				_, _ = f.Write(append(b, '\n'))
+				_ = f.Sync() // a row on disk survives the runner being killed
+				st.Done++
+				st.Running = slices.DeleteFunc(st.Running, func(s string) bool { return s == j.t.ID+" "+j.model+" run "+fmt.Sprint(j.run) })
+				st.Last = fmt.Sprintf("%s %s run %d: %s", res.Task, res.Model, res.Run, res.Outcome)
+				st.save()
 				fmt.Printf("%-24s %-28s run %d  %-11s %6.0fs  %s\n", res.Task, res.Model, res.Run, res.Outcome, res.Seconds, strings.Join(res.Models, " → "))
 				mu.Unlock()
 			}
@@ -599,7 +649,99 @@ func (s *suite) runCmd(args []string) error {
 	}
 	close(ch)
 	wg.Wait()
+	st.Finished = time.Now().UTC()
+	st.save()
 	return nil
+}
+
+// provenance is what built the binary a run measures.
+type provenance struct {
+	Commit string
+	Dirty  bool
+	Binary string
+}
+
+func checkout(root string) (string, bool) {
+	c := gitenv.Command(context.Background(), "-C", root, "rev-parse", "HEAD")
+	out, err := c.Output()
+	if err != nil {
+		return "", false
+	}
+	d := gitenv.Command(context.Background(), "-C", root, "status", "--porcelain", "--untracked-files=no")
+	o, _ := d.Output()
+	return strings.TrimSpace(string(out)), len(strings.TrimSpace(string(o))) > 0
+}
+
+func fileSHA256(p string) (string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func lastLine(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	return strings.TrimSpace(lines[len(lines)-1])
+}
+
+func resumeKey(task, model, arm string, run int, binary string) string {
+	return fmt.Sprintf("%s|%s|%s|%d|%s", task, model, arm, run, binary)
+}
+
+// completed lists the jobs results.jsonl already holds. A row without a
+// binary hash (written before rows carried one) is attributed to legacy,
+// the binary kept in the same output directory.
+func completed(path, legacy string) map[string]bool {
+	done := map[string]bool{}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return done
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		var r Result
+		if json.Unmarshal([]byte(line), &r) != nil || r.Task == "" || r.Outcome == "infra" { // infra: no model ran, so run it again
+			continue
+		}
+		bin := r.Binary
+		if bin == "" {
+			bin = legacy
+		}
+		done[resumeKey(r.Task, r.Model, r.Arm, r.Run, bin)] = true
+	}
+	return done
+}
+
+// runState is <out>/state.json: progress of the current run, rewritten after
+// every job, so progress can be checked without the runner's terminal.
+type runState struct {
+	Out      string    `json:"out"`
+	Arm      string    `json:"arm"`
+	Binary   string    `json:"binary_sha256"`
+	Commit   string    `json:"commit"`
+	Total    int       `json:"total"`
+	Skipped  int       `json:"skipped_already_done"`
+	Done     int       `json:"done_this_run"`
+	Running  []string  `json:"running"`
+	Last     string    `json:"last"`
+	PID      int       `json:"pid"`
+	Started  time.Time `json:"started"`
+	Updated  time.Time `json:"updated"`
+	Finished time.Time `json:"finished,omitzero"`
+}
+
+func (st *runState) save() {
+	st.Updated = time.Now().UTC()
+	b, _ := json.MarshalIndent(st, "", "  ")
+	tmp := filepath.Join(st.Out, "state.json.tmp")
+	if os.WriteFile(tmp, b, 0o644) == nil {
+		_ = os.Rename(tmp, filepath.Join(st.Out, "state.json"))
+	}
 }
 
 var (
@@ -704,6 +846,11 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 		res.Outcome = "pass"
 	case ctx.Err() != nil:
 		res.Outcome = "timeout"
+	case err != nil && len(res.Models) == 0: // ternly failed before any model ran (unknown model, endpoint down): infrastructure, not the model
+		res.Outcome = "infra"
+		if res.Error == "" {
+			res.Error = lastLine(trace)
+		}
 	case strings.TrimSpace(string(st)) == "":
 		res.Outcome = "no-change"
 	case err != nil && res.Error != "":
@@ -829,6 +976,7 @@ func readResults(paths []string) ([]Result, error) {
 
 type agg struct {
 	pinBroken  int // pinned runs that failed over to another model: excluded from pass/n (not a measurement of the pin)
+	infra      int // runs where no model ran (outcome infra): excluded from pass/n
 	pass, n    int
 	secs       []float64
 	cost       float64
@@ -856,6 +1004,10 @@ func report(w *os.File, paths []string) error {
 			}
 			if pinBroken { // ternly failed over away from the pinned model (ADR 018/028)
 				a.pinBroken++
+				continue
+			}
+			if r.Outcome == "infra" { // no model ran: not a measurement of anything
+				a.infra++
 				continue
 			}
 			a.n++
@@ -902,6 +1054,9 @@ func report(w *os.File, paths []string) error {
 		}
 		if a.pinBroken > 0 {
 			extra += fmt.Sprintf("; %d run(s) excluded: failed over away from the pin", a.pinBroken)
+		}
+		if a.infra > 0 {
+			extra += fmt.Sprintf("; %d run(s) excluded: no model ran (infra)", a.infra)
 		}
 		if a.n == 0 {
 			fmt.Fprintf(w, "%-30s %-14s %-8s   (no runs that kept the pin)%s\n", f[0], orDash(f[1]), f[2], extra)
