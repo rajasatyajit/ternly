@@ -71,4 +71,37 @@ and one that fails on a correct solution would measure the oracle.
   the middle. Differences smaller than that are reported as "not measurable here", not as findings.
 
 ## Results
-RESULTS
+### First screen (2026-10-08): eight Ollama Cloud models, one run of the 15 original tasks
+- **Halfway through,** at 13:00 UTC, the subscription hit its monthly usage limit (HTTP 429).
+  ternly then failed over from every pinned cloud model to local llama3.1:8b.
+- **Those runs are excluded.** A pinned run that switched model isn't a measurement of the pinned
+  model.
+- **What remains:** 8–9 valid runs per model, from the tasks that ran first.
+
+| Model | bugfix | feature | median s |
+|---|---|---|---|
+| kimi-k3 | 5/5 | 4/4 | 30 / 109 |
+| glm-5.3 | 5/5 | 4/4 | 26 / 42 |
+| deepseek-v4-pro | 5/5 | 3/3 | 35 / 127 |
+| kimi-k2.7-code | 5/5 | 3/3 | 43 / 94 |
+| minimax-m3 | 5/5 | 3/3 | 79 / 127 |
+| nemotron-3-ultra | 5/5 | 3/3 | 209 / 574 |
+| gpt-oss:120b | 4/4 | 2/4 | 10 / 34 |
+| mistral-large-3:675b | 4/5 | 2/4 | 39 / 74 |
+
+**What this supports:**
+- **The original 15 tasks saturate.** Six of the eight models passed every valid run, and the
+  intervals (e.g. 5/5 is [0.57, 1.00]) can't separate them. The five hard tasks were added for
+  this reason, but the limit was hit before they could be screened.
+- **"The single best frontier model" can't be named yet.** glm-5.3 and kimi-k3 are the leading
+  candidates: 9/9, and the fastest among the perfect scorers.
+- **gpt-oss:120b and mistral-large-3 fail features.** The failures are a missing method, wrong
+  results, and empty answers.
+
+### Defects the screen found
+- **`--model` doesn't hold.** After two empty answers (ADR 028), and on errors or quota (ADR 018),
+  ternly fails over to the router's best other model, even when pinned. Here that was a T1 local
+  model. Open decision.
+- **Exhaustion isn't remembered across runs.** Each new ternly process retries the exhausted cloud
+  model first (one 429 per run), because `MarkExhausted` lives in memory. Persisting it is a
+  candidate fix.

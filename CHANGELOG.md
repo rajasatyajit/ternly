@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Phase C: a task suite, quality levers and reproducibility (ADR 025, 029)
+- **`bench/suite`:** 20 coding tasks on pinned golang-lru, more-itertools, mitt, semver and ternly
+  itself.
+  - Each has a hidden test oracle, validated to fail on the task and pass on a reference solution.
+  - Oracles run only in bubblewrap with no network; without it the suite refuses.
+  - `fetch`, `validate`, `run`, `report` (pass@1 with Wilson intervals, per class) and `repro`.
+- **Levers, off by default** (`"levers"` in config, or `TERNLY_LEVERS`):
+  - `plan_first`: the strongest model plans read-only, a cheaper one implements, and the plan's
+    steps reach the UI's plan data;
+  - `best_of=N`: rewind and retry while verification fails;
+  - `outline_reads`: a large file without a range reads as its outline;
+  - control arms for escalation and schema repair.
+  - Each becomes a default only if the suite shows it helps. That measurement waits for cloud
+    quota (ADR 029).
+- **Deterministic mode** (`"deterministic"`, `TERNLY_DETERMINISTIC=1`): temperature 0 and a fixed
+  seed, plus a response cache for identical requests. Every headless run prints its prompt
+  version.
+- **Fixed: memory ranking drifted after revisions.** Dead versions counted in BM25's document
+  frequency (ADR 028's finding). With 120 notes revised 16 times, top-1 agreement with an exact
+  index was 93.7%; it is now 100%.
+
 ### Catalog refresh, empty answers, e2e failure kinds (ADR 028)
 - **The capability catalog's index rebuilds once per refresh, at its end,** and is exact
   afterwards. Before, document frequencies could count replaced entries and push common words'
