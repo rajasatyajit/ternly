@@ -163,6 +163,7 @@ type Model struct {
 	suggest       *suggestion      // a capability suggestion on screen
 	laterSuggest  *capability.Suggestion
 	lastFailed    bool // the last turn ended with an error
+	ticking       bool // the animation ticker is scheduled (only while something animates)
 }
 
 // App bundles the long-lived services the UI drives.
@@ -243,6 +244,7 @@ func (m *Model) setTheme(dark bool) {
 }
 
 func (m *Model) Init() tea.Cmd {
+	m.ticking = true
 	cmds := []tea.Cmd{textarea.Blink, tick(), tea.RequestBackgroundColor, func() tea.Msg {
 		ms, w := m.App.Discover()
 		return discoveredMsg{ms, w}
@@ -290,7 +292,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dirty {
 			m.refresh(false)
 		}
-		cmds = append(cmds, tick())
+		m.ticking = false // rescheduled below only if something still animates
 
 	case discoveredMsg:
 		m.discovering = false
@@ -411,7 +413,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ta.SetHeight(lc)
 		m.layout()
 	}
+	if !m.ticking && m.animating() { // idle costs ~0% CPU: no ticker unless something moves
+		m.ticking = true
+		cmds = append(cmds, tick())
+	}
 	return m, tea.Batch(cmds...)
+}
+
+// animating: something on screen changes with time (the splash, discovery,
+// a turn's activity line, a running tool's spinner).
+func (m *Model) animating() bool {
+	if !m.ready || m.discovering || m.busy || m.dirty {
+		return true
+	}
+	for i := len(m.blocks) - 1; i >= 0 && i >= len(m.blocks)-50; i-- { // running tools are recent
+		if b := m.blocks[i]; b.kind == bTool && b.state == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
