@@ -250,7 +250,7 @@ func (s *suite) prepare(t task, dst string, extra []edit) error {
 	}
 	ctx := context.Background()
 	for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}, {"-c", "user.name=suite", "-c", "user.email=suite@example.invalid", "commit", "-q", "-m", "task"}} {
-		c := gitenv.Command(ctx, append([]string{"-C", dst}, args...)...)
+		c := gitenv.Command(ctx, append(append([]string{"-C", dst}, untrustedGit...), args...)...)
 		if out, err := c.CombinedOutput(); err != nil {
 			return fmt.Errorf("git %s: %v %s", args[0], err, out)
 		}
@@ -290,6 +290,11 @@ func (s *suite) apply(dir string, list []edit) error {
 	return nil
 }
 
+// untrustedGit hardens git run on a workspace holding untrusted files: no
+// hooks, no fsmonitor, no filters or diff drivers a repository's attributes
+// could name.
+var untrustedGit = []string{"-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "core.symlinks=false", "-c", "diff.external=", "-c", "filter.lfs.smudge=", "-c", "filter.lfs.process="}
+
 func reverse(list []edit) []edit {
 	out := make([]edit, len(list))
 	for i, e := range list {
@@ -327,33 +332,76 @@ func copyTree(src, dst string) error {
 
 // ─────────────────────────── the oracle ───────────────────────────
 
+// unsafeNoSandbox is the explicit opt-in (-unsafe-no-sandbox) to run oracles
+// without bubblewrap. Never the default: an oracle runs the task
+// repository's code, which is untrusted (ADR 016: no sandbox, no automatic
+// execution of repository code).
+var unsafeNoSandbox bool
+
+// lookBwrap finds bubblewrap (a variable so tests can take it away).
+var lookBwrap = func() (string, error) { return exec.LookPath("bwrap") }
+
+// errNoSandbox: an oracle was refused because bubblewrap is missing.
+var errNoSandbox = errors.New("bwrap not found: refusing to run an untrusted oracle unsandboxed (pass -unsafe-no-sandbox to override)")
+
 // oracle copies the hidden tests into ws and runs the task's command in
-// bubblewrap (no network; the user's secrets masked). It reports whether it
-// passed and the last lines of its output.
-func (s *suite) oracle(t task, ws string) (bool, string) {
+// bubblewrap (no network; the user's secrets masked) with a scrubbed
+// environment. It reports whether the tests passed and the last lines of
+// their output; without bubblewrap it refuses (errNoSandbox).
+func (s *suite) oracle(t task, ws string) (bool, string, error) {
+	bw, err := lookBwrap()
+	if err != nil && !unsafeNoSandbox {
+		return false, "", errNoSandbox
+	}
 	for dst, src := range t.Oracle {
 		b, err := os.ReadFile(filepath.Join(s.dir, src))
 		if err != nil {
-			return false, err.Error()
+			return false, "", err
 		}
 		p := filepath.Join(ws, dst)
 		_ = os.MkdirAll(filepath.Dir(p), 0o755)
 		if err := os.WriteFile(p, b, 0o644); err != nil {
-			return false, err.Error()
+			return false, "", err
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	c := exec.CommandContext(ctx, t.Cmd[0], t.Cmd[1:]...)
-	if bw, err := exec.LookPath("bwrap"); err == nil {
+	_ = os.MkdirAll(filepath.Join(cacheDir(), "gocache"), 0o755)
+	var c *exec.Cmd
+	if bw != "" {
 		c = exec.CommandContext(ctx, bw, append(sandboxArgs(ws), t.Cmd...)...)
+	} else { // -unsafe-no-sandbox only
+		c = exec.CommandContext(ctx, t.Cmd[0], t.Cmd[1:]...)
 	}
 	c.Dir = ws
-	c.Env = append(gitenv.Clean(os.Environ()), "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "GOPROXY=off",
-		"GOCACHE="+filepath.Join(cacheDir(), "gocache"), "CARGO_NET_OFFLINE=true", "PYTHONDONTWRITEBYTECODE=1")
-	_ = os.MkdirAll(filepath.Join(cacheDir(), "gocache"), 0o755)
+	c.Env = oracleEnv(os.Environ())
 	out, err := c.CombinedOutput()
-	return err == nil, tail(string(out), 12)
+	return err == nil, tail(string(out), 12), nil
+}
+
+// oracleEnv is the oracle's environment: base without secrets (*_API_KEY,
+// *_TOKEN, ternly's own settings) and without any inherited git environment
+// (ADR 024), plus offline toolchains.
+func oracleEnv(base []string) []string {
+	return append(scrub(base), "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "GOPROXY=off",
+		"GOCACHE="+filepath.Join(cacheDir(), "gocache"), "CARGO_NET_OFFLINE=true", "PYTHONDONTWRITEBYTECODE=1")
+}
+
+// scrub drops secrets, ternly's settings, HOME/XDG and every GIT_* variable
+// (gitenv.Clean adds GIT_CONFIG_GLOBAL=/dev/null and GIT_CONFIG_NOSYSTEM=1).
+func scrub(base []string) []string {
+	var env []string
+	for _, kv := range gitenv.Clean(base) {
+		k, _, _ := strings.Cut(kv, "=")
+		switch {
+		case strings.HasSuffix(k, "_API_KEY") || strings.HasSuffix(k, "_TOKEN") || strings.HasSuffix(k, "_SECRET") || strings.HasSuffix(k, "_PASSWORD"):
+		case strings.HasPrefix(k, "TERNLY_") || strings.HasPrefix(k, "XDG_") || k == "HOME" || k == "SSH_AUTH_SOCK" || k == "GH_TOKEN" || k == "GITHUB_TOKEN":
+		case strings.HasPrefix(k, "GO") && (k == "GOFLAGS" || k == "GOTOOLCHAIN" || k == "GOPROXY" || k == "GOCACHE"):
+		default:
+			env = append(env, kv)
+		}
+	}
+	return env
 }
 
 func sandboxArgs(ws string) []string {
@@ -369,6 +417,13 @@ func sandboxArgs(ws string) []string {
 			} else {
 				a = append(a, "--ro-bind", "/dev/null", p)
 			}
+		}
+	}
+	// The user's runtime directory holds the SSH agent's and other sockets:
+	// reachable through the read-only root even with no network.
+	for _, d := range []string{os.Getenv("XDG_RUNTIME_DIR"), fmt.Sprintf("/run/user/%d", os.Getuid())} {
+		if fi, err := os.Stat(d); d != "" && err == nil && fi.IsDir() {
+			a = append(a, "--tmpfs", d)
 		}
 	}
 	return append(a, "--")
@@ -389,6 +444,7 @@ func tail(s string, n int) string {
 func (s *suite) validateAll(args []string) error {
 	fl := flag.NewFlagSet("validate", flag.ExitOnError)
 	only := fl.String("tasks", "", "regexp of task ids")
+	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
 	re := regexp.MustCompile(*only)
 	tmp, err := os.MkdirTemp("", "suite-validate-")
@@ -412,8 +468,14 @@ func (s *suite) validateAll(args []string) error {
 		if err := s.prepare(t, solved, ref); err != nil {
 			return err
 		}
-		p1, out1 := s.oracle(t, seeded)
-		p2, out2 := s.oracle(t, solved)
+		p1, out1, err := s.oracle(t, seeded)
+		if err != nil {
+			return err
+		}
+		p2, out2, err := s.oracle(t, solved)
+		if err != nil {
+			return err
+		}
 		status := "ok"
 		if p1 || !p2 {
 			status, bad = "BAD", bad+1
@@ -463,7 +525,11 @@ func (s *suite) runCmd(args []string) error {
 	envs := fl.String("env", "", "comma-separated KEY=VALUE set for ternly in this arm (lever toggles)")
 	bin := fl.String("bin", "", "ternly binary (default: built from this checkout)")
 	extra := fl.String("args", "", "extra ternly arguments, space-separated")
+	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
+	if _, err := lookBwrap(); err != nil && !unsafeNoSandbox {
+		return errNoSandbox // before spending any model quota
+	}
 	if *out == "" {
 		return errors.New("-out is required")
 	}
@@ -586,16 +652,20 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 		res.Error = m[len(m)-1][1]
 	}
 	res.Quota = reQuota.MatchString(res.Error) || strings.Contains(trace, "usage limit")
-	d := gitenv.Command(context.Background(), "-C", ws, "diff")
+	d := gitenv.Command(context.Background(), append(append([]string{"-C", ws}, untrustedGit...), "diff", "--no-ext-diff", "--no-textconv")...)
 	diff, _ := d.Output()
-	add := gitenv.Command(context.Background(), "-C", ws, "status", "--porcelain")
+	add := gitenv.Command(context.Background(), append(append([]string{"-C", ws}, untrustedGit...), "status", "--porcelain")...)
 	st, _ := add.Output()
 	res.Diff = string(diff)
 	res.DiffLines = changedLines(res.Diff)
 	if untracked := untrackedFiles(string(st)); len(untracked) > 0 {
 		res.Diff += "\n# untracked: " + strings.Join(untracked, ", ") + "\n"
 	}
-	pass, otail := s.oracle(j.t, ws)
+	pass, otail, oerr := s.oracle(j.t, ws)
+	if oerr != nil {
+		res.Outcome, res.Error = "error", oerr.Error()
+		return res
+	}
 	res.Pass = pass
 	switch {
 	case pass:
@@ -620,17 +690,7 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 // (the harness tripwire, eval.HarnessIsolated, refuses anything else), no
 // inherited git environment, no API keys, offline toolchains.
 func isolated(home string) []string {
-	var env []string
-	for _, kv := range gitenv.Clean(os.Environ()) {
-		k, _, _ := strings.Cut(kv, "=")
-		switch {
-		case k == "HOME" || strings.HasPrefix(k, "XDG_") || strings.HasPrefix(k, "TERNLY_"):
-			continue
-		case strings.HasSuffix(k, "_API_KEY") || strings.HasSuffix(k, "_TOKEN"):
-			continue
-		}
-		env = append(env, kv)
-	}
+	env := scrub(os.Environ())
 	gocache, _ := exec.Command("go", "env", "GOCACHE").Output()
 	gomod, _ := exec.Command("go", "env", "GOMODCACHE").Output()
 	return append(env, "HOME="+home,
