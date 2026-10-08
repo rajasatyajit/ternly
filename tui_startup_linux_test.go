@@ -61,11 +61,12 @@ func TestTUIStartupBudget(t *testing.T) {
 	}
 }
 
-// TestTUIIdleCPU (ADR 023): an idle TUI uses ~0% CPU — under 0.8% of a core
-// over 20 s, once start-up work has settled. What remains is Bubble Tea's
-// renderer checking for changes at 60 fps (0.3–0.6% here, with other load
-// on the machine); the old always-on 70 ms ticker read 1.0%.
-// TestTickerStopsWhenIdle guards the ticker itself exactly. Background services
+// TestTUIIdleCPU (ADR 023): an idle TUI uses ~0% CPU. What remains is
+// Bubble Tea's renderer checking for changes at 60 fps: 0.3–0.65% over 20 s
+// on the development machine, up to 0.95% on a 4-vCPU CI runner — the
+// same range the old always-on 70 ms ticker read, so this live test is a
+// gross guard (a busy loop, a redraw storm) at 2%, and
+// TestTickerStopsWhenIdle is the exact guard on the ticker. Background services
 // that aren't the UI's (capability suggestions) are off in the test config.
 // Skipped under -race.
 func TestTUIIdleCPU(t *testing.T) {
@@ -102,8 +103,8 @@ func TestTUIIdleCPU(t *testing.T) {
 	time.Sleep(20 * time.Second)
 	pct := float64(ticks()-a) / 100 / 20 * 100 // clock ticks at 100 Hz
 	t.Logf("idle CPU over 20 s: %.2f%%", pct)
-	if pct > 0.8 {
-		t.Fatalf("idle CPU %.2f%%, budget 0.8%%", pct)
+	if pct > 2 {
+		t.Fatalf("idle CPU %.2f%%, budget 2%%", pct)
 	}
 }
 

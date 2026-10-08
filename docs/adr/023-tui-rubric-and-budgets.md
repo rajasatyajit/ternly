@@ -113,7 +113,10 @@ changes.
 
 **10. Budgets in CI.** One non-race step runs:
 - `TestTUIStartupBudget`: a real build, median of 7 ≤ 100 ms;
-- `TestTUIIdleCPU`: 20 s, ≤ 0.8 %; the floor is Bubble Tea's 60 fps change check;
+- `TestTUIIdleCPU`: a gross guard at 2 % over 20 s, catching a busy loop or a redraw storm (a
+  redraw storm reads 120 %). The floor is Bubble Tea's 60 fps change check: 0.3–0.65 % here, up to
+  0.95 % on a 4-vCPU CI runner, the same range as the old ticker. `TestTickerStopsWhenIdle` is the
+  exact guard on the ticker;
 - `TestFrameBudgets`: keystroke and 10k redraw p95 < 16 ms.
 
 `TestTUINoFlicker` runs everywhere: no full-screen clear after the first frame, and every update
