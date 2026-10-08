@@ -20,7 +20,15 @@ func TestTUIMeterFromCore(t *testing.T) {
 	}
 	defer func() { _ = c.Process.Kill(); _ = c.Wait(); _ = tty.Close() }()
 	scr.waitFor(t, "fake")
+	scr.mu.Lock()
+	from := scr.pos
+	scr.mu.Unlock()
 	_, _ = tty.Write([]byte("hello\r"))
 	scr.waitFor(t, "meter-turn-done")
+	// the meter may be drawn before the answer's text; later frames rewrite
+	// only the digits that change, so search from the turn's start
+	scr.mu.Lock()
+	scr.pos = from
+	scr.mu.Unlock()
 	scr.waitForRe(t, regexp.MustCompile(`ctx [0-9.]+k?/100\.0k`))
 }
