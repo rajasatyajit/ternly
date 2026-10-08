@@ -27,7 +27,7 @@ status)
   out=$(realpath -m "$1")
   echo "plan: $(cat "$out/plan.state" 2>/dev/null || echo 'not started')"
   if pid=$(cat "$out/plan.pid" 2>/dev/null) && kill -0 "$pid" 2>/dev/null; then echo "running: pid $pid"; else echo "not running"; fi
-  for s in "$out"/*/state.json; do [ -f "$s" ] && python3 -I "$(dirname "$0")/status.py" "$s"; done
+  for s in "$out"/*/state.json; do [ -f "$s" ] && "$out/suite" status "$s"; done
   tail -3 "$out/plan.log" 2>/dev/null; exit 0 ;;
 run) ;;
 *) sed -n '2,20p' "$0"; exit 2 ;;

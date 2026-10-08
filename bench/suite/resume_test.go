@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,5 +72,18 @@ func TestFileSHA256(t *testing.T) {
 	_ = os.WriteFile(p, []byte("abc"), 0o644)
 	if h, _ := fileSHA256(p); h != "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" {
 		t.Fatalf("sha256(abc) = %s", h)
+	}
+}
+
+func TestStatusLine(t *testing.T) {
+	dir := t.TempDir()
+	st := &runState{Out: dir, Arm: "control", Total: 40, Skipped: 19, Done: 2, Running: []string{"x auto run 1"}, Last: "y auto run 1: pass"}
+	st.save()
+	var b strings.Builder
+	if err := status(&b, []string{filepath.Join(dir, "state.json")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := b.String(); !strings.Contains(got, "arm=control 21/40 done") || !strings.Contains(got, "last: y auto run 1: pass") {
+		t.Fatalf("status line: %q", got)
 	}
 }

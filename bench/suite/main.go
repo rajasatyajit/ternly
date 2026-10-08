@@ -116,8 +116,15 @@ type Result struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: suite fetch|validate|run|report|repro …")
+		fmt.Fprintln(os.Stderr, "usage: suite fetch|validate|run|report|repro|classify|status …")
 		os.Exit(2)
+	}
+	if os.Args[1] == "status" { // needs no suite definition: reads state.json files
+		if err := status(os.Stdout, os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "suite:", err)
+			os.Exit(1)
+		}
+		return
 	}
 	s, err := load()
 	if err != nil {
@@ -733,6 +740,31 @@ type runState struct {
 	Started  time.Time `json:"started"`
 	Updated  time.Time `json:"updated"`
 	Finished time.Time `json:"finished,omitzero"`
+}
+
+// status prints one line of progress per state.json (bench/suite/plan.sh status).
+func status(w io.Writer, paths []string) error {
+	for _, p := range paths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		var s runState
+		if err := json.Unmarshal(b, &s); err != nil {
+			return fmt.Errorf("%s: %v", p, err)
+		}
+		fin := ""
+		if !s.Finished.IsZero() {
+			fin = " (finished)"
+		}
+		arm := s.Arm
+		if arm == "" {
+			arm = "-"
+		}
+		fmt.Fprintf(w, "  %s: arm=%s %d/%d done; running %v; last: %s; updated %sZ%s\n",
+			s.Out, arm, s.Done+s.Skipped, s.Total, s.Running, s.Last, s.Updated.UTC().Format("2006-01-02T15:04:05"), fin)
+	}
+	return nil
 }
 
 func (st *runState) save() {
