@@ -75,6 +75,11 @@ func BenchmarkGraphIncremental(b *testing.B) {
 	for b.Loop() {
 		_ = os.WriteFile(main, vs[i%2], 0o644)
 		i++
+		b.StopTimer()
+		if d := seen(b, s, "app/main.go"); d > 10*time.Millisecond { // the watcher's latency isn't the update's cost (issue #12)
+			b.Logf("the watcher reported the edit after %v", d)
+		}
+		b.StartTimer()
 		if _, _, err := s.Graph(bg, time.Second); err != nil || s.Timing.Mode != "incremental" {
 			b.Fatalf("mode %q: %v", s.Timing.Mode, err)
 		}

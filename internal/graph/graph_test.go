@@ -60,6 +60,31 @@ func build(t testing.TB, root, cache string, run Runner) (*Service, *Graph) {
 	return s, g
 }
 
+// seen waits until the watcher has reported every file in rels (paths
+// relative to the root) and returns how long that took. A query made right
+// after an edit only sees it once the watcher has (issue #12); without a
+// watcher, the query's scan finds it, so there's nothing to wait for. Never
+// reported within 5s means the event was lost, not late: that fails.
+func seen(t testing.TB, s *Service, rels ...string) time.Duration {
+	t.Helper()
+	t0 := time.Now()
+	for {
+		s.dmu.Lock()
+		watching, all := s.watching, true
+		for _, r := range rels {
+			all = all && (s.dirty[r] || s.dirty["*"])
+		}
+		s.dmu.Unlock()
+		if !watching || all {
+			return time.Since(t0)
+		}
+		if time.Since(t0) > 5*time.Second {
+			t.Fatalf("the watcher never reported %v (issue #12: lost, not late)", rels)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func waitBuilt(t testing.TB, s *Service) {
 	t.Helper()
 	<-s.ready
@@ -196,6 +221,9 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	main := filepath.Join(root, "app", "main.go")
 	src, _ := os.ReadFile(main)
 	_ = os.WriteFile(main, []byte(strings.Replace(string(src), "NewSquare(3)", "NewSquare(4)", 1)), 0o644)
+	if d := seen(t, s, "app/main.go"); d > 0 {
+		t.Logf("the watcher reported the edit after %v", d)
+	}
 	if _, _, _ = s.Graph(bg, time.Second); s.Timing.Mode != "incremental" || s.Timing.Rechecked != 1 {
 		t.Fatalf("body edit: %+v", s.Timing)
 	}
@@ -205,12 +233,14 @@ func TestIncrementalAndPersistence(t *testing.T) {
 	_ = os.WriteFile(shape, append(b, []byte("\nfunc Double(s Shape) float64 { return 2 * s.Area() }\n")...), 0o644)
 	src, _ = os.ReadFile(main)
 	_ = os.WriteFile(main, []byte(strings.Replace(string(src), "func main() {", "func main() {\n\t_ = shapes.Double(nil)", 1)), 0o644)
+	seen(t, s, "shapes/shape.go", "app/main.go")
 	g, _, _ := s.Graph(bg, time.Second)
 	if got := refsFrom(g.References(pk+".Double", true)); !strings.Contains(got, "app/main.go") {
 		t.Fatalf("new API not linked after incremental update: %q (%+v)", got, s.Timing)
 	}
 	// a deleted file disappears
 	_ = os.Remove(filepath.Join(root, "shapes", "x_test.go"))
+	seen(t, s, "shapes/x_test.go")
 	g, _, _ = s.Graph(bg, time.Second)
 	if len(g.Resolve("TestX")) != 0 {
 		t.Fatal("symbols of a deleted file survived")
