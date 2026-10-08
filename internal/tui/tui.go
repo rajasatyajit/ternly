@@ -297,11 +297,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.App.Router.SetModels(msg.models)
 		m.blocks[0].text, m.blocks[0].rendered = m.welcome(), ""
 		for _, w := range msg.warn {
-			m.addInfo(sWarn.Render("! ") + w)
+			m.addInfo(sWarn.Render("! ") + untrusted(w))
 		}
 		m.refresh(true)
 
 	case permMsg:
+		msg.tool, msg.summary = untrusted(msg.tool), untrusted(msg.summary)
 		m.perm = &msg
 		m.layout()
 		m.refresh(true)
@@ -322,7 +323,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addInfo(sOK.Render(txt))
 
 	case agentMsg:
-		cmds = append(cmds, m.onAgent(agent.Event(msg)))
+		cmds = append(cmds, m.onAgent(cleanEvent(agent.Event(msg))))
 
 	case startMsg:
 		if m.busy {
@@ -572,7 +573,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.model, m.reason = e.Model, e.Reason
 		m.activity = "Thinking"
 		if e.Reason != "pinned" {
-			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", e.Model.Key(), tierBadge(e.Model.Tier), discover.Price(e.Model), e.Reason)))
+			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", untrusted(e.Model.Key()), tierBadge(e.Model.Tier), discover.Price(e.Model), untrusted(e.Reason))))
 		}
 	case agent.EvToolStart:
 		m.blocks = append(m.blocks, &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text})
@@ -698,7 +699,7 @@ func (m *Model) legacyCommand(name, arg, v string) tea.Cmd {
 			m.addInfo(sOK.Render("  ◆ auto-routing enabled"))
 		default:
 			m.model, m.reason = mod, "pinned"
-			m.addInfo(sOK.Render("  ◆ pinned " + mod.Key()))
+			m.addInfo(sOK.Render("  ◆ pinned " + untrusted(mod.Key())))
 		}
 	case "/cost":
 		l, g := m.App.Agent.Ledger(), m.App.Agent.Stats()
@@ -874,7 +875,7 @@ func (m *Model) modelsTable(filter string) string {
 		var out []string
 		for _, x := range ms {
 			if w := why[x]; w != nil && (name == "" && w.Rank[2] > 0 && w.Rank[2] <= 3 || name != "" && strings.Contains(strings.ToLower(x.Key()), name)) {
-				out = append(out, sAccent.Render("  "+x.Key())+"\n  "+strings.ReplaceAll(w.Long(), "\n", "\n  "))
+				out = append(out, sAccent.Render("  "+untrusted(x.Key()))+"\n  "+strings.ReplaceAll(untrusted(w.Long()), "\n", "\n  "))
 			}
 		}
 		if len(out) == 0 {
@@ -898,7 +899,7 @@ func (m *Model) modelsTable(filter string) string {
 		if !x.Tools {
 			tl = sDim.Render("·")
 		}
-		row := fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), x.Key())
+		row := fmt.Sprintf("  %s %s %-12s %6s  %s", tierBadge(x.Tier), tl, discover.Price(x), kfmt(x.Ctx), untrusted(x.Key()))
 		if w := why[x]; w != nil {
 			row += sDim.Render("  " + w.Short())
 		}
@@ -973,6 +974,9 @@ func (m *Model) refresh(force bool) {
 }
 
 func (m *Model) renderBlock(b *block) string {
+	if b.kind != bInfo { // ternly styles only info lines; every other block holds outside text
+		b.text, b.detail, b.tool = untrusted(b.text), untrusted(b.detail), untrusted(b.tool)
+	}
 	switch b.kind {
 	case bUser:
 		return "\n" + sUser.Render("❯ ") + lipgloss.NewStyle().Width(m.w-4).Render(b.text)
@@ -1079,7 +1083,7 @@ func (m *Model) statusBar() string {
 	if m.discovering {
 		left = shine("discovering models", m.frame)
 	} else if m.model != nil {
-		left = sAccent.Render("◆ "+m.model.Key()) + " " + tierBadge(m.model.Tier)
+		left = sAccent.Render("◆ "+untrusted(m.model.Key())) + " " + tierBadge(m.model.Tier)
 	}
 	l := m.ledger
 	right := sDim.Render(fmt.Sprintf("↑%s ↓%s", kfmt(l.Usage.In+l.Usage.CacheRead+l.Usage.CacheWrite), kfmt(l.Usage.Out)))

@@ -351,10 +351,10 @@ func (m *Model) cmdStatus(string) tea.Cmd {
 	lim, budget := a.Caps()
 	model := "auto-routing"
 	if p := m.App.Router.Pinned(); p != nil {
-		model = "pinned " + p.Key()
+		model = "pinned " + untrusted(p.Key())
 	}
 	if c := a.Current(); c != nil {
-		model += " · last used " + c.Key()
+		model += " · last used " + untrusted(c.Key())
 	}
 	sess := "(not saved)"
 	if sm := m.App.Sessions; sm != nil && sm.Current() != nil {
@@ -444,7 +444,7 @@ func (m *Model) cmdConfig(arg string) tea.Cmd {
 	lim, budget := a.Caps()
 	pin := "auto"
 	if p := m.App.Router.Pinned(); p != nil {
-		pin = p.Key()
+		pin = untrusted(p.Key())
 	}
 	lines := []string{
 		sDim.Render("config file: " + orStr(m.App.ConfigPath, "(none)") + " · /config <key> <value> sets one for this session"),
@@ -813,7 +813,7 @@ func (m *Model) cmdArchitect(arg string) tea.Cmd {
 	prevPin := m.App.Router.Pinned()
 	_, _ = m.App.Router.Pin(top.Key())
 	m.enterPlan()
-	m.addInfo(sDim.Render("  architect: " + top.Key() + " plans (read-only); then routing picks the cheapest capable model to implement"))
+	m.addInfo(sDim.Render("  architect: " + untrusted(top.Key()) + " plans (read-only); then routing picks the cheapest capable model to implement"))
 	m.afterTurn = append(m.afterTurn, func() tea.Cmd {
 		m.leavePlan()
 		if prevPin != nil {
@@ -1131,7 +1131,7 @@ func (m *Model) cmdWeb(arg string) tea.Cmd {
 
 func (m *Model) onWeb(w webMsg) {
 	if w.err != nil {
-		m.addInfo(sErr.Render("  /web " + w.url + ": " + w.err.Error()))
+		m.addInfo(sErr.Render("  /web " + untrusted(w.url) + ": " + untrusted(w.err.Error())))
 		return
 	}
 	framed, flagged := m.App.Reg.Frame.Wrap("web", m.App.Reg.Redact.Apply(w.text))
