@@ -429,6 +429,131 @@
      "new": "// Without returns a copy of base without the entries whose key is in keys.\nfunc Without(base []string, keys ...string) []string {\n\tout := make([]string, 0, len(base))\n\tfor _, kv := range base {\n\t\tk, _, _ := strings.Cut(kv, \"=\")\n\t\tdrop := false\n\t\tfor _, x := range keys {\n\t\t\tdrop = drop || k == x\n\t\t}\n\t\tif !drop {\n\t\t\tout = append(out, kv)\n\t\t}\n\t}\n\treturn out\n}\n\n// Command is exec.CommandContext"
     }
    ]
+  },
+  {
+   "id": "semver-pre-order",
+   "repo": "semver",
+   "class": "hard",
+   "prompt": "Bug report: in the semver crate, pre-release versions with numeric identifiers sort wrongly: 1.0.0-alpha.10 sorts before 1.0.0-alpha.2, and 1.0.0-rc.11 before 1.0.0-rc.9. Per SemVer, numeric identifiers compare numerically. Find the cause and fix it, without changing how non-numeric identifiers compare.",
+   "seed": [
+    {
+     "file": "src/impls.rs",
+     "old": "(true, true) => Ord::cmp(&lhs.len(), &rhs.len()).then_with(string_cmp),",
+     "new": "(true, true) => string_cmp(),"
+    }
+   ],
+   "oracle": {
+    "tests/oracle.rs": "oracle/semver-pre-order.rs"
+   },
+   "cmd": [
+    "cargo",
+    "test",
+    "--offline",
+    "-q"
+   ]
+  },
+  {
+   "id": "mi-windowed-step",
+   "repo": "more-itertools",
+   "class": "hard",
+   "prompt": "Bug report: more_itertools.windowed yields an extra window made only of fillvalue when step >= n and the input length is a multiple of step: list(windowed(range(6), 3, step=3)) ends with (None, None, None), but it should be [(0, 1, 2), (3, 4, 5)]. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "more_itertools/more.py",
+     "old": "    padding = (fillvalue,) * (n - 1 if step >= n else step - 1)",
+     "new": "    padding = (fillvalue,) * (n if step >= n else step - 1)"
+    }
+   ],
+   "oracle": {
+    "oracle_test_windowed.py": "oracle/mi-windowed-step_test.py"
+   },
+   "cmd": [
+    "python3",
+    "-I",
+    "-m",
+    "unittest",
+    "discover",
+    "-q",
+    "-s",
+    ".",
+    "-t",
+    ".",
+    "-p",
+    "oracle_test_windowed.py"
+   ]
+  },
+  {
+   "id": "lru-2q-promote",
+   "repo": "golang-lru",
+   "class": "hard",
+   "prompt": "Bug report: in the 2Q cache (TwoQueueCache in the root package), after Get on a key that was added once, Len() counts that key twice, and Keys() lists it twice. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "2q.go",
+     "old": "\tif val, ok := c.recent.Peek(key); ok {\n\t\tc.recent.Remove(key)\n\t\tc.frequent.Add(key, val)\n\t\treturn val, ok\n\t}",
+     "new": "\tif val, ok := c.recent.Peek(key); ok {\n\t\tc.frequent.Add(key, val)\n\t\treturn val, ok\n\t}"
+    }
+   ],
+   "oracle": {
+    "oracle_2q_test.go": "oracle/lru-2q-promote_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "-run",
+    "Oracle|Test2Q",
+    "."
+   ]
+  },
+  {
+   "id": "ternly-finaljson",
+   "repo": "ternly",
+   "class": "hard",
+   "prompt": "Bug report: internal/e2ejudge's FinalJSON is documented to read a reply's final ```json block, but when a reply contains two ```json blocks it decodes the first one. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "internal/e2ejudge/judge.go",
+     "old": "\td := json.NewDecoder(strings.NewReader(ms[len(ms)-1][1]))",
+     "new": "\td := json.NewDecoder(strings.NewReader(ms[0][1]))"
+    }
+   ],
+   "oracle": {
+    "internal/e2ejudge/oracle_final_test.go": "oracle/ternly-finaljson_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./internal/e2ejudge/"
+   ]
+  },
+  {
+   "id": "mitt-emit-async",
+   "repo": "mitt",
+   "class": "hard",
+   "prompt": "Add `emitAsync(type, evt)` to mitt's emitter (src/index.ts, including the Emitter interface). It calls the handlers for that type, then the wildcard ('*') handlers (which get (type, evt)), one at a time in registration order, awaiting each handler's result before calling the next (a handler may return a Promise or a plain value). It returns a Promise of the number of handlers called. If a handler throws or its Promise rejects, emitAsync rejects with that error and calls no further handlers. The existing synchronous emit must keep working unchanged.",
+   "seed": [],
+   "oracle": {
+    "oracle.test.ts": "oracle/mitt-emit-async.test.ts"
+   },
+   "cmd": [
+    "node",
+    "--test",
+    "oracle.test.ts"
+   ],
+   "reference": [
+    {
+     "file": "src/index.ts",
+     "old": "\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;",
+     "new": "\temitAsync<Key extends keyof Events>(type: Key, event?: Events[Key]): Promise<number>;\n\n\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {",
+     "new": "\t\tasync emitAsync<Key extends keyof Events>(type: Key, evt?: Events[Key]): Promise<number> {\n\t\t\tlet n = 0;\n\t\t\tconst typed = (all!.get(type) || []).slice() as Array<(e: unknown) => unknown>;\n\t\t\tfor (const h of typed) {\n\t\t\t\tn++;\n\t\t\t\tawait h(evt);\n\t\t\t}\n\t\t\tconst wild = (all!.get('*') || []).slice() as Array<(t: unknown, e: unknown) => unknown>;\n\t\t\tfor (const h of wild) {\n\t\t\t\tn++;\n\t\t\t\tawait h(type, evt);\n\t\t\t}\n\t\t\treturn n;\n\t\t},\n\n\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {"
+    }
+   ]
   }
  ]
 }
