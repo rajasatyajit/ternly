@@ -14,7 +14,9 @@ import (
 )
 
 // sessionsModel has two saved sessions, "alpha" (current) and "beta".
-func sessionsModel(t *testing.T, w int) *Model {
+func sessionsModel(t *testing.T, w int) *Model { return sessionsModelTB(t, w) }
+
+func sessionsModelTB(t testing.TB, w int) *Model {
 	t.Helper()
 	m := testModel(t)
 	p, err := session.OpenProject(t.TempDir(), m.App.Reg.Root)

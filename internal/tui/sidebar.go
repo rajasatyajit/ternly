@@ -22,10 +22,12 @@ const (
 )
 
 type sidebar struct {
-	list    []session.Meta
-	sel     int
-	focused bool
-	err     string
+	list     []session.Meta
+	sel      int
+	focused  bool
+	err      string
+	cache    []string // the rendered column (sidebarRows)
+	cacheKey string
 }
 
 // sideShown: the sidebar takes room this frame.
@@ -160,10 +162,44 @@ func (m *Model) sidebarView(h int) string {
 	return lipgloss.NewStyle().Width(sidebarW).Render(strings.Join(rows[:h], "\n"))
 }
 
-// besideSidebar joins the transcript and the sidebar, row by row.
+// besideSidebar joins the transcript and the sidebar, row by row. The
+// transcript is already wrapped to cw, so each row is only padded (no
+// re-flow), and the sidebar column is cached until what it shows changes:
+// with it open, a frame stays well inside the 16 ms budget on a slow runner.
 func (m *Model) besideSidebar(transcript string) string {
-	h := strings.Count(transcript, "\n") + 1
-	sep := sDim.Render(strings.TrimRight(strings.Repeat("│\n", h), "\n"))
-	left := lipgloss.NewStyle().Width(m.cw()).Render(transcript)
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, sep, m.sidebarView(h))
+	rows := strings.Split(transcript, "\n")
+	side := m.sidebarRows(len(rows))
+	sep := sDim.Render("│")
+	cw := m.cw()
+	var b strings.Builder
+	b.Grow(len(transcript) + len(rows)*(sidebarW+16))
+	for i, r := range rows {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(r)
+		if pad := cw - lipgloss.Width(r); pad > 0 {
+			b.WriteString(strings.Repeat(" ", pad))
+		}
+		b.WriteString(sep)
+		b.WriteString(side[i])
+	}
+	return b.String()
+}
+
+// sidebarRows is the sidebar column, h rows, cached by what it depends on.
+func (m *Model) sidebarRows(h int) []string {
+	s := m.side
+	cur := ""
+	if c := m.App.Sessions.Current(); c != nil {
+		cur = c.ID
+	}
+	key := fmt.Sprintf("%d|%d|%v|%s|%p|%d|%s", h, s.sel, s.focused, cur, s.list, len(s.list), s.err)
+	if s.cacheKey != key || s.cache == nil {
+		s.cache, s.cacheKey = strings.Split(m.sidebarView(h), "\n"), key
+		for len(s.cache) < h {
+			s.cache = append(s.cache, strings.Repeat(" ", sidebarW))
+		}
+	}
+	return s.cache
 }

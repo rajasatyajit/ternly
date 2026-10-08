@@ -63,7 +63,7 @@ func TestNoInjectedSequencesOnScreen(t *testing.T) {
 	}
 }
 
-func testModel(t *testing.T) *Model {
+func testModel(t testing.TB) *Model {
 	t.Helper()
 	m := benchModel(t, 0)
 	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
