@@ -553,7 +553,15 @@ func main() {
 	raw := flag.String("raw", "", "gzipped raw output with a chunk timing index (optional)")
 	dir := flag.String("dir", "", "working directory")
 	reapHome := flag.String("reap", "", "only reap: stop every process whose environment has HOME=<this>, report, exit (1 if any survive)")
+	sumDir := flag.String("summarize", "", "only summarise: print markdown tables of the matrix results in this directory")
 	flag.Parse()
+	if *sumDir != "" {
+		if err := summarize(os.Stdout, *sumDir); err != nil {
+			fmt.Fprintln(os.Stderr, "tuiprobe:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *reapHome != "" {
 		sig, surv := reap(*reapHome, 3*time.Second)
 		fmt.Printf("reaped %d process(es) %v; survivors %v\n", len(sig), sig, surv)
