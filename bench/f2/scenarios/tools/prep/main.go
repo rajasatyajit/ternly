@@ -5,11 +5,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 const cache = "/home/satyajit/.cache/ternly-suite/repos/"
@@ -22,14 +25,7 @@ func must(err error) {
 }
 
 func git(dir string, args ...string) {
-	c := exec.Command("git", append([]string{"-C", dir}, args...)...)
-	env := []string{}
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "GIT_") {
-			env = append(env, kv)
-		}
-	}
-	c.Env = append(env, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	c := gitenv.Command(context.Background(), append([]string{"-C", dir}, args...)...) // a repository the survey owns (ADR 024)
 	out, err := c.CombinedOutput()
 	if err != nil {
 		must(fmt.Errorf("git %v: %v %s", args, err, out))
