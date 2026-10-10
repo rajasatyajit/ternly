@@ -1,0 +1,40 @@
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 28.2k tokens (21.5%)       │                                               ✕
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1.9k tokens (1.5%)               │1 file changed +1 -1           source: Current ▾
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)                  │
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)   │simplelru/lru.go                           +1 -1
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │
+                                                                      │────────────────────────────────────────────────
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │simplelru/lru.go                         [ ask ]
+     model)                                                           │────────────────────────────────────────────────
+                                                                      │ 158    if diff < 0 {
+     Skills · /skills                                                 │ 159      diff = 0
+     └ 13 skills · 1.9k tokens                                        │ 160    }
+                                                                      │ 161 -  for i := 0; i <= diff; i++ {
+     /context all to expand                                           │ 161 +  for i := 0; i < diff; i++ {
+                                                                      │ 162      c.removeOldest()
+❯ /model                                                              │ 163    }
+  ⎿  Kept model as gemma4:latest                                      │ 164    c.size = size
+                                                                      │
+❯ /diff                                                               │
+  ⎿  Diff panel shown                                                 │
+                                                                      │
+❯ /agents                                                             │
+  ⎿  The /agents wizard has been removed.                             │
+                                                                      │
+     Ask Claude to create or update subagents for you (e.g. "create a │
+     code-reviewer subagent that ..."),                               │
+     or edit the files directly:                                      │
+       • .claude/agents/       (this project)                         │
+       • ~/.claude/agents/     (all projects)                         │
+                                                                      │
+     Docs: https://code.claude.com/docs/en/sub-agents                 │
+                                                                      │
+● Unknown command: /todos                                             │
+                                                                      │
+❯ /plan                                                               │
+
+  No commands match "/jobs"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /jobs
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle)

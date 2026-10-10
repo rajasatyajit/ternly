@@ -1,0 +1,656 @@
+=== t=0.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⢀⣖⣲⡀
+                                                                                                     ⢣ ⡇
+                                              °                              °                       ⠈⠈
+
+                                                          ˚
+                                          ˚                     ⠈⠖⠭⠒    ⠠⡢⣒⠤  ⢐⠤⣒⠤
+                                                                   ⢐⠤⣒⠤          ⠠⠓⠭⠒
+ ·                                                                ·    ⠜⠪⠕⠂⠈⠖⠭⠒
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=1.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⢴⠭⢭⠦
+                                                                                                    ⠈⢆⠘⡄
+                                                          °
+
+                                            ˚
+˚                                                                  ⠈⠖⠭⠒    ⢔⢔⡢⠄  ⡢⢔⡢⠄
+                                              ·                 ·     ⡢⢔⡢⠄          ⠠⠓⠭⠒
+                                                                          ⠜⠪⠕⠂·⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt           Model set to: gemma4:latest
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=2.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⠠⢮⢭⠵⠄
+                                                                                                     ⡇⠘⡄
+
+                                          °
+˚
+                                              ˚                   ˚   ⢐⠤⣒⠤    ⠱⠪⠕⠂ ⠜⠪⠕⠂
+                                                          ·              ⠜⠪⠕·          ⠠⡢⣒⠤
+                                                                            ⠠⡢⣒⠤ ⡢⢔⡢⠄
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt           Model set to: gemma4:latest
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=3.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                      ⣀⣀
+                                                                                                     ⠐⡳⢺⠂
+                                                                                                     ⠠⠃⠇
+
+°                                             °
+                                                          ˚     ˚
+                                                                         ⢐⠤⣒⠤ ˚  ⠈⠖⠭⠒⠠⠓⠭⠒
+                                                                            ⠠⠓⠭⠒          ⠠⡢⣒⠤
+                                            ·                                  ⢔⢔⡢⠄ ⢐⠤⣒⠤
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt           Model set to: gemma4:latest
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=4.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                      ⣀⣀
+                                                                                                     ⠐⢳⠚⡆
+                                                                                                      ⠜⠜
+
+                                                          °      °
+                                                                            ˚
+                                                                           ⠠⠓⠭⠒     ⠕⠪⠕⠂⠪⠪⠕⠂
+·                                         ·                                    ⠪⠪⠕⠂         ⠈⠖⠭⠒
+                                              ·                                  ⠱⠪⠕⠂  ⠜⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt           Model set to: gemma4:latest
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=5.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                      ⡤⢤
+                                                                                                     ⠈⢏⠉⡇
+                                                                                                      ⠘⠐⠁
+                                                                 °
+                                                                              °
+
+˚                                           ˚ ˚                              ⠐⠕⠭⠒     ⢀⠦⣒⠤ ⢢⢔⡢⠄
+                                                          ·                      ⠐⡤⣒⠤         ⠨⠒⠭⠒
+                                                                                   ⠨⠒⠭⠒  ⠪⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 4s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=6.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                     ⡠⠤⢄
+                                                                                                    ⠈⢏⠉⡏⠁
+                                                                                                     ⠈⠂⠘
+
+°
+                                          ˚   ˚
+                                                          ˚                     ⠠⡢⣒⠤     ⡰⢔⡢⠄ ⠐⡤⣒⠤
+                                                                 ·                  ⢢⢔⡢⠄         ⢐⠤⣒⠤
+                                                                            ·          ⡢⢔⡢⠄ ⢔⢔⡢⠄
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 6s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=7.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                     ⡠⠤⢄
+                                                                                                    ⠈⡏⢹⠉⠁
+                                                                                                     ⠑ ⠃
+                                              °
+                                           °
+                                                          ˚
+                                                                 ˚                 ⢢⢔⡢⠄    ⠪⠪⠕⠂ ⠨⠒⠭⠒
+                                                                              ·       ⠕⠪⠕⠂          ⡰⢔⡢⠄
+·                                                                                         ⡰⢔⡢⠄⠱⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 6s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=8.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⣠⣒⣒⣄
+                                                                                                    ⢀⠇⡎
+                                                                                                    ⠈ ⠁
+                                                          °
+
+                                                                 ˚
+˚                                                                           ˚         ⠕⠪⠕⠂   ⠈⠖⠭⠒ ⠠⠓⠭⠒
+                                              ·                                         ⠠⠓⠭⠒           ⠪⠪⠕⠂
+                                           ·                                                ⠐⠕⠭⠒⠨⠒⠭⠒
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 8s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=9.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⢀⣖⣲⡀
+                                                                                                     ⡸⡰⠁
+                                                                                                     ⠁⠁
+
+                                                                 °
+˚                                                                             ˚
+                                              ˚                                          ⢐⠤⣒⠤   ⠈⠖⠭⠒ ⢀⠦⣒⠤
+                                           ·              ·                                ⢀⠦⣒⠤           ⠠⡢⣒⠤
+                                                                                               ⢔⢔⡢⠄ ⡢⢔⡢⠄
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 9s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=10.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                     ⢼⠭⢧
+                                                                                                     ⠈⡆⡸
+
+                                                                 °
+°                                             °                             °
+                                                           ˚
+                                           ˚                                                ⡰⢔⡢⠄   ⢐⠤⣒⠤ ⠠⡢⣒⠤
+                                                                                              ⠠⡢⣒⠤           ⢢⢔⡢⠄
+                                                                                                 ⢢⢔⡢⠄  ⡰⢔⡢⠄
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 10s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=11.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⠠⡮⠭⡵⠄
+                                                                                                     ⠱⡀⢣
+
+                                                                             °
+                                                         °
+                                           ˚
+                                                                                              ⠪⠪⠕⠂    ⢀⠦⣒⠤ ⠐⡤⣒⠤
+·                                                                ·                               ⠐⡤⣒⠤          ⠕⠪⠕⠂
+                                              ·                                                    ⠨⠒⠭⠒  ⠐⠕⠭⠒
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 11s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=12.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                      ⣀⣀
+                                                                                                     ⢺⠒⡖⠓
+                                                                                                     ⠘⠄⠱
+
+
+                                           °
+
+˚                                             ˚                  ˚                              ⠐⠕⠭⠒     ⠠⠓⠭⠒ ⠈⠖⠭⠒
+                                                           ·                 ·                      ⠈⠖⠭⠒         ⠨⠒⠭⠒
+                                                                                                       ⠕⠪⠕⠂ ⠐⠕⠭⠒
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 12s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 6%   cost: unknown (billing basis unknown)
+=== t=13.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                          ⣀⣀⣀
+                                                        ⣠⢫⠵⠒⠿⠶⠂
+                                                        ⡇⢏⣀⣠⠤⠖⢒⣲⡆
+                                                        ⠳⣄⢀⣠⢘⡟⣡⡾⠁
+                                                         ⠈⠛⠓⠛⠛⠉                                       ⣀⣀
+                                                     other · drift                                   ⠚⡖⡲⠓
+                                                                                                     ⠰⠁⠇
+
+                                           °
+°
+                                              ˚
+                                                         ˚       ˚           ˚                     ⢢⢔⡢⠄     ⠪⠪⠕⠂⠨⠒⠭⠒
+                                                                                                       ⠕⠪⠕⠂         ⡰⢔⡢⠄
+                                                                                                          ⡰⢔⡢⠄⠐⡤⣒⠤
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=14.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                           ⣀⣀⣀
+                                                         ⣰⢫⠵⠒⢿⣲⠆
+                                                         ⡇⣏ ⣀⡤⠤⠖⣒⣲
+                                                         ⢧⡈⠉⢀⠰⡶⢋⣴⠇
+                                                          ⠉⠻⠿⠾⠷⠛⠁                                    ⢀⣀⡀
+                                                      other · drift                                  ⠚⡖⡳
+                                                                                                     ⠰⠱⠁
+
+°
+                                              °
+                                                           ˚     ˚           ˚
+                                                                                                     ⢐⠤⣒⠤     ⠱⠪⠕⠂⢀⠦⣒⠤
+                                           ·                                                             ⠜⠪⠕⠂
+                                                                                                            ⠠⡢⣒⠤⢐⠤⣒⠤
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=15.3
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%

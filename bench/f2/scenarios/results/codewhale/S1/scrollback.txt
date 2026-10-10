@@ -1,0 +1,40 @@
+▎ Explain what simplelru/lru.go does and how eviction works.                                                            
+▏ - `evictList` (linked list): An internal structure (internal.LruList) that maintains the order of access. The most   │
+▏   recently used items are pushed to the front, and the least recently used items are held at the back.               │
+▏ - `onEvict`: An EvictCallback. This is a functional hook that allows the caller to execute custom logic (e.g.,       │
+▏   logging or cleanup) whenever an item is removed from the cache.                                                    │
+▏                                                                                                                      │
+▏ ♻️ How Eviction Works                                                                                                │
+▏                                                                                                                      │
+▏ Eviction is triggered when a new item is added (Add method) and the cache's current length exceeds its defined       │
+▏ capacity (size).                                                                                                     │
+▏                                                                                                                      │
+▏ The process occurs within the Add method:                                                                            │
+▏                                                                                                                      ┃
+▏ 1. Check for Existing Item (Touch/Update): If the item already exists, it is not evicted. Instead, the item is given ┃
+▏    priority by being moved to the front of the access list (c.evictList.MoveToFront(ent)), marking it as the Most    ┃
+▏    Recently Used (MRU) item. Its value is also updated if necessary.                                                 ┃
+▏ 2. New Item Insertion: If the item is new, it is added to the front of the list (c.evictList.PushFront).             ┃
+▏ 3. Capacity Check (Eviction Trigger): After insertion, the cache checks if its current length is greater than c.size ┃
+▏    .                                                                                                                 ┃
+▏ - If the size is exceeded, the removeOldest() method is called.                                                      ┃
+▏                                                                                                                      ┃
+▏ The `removeOldest()` method performs the actual eviction:                                                            ┃
+▏                                                                                                                      ┃
+▏ 1. It identifies the item at the back of the access list (c.evictList.Back()). Because of the LRU logic, this item   ┃
+▏    is the Least Recently Used (LRU) candidate.                                                                       ┃
+▏ 2. The removeElement() function is called on this candidate.                                                         ┃
+▏ 3. removeElement() performs two cleanup steps:                                                                       ┃
+▏ - It removes the entry from the linked list (c.evictList.Remove).                                                    ┃
+▏ - It deletes the corresponding entry from the lookup map (c.items).                                                  ┃
+▏ - Finally, it executes the c.onEvict callback, passing the key and value of the evicted item.                        ┃
+▏                                                                                                                      ┃
+▏ In summary, the fixed size is maintained by ensuring that any new item pushes the least accessed item out when the   ┃
+▏ defined capacity is reached. Reading an item (Get) also updates its status, moving it to the MRU position, which     ┃
+▏ prevents it from being evicted immediately.                                                                          ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])                                                          
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   25 avg tok/s   cache 47%    

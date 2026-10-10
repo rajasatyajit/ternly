@@ -1,0 +1,40 @@
+                      DIR: /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-crush/tmp/
+..             (parent dir)  msg_1176577278.md      0  B
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+^G Help        ^/ Go To Dir   ^F Where Is    M-B Previous   ◂ Back         ^P Prev Line   ^Y Prev Page   M-\ First File
+^X Close       ^L Refresh     ^B Where Was   M-F Next       ▸ Forward      ^N Next Line   ^V Next Page   M-/ Last File

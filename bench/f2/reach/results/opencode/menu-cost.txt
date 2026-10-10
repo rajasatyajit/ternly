@@ -1,0 +1,40 @@
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     + Thought: 2.8s
+
+     glob{pattern: "*/simplelru*"}
+
+     ▣  Build · gemma4 · 21.9s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃ /copy         Copy session transcript                                                                            ┃
+  ┃ /review       review changes [commit|branch|pr], defaults to uncommitted                                         ┃
+  ┃
+  ┃  /cost
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-opencode                           7.3K  ctrl+p commands
+

@@ -1,0 +1,40 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                          ┌ Mode ────────────────────────────────────────────────────────────┐
+                          │                                                                  │
+                          │ ▸ 1. Work    Direct work in this session — edits and shell ask…  │
+                          │   2. Plan    Read-only research first — present a plan before…   │
+                          │   3. Operate Work at full strength: a goal, parallel agents,…    │
+                          │                                                                  │
+                          │                                                                  │
+                          │  ↑/↓ move  Enter select  Esc cancel                              │
+                          │                                                                  │
+                          └──────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

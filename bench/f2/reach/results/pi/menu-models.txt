@@ -1,0 +1,40 @@
+
+ If diff > 0, we should iterate diff times.
+ If diff = 0, we should iterate 0 times.
+
+ If I change i <= diff to i < diff, let's check the scenarios:
+ 1. size < c.Len(): diff > 0. Loop runs diff times. Correct.
+ 2. size = c.Len(): diff = 0. Loop does not run (since i < 0 is false for i = 0). Correct.
+ 3. size > c.Len(): diff = 0. Loop does not run. Correct.
+
+ So, changing i <= diff to i < diff seems to be the fix.
+
+ I will use the edit tool to change this line in simplelru/lru.go.
+
+ Old text:
+
+ ```go
+      for i := 0; i <= diff; i++ {
+         c.removeOldest()
+      }
+ ```
+
+ New text:
+
+ ```go
+      for i := 0; i < diff; i++ {
+         c.removeOldest()
+      }
+ ```
+
+ I must ensure I capture the surrounding context in the edit if possible, but focusing only on the loop statement
+ should be sufficient if it is unique enough. The snippet above is unique within the Resize function.
+
+ Let's execute the edit.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/models
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+→ scoped-models  Enable/disable models for Ctrl+P cycling
+/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-pi (master)
+↑3.2k ↓1.4k R5.1k CH53.2% 3.6%/128k (auto)                                                                 gemma4:latest

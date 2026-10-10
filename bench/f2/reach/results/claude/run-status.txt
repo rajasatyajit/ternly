@@ -1,0 +1,40 @@
+
+✻ Sautéed for 1m 59s · done 3:31 AM
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ Ctrl+Y to paste deleted text ▔
+   Settings  Status   Config   Usage   Stats
+
+   Version:                    2.1.296
+   Session name:               Simplelru Resize capacity eviction
+   Session ID:                 8f791f4c-12cf-412d-bf5e-7708ac1c8f49
+   Session kind:               interactive
+   Peer address:               uds:/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-claude/tmp/cc-socks/
+                               2.sock
+   cwd:                        /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-claude
+   Auth token:                 ANTHROPIC_AUTH_TOKEN
+   Anthropic base URL:         http://127.0.0.1:11435
+
+   Model:                      gemma4:latest
+   Setting sources:            User settings
+   Managed settings (remote):  not fetched — not available with a custom ANTHROPIC_BASE_URL
+   Organization policy:        not fetched with a custom ANTHROPIC_BASE_URL
+   Auto mode server:           Disabled
+
+   System diagnostics
+    ⚠ Native installation exists but ~/.local/bin is not in your PATH. Run:
+
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> your shell config file && source your shell config file
+    ⚠ Native installation exists but ~/.local/bin is not in your PATH
+    ⚠ Running native installation but config install method is 'not set'
+    ⚠ claude command at /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-claude/.local/bin/claude
+      missing or broken (/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-claude/.local/bin does not
+      exist)
+    ⚠ claude command at /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-claude/.local/bin/claude
+      missing or broken
+
+
+   Esc to cancel
+
+
+
+
+

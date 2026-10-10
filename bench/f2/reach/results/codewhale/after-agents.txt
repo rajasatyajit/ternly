@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+▏    This is an estimate, not a bill: it is computed locally from provider-reported token usage and published rates,   │
+▏    and can differ from your invoice.                                                                                 │
+▏    Covered: 0 of 1 money-metered turn(s) priced.                                                                     │
+▏    Excluded: 1 money-metered turn(s) had no authoritative price (billing basis unknown); their spend is missing from │
+▏    the total above.                                                                                                  │
+▏    Audited routes (redacted):                                                                                        │
+▏    provider=custom identity=custom model=gemma4:latest surface=unclassified endpoint_                                │
+▏    fp=9d7a1b946b33f681ceeadb541d350a5b806dec27a91c1f4f964edf0fcb338cfa billing_mode=unknown currency=unpriced        │
+                                                                                                                       │
+Note Your team is the session model only. Add one: /fleet add <provider> <model> [role…] (or ⇧F on a row in /model).   │
+▏    Available models (20)                                                                                             │
+▏    bge-m3:latest                                                                                                     │
+▏    deepseek-ocr:3b                                                                                                   │
+▏    deepseek-v4-pro:cloud                                                                                             │
+▏    deepseek-v4.1-flash:cloud                                                                                         │
+▏    gemma4:26b                                                                                                        │
+▏    gemma4:31b                                                                                                        │
+▏    gemma4:cloud                                                                                                      │
+▏    - gemma4:latest (current)                                                                                         │
+▏    glm-5.3:cloud                                                                                                     │
+▏    gpt-oss:120b-cloud                                                                                                │
+▏    granite4.2:latest                                                                                                 │
+▏    kimi-k2.7-code:cloud                                                                                              │
+▏    kimi-k3:cloud                                                                                                     │
+▏    minimax-m3:cloud                                                                                                  │
+▏    mistral-large-3:675b-cloud                                                                                        ┃
+▏    mxbai-embed-large:latest                                                                                          ┃
+▏    nemotron-3-ultra:cloud                                                                                            ┃
+▏    nomic-embed-text:latest                                                                                           ┃
+▏    qwen3-embedding:0.6b                                                                                              ┃
+▏    qwen3.8:latest                                                                                                    ┃
+                                                                                                                       ┃
+Note No changes since session start                                                                                    ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

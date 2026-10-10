@@ -1,0 +1,123 @@
+=== t=0.0
+▎ Turn 19: name one Go standard library package and say what it does, in one line.
+▎ Turn 20: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     │
+▏ computations.                                                                                                        │
+                                                                                                                       │
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. │
+                                                                                                                       │
+▎ Turn 24: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The io/fs package provides a consistent, platform-independent interface for accessing file system resources.         │
+                                                                                                                       │
+▎ Turn 25: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The html package provides utilities for escaping and decoding HTML entities, which is crucial for preventing         ┃
+▏ cross-site scripting attacks.                                                                                        ┃
+                                                                                                                       ┃
+▎ Turn 26: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The sync/atomic package provides functions for atomically operating on basic data types, ensuring thread-safe        ┃
+▏ operations without using explicit locks.                                                                             ┃
+                                                                                                                       ┃
+▎ Turn 27: name one Go standard library package and say what it does, in one line.                                     ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 13s   Esc to interrupt
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 670ms   22 avg tok/s   cache 96%
+=== t=1.0
+▎ Turn 20: name one Go standard library package and say what it does, in one line.
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     │
+▏ computations.                                                                                                        │
+                                                                                                                       │
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. │
+                                                                                                                       │
+▎ Turn 24: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The io/fs package provides a consistent, platform-independent interface for accessing file system resources.         │
+                                                                                                                       │
+▎ Turn 25: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The html package provides utilities for escaping and decoding HTML entities, which is crucial for preventing         │
+▏ cross-site scripting attacks.                                                                                        │
+                                                                                                                       ┃
+▎ Turn 26: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The sync/atomic package provides functions for atomically operating on basic data types, ensuring thread-safe        ┃
+▏ operations without using explicit locks.                                                                             ┃
+                                                                                                                       ┃
+▎ Turn 27: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The container/list package implements a doubly-linked list, providing                                                ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 0s   Work bar (Ctrl+])   worked 1m 14s   Esc to interrupt
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 670ms   22 avg tok/s   cache 96%
+=== t=2.0
+▎ Turn 20: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     │
+▏ computations.                                                                                                        │
+                                                                                                                       │
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. │
+                                                                                                                       │
+▎ Turn 24: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The io/fs package provides a consistent, platform-independent interface for accessing file system resources.         │
+                                                                                                                       │
+▎ Turn 25: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The html package provides utilities for escaping and decoding HTML entities, which is crucial for preventing         │
+▏ cross-site scripting attacks.                                                                                        │
+                                                                                                                       │
+▎ Turn 26: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The sync/atomic package provides functions for atomically operating on basic data types, ensuring thread-safe        ┃
+▏ operations without using explicit locks.                                                                             ┃
+                                                                                                                       ┃
+▎ Turn 27: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The container/list package implements a doubly-linked list, providing a general-purpose data structure for ordered   ┃
+▏ collections.                                                                                                         ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 15s
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 658ms   22 avg tok/s   cache 96%

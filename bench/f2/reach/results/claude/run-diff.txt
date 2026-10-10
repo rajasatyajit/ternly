@@ -1,0 +1,40 @@
+                                                                      │                                               ✕
+● The bug has been fixed in simplelru/lru.go.                         │1 file changed +1 -1           source: Current ▾
+                                                                      │
+  I recommend running the tests to verify that the Resize method now  │simplelru/lru.go                           +1 -1
+  correctly handles capacity increases without unnecessary evictions. │
+  Would you like me to run the tests now?                             │────────────────────────────────────────────────
+                                                                      │simplelru/lru.go                         [ ask ]
+✻ Sautéed for 1m 59s · done 3:31 AM                                   │────────────────────────────────────────────────
+                                                                      │ 158    if diff < 0 {
+❯ /context                                                            │ 159      diff = 0
+  ⎿  Context Usage                                                    │ 160    }
+     ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   gemma4:latest                              │ 161 -  for i := 0; i <= diff; i++ {
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   32.1k/131.1k tokens (24%)                  │ 161 +  for i := 0; i < diff; i++ {
+     ⛁ ⛁ ⛁ ⛀ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶                                              │ 162      c.removeOldest()
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category                │ 163    }
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 2k tokens (1.5%)          │ 164    c.size = size
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 28.2k tokens (21.5%)       │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1.9k tokens (1.5%)               │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)                  │
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)   │
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │
+                                                                      │
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │
+     model)                                                           │
+                                                                      │
+     Skills · /skills                                                 │
+     └ 13 skills · 1.9k tokens                                        │
+                                                                      │
+     /context all to expand                                           │
+                                                                      │
+❯ /model                                                              │
+  ⎿  Kept model as gemma4:latest                                      │
+                                                                      │
+❯ /diff                                                               │
+  ⎿  Diff panel shown                                                 │
+                                        Ctrl+Y to paste deleted text  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

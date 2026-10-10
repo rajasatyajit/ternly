@@ -1,0 +1,40 @@
+
+  ┃
+  ┃  Explain what simplelru/lru.go does and how eviction works.
+  ┃
+
+     + Thought: 1.6s
+
+     read{filePath:"simplelru/lru.go"}
+
+     ▣  Build · gemma4 · 18.1s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S1                              7.2K  ctrl+p commands
+

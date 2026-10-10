@@ -1,0 +1,79 @@
+2026-10-10T19:36:19Z start ternly S1
+2026-10-10T19:38:17Z done ternly S1: ternly S1 outcome=answered wall=87s
+2026-10-10T19:38:17Z start claude S1
+2026-10-10T19:41:59Z done claude S1: claude S1 outcome=answered wall=187s
+2026-10-10T19:41:59Z start codex S1
+2026-10-10T19:44:30Z done codex S1: codex S1 outcome=answered wall=117s
+2026-10-10T19:44:30Z start crush S1
+2026-10-10T19:45:53Z done crush S1: crush S1 outcome=answered wall=48s
+2026-10-10T19:45:53Z start opencode S1
+2026-10-10T19:47:22Z done opencode S1: opencode S1 outcome=answered wall=54s
+2026-10-10T19:47:22Z start pi S1
+2026-10-10T19:49:10Z done pi S1: pi S1 outcome=answered wall=73s
+2026-10-10T19:49:10Z start codewhale S1
+2026-10-10T19:51:04Z done codewhale S1: codewhale S1 outcome=answered wall=80s
+2026-10-10T19:51:04Z start ternly S2
+2026-10-10T19:53:12Z done ternly S2: ternly S2 outcome=fail wall=94s
+2026-10-10T19:53:12Z start claude S2
+2026-10-10T19:57:07Z done claude S2: claude S2 outcome=pass wall=201s
+2026-10-10T19:57:07Z start codex S2
+2026-10-10T19:58:43Z done codex S2: codex S2 outcome=fail wall=62s
+2026-10-10T19:58:43Z start crush S2
+2026-10-10T19:59:45Z done crush S2: crush S2 outcome=fail wall=58s
+2026-10-10T19:59:45Z start opencode S2
+2026-10-10T20:01:27Z done opencode S2: opencode S2 outcome=fail wall=67s
+2026-10-10T20:01:27Z start pi S2
+2026-10-10T20:03:24Z done pi S2: pi S2 outcome=fail wall=82s
+2026-10-10T20:03:24Z start codewhale S2
+2026-10-10T20:08:08Z done codewhale S2: codewhale S2 outcome=fail wall=250s
+2026-10-10T20:08:08Z start ternly S4
+2026-10-10T20:09:39Z done ternly S4: ternly S4 outcome=peek_bug=n resize_bug=n wall=56s
+2026-10-10T20:09:39Z start claude S4
+2026-10-10T20:14:59Z done claude S4: claude S4 outcome=peek_bug=n resize_bug=y wall=285s
+2026-10-10T20:14:59Z start codex S4
+2026-10-10T20:17:20Z done codex S4: codex S4 outcome=peek_bug=y resize_bug=y wall=106s
+2026-10-10T20:17:20Z start crush S4
+2026-10-10T20:19:28Z done crush S4: crush S4 outcome=peek_bug=y resize_bug=n wall=95s
+2026-10-10T20:19:28Z start opencode S4
+2026-10-10T20:22:20Z done opencode S4: opencode S4 outcome=peek_bug=y resize_bug=y wall=80s
+2026-10-10T20:22:20Z start pi S4
+2026-10-10T20:23:53Z done pi S4: pi S4 outcome=peek_bug=y resize_bug=y wall=58s
+2026-10-10T20:23:53Z start codewhale S4
+2026-10-10T20:26:17Z done codewhale S4: codewhale S4 outcome=peek_bug=y resize_bug=y wall=109s
+2026-10-10T20:26:17Z start ternly S3
+2026-10-10T20:27:08Z done ternly S3: ternly S3 outcome=once=n count=n wall=46s
+2026-10-10T20:27:08Z start claude S3
+2026-10-10T20:32:52Z done claude S3: claude S3 outcome=once=n count=n wall=292s
+2026-10-10T20:32:52Z start codex S3
+2026-10-10T20:35:55Z done codex S3: codex S3 outcome=once=n count=n wall=132s
+2026-10-10T20:35:55Z start crush S3
+2026-10-10T20:38:16Z done crush S3: crush S3 outcome=once=n count=n wall=89s
+2026-10-10T20:38:16Z start opencode S3
+2026-10-10T20:40:13Z done opencode S3: opencode S3 outcome=once=n count=n wall=67s
+2026-10-10T20:40:13Z start pi S3
+2026-10-10T20:43:09Z done pi S3: pi S3 outcome=once=y count=y wall=126s
+2026-10-10T20:43:09Z start codewhale S3
+2026-10-10T20:48:33Z done codewhale S3: codewhale S3 outcome=once=n count=n wall=274s
+2026-10-10T20:48:33Z start ternly S5
+2026-10-10T20:57:11Z done ternly S5: ternly S5 outcome=turns=30/30 error_shown=y recovered=y wall=466s
+2026-10-10T20:57:11Z start claude S5
+2026-10-10T21:08:08Z done claude S5: claude S5 outcome=turns=30/30 error_shown=y recovered=y wall=606s
+2026-10-10T21:08:08Z start codex S5
+2026-10-10T21:20:46Z done codex S5: codex S5 outcome=turns=30/30 error_shown=y recovered=y wall=707s
+2026-10-10T21:20:46Z start crush S5
+2026-10-10T21:28:32Z done crush S5: crush S5 outcome=turns=30/30 error_shown=y recovered=y wall=414s
+2026-10-10T21:28:32Z start opencode S5
+2026-10-10T21:36:14Z done opencode S5: opencode S5 outcome=turns=30/30 error_shown=y recovered=y wall=457s
+2026-10-10T21:36:14Z start pi S5
+2026-10-10T21:43:39Z done pi S5: pi S5 outcome=turns=30/30 error_shown=y recovered=y wall=382s
+2026-10-10T21:43:39Z start codewhale S5
+2026-10-10T21:53:36Z done codewhale S5: codewhale S5 outcome=turns=30/30 error_shown=y recovered=y wall=533s
+2026-10-10T21:53:36Z batch done
+2026-10-10T22:30:38Z start ternly S3
+2026-10-10T22:31:46Z done ternly S3: ternly S3 outcome=once=n count=n wall=48s
+2026-10-10T22:31:46Z start ternly S5
+2026-10-10T22:45:08Z done ternly S5: ternly S5 outcome=turns=30/30 error_shown=y recovered=y wall=765s
+2026-10-10T22:45:08Z batch done
+2026-10-10T22:45:26Z start ternly S3
+2026-10-10T22:49:07Z done ternly S3: ternly S3 outcome=once=n count=n wall=202s
+2026-10-10T22:49:07Z batch done

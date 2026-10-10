@@ -1,0 +1,840 @@
+=== t=0.0
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                          ▄
+                                         █▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█
+                                         █  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀
+                                         ▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀
+
+
+                       ┃
+                       ┃  Bug report: in package simplelru, calling Resize with a capacity at
+                       ┃  least as large as the number of entries still evicts one entry. Find
+                       ┃  the cause and fix it.
+                       ┃
+                       ┃  Build · gemma4 Ollama (local)
+                       ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                                                                       tab agents  ctrl+p commands
+
+
+
+
+
+
+
+
+
+
+
+
+  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S2:master                                      1.18.35
+=== t=1.0
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝■■■■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=2.0
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=3.1
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=4.1
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=5.1
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ■■■■⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=7.1
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=8.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=9.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=10.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝■■■■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=11.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=12.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ■■⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=13.2
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ■■■■■■⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=14.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=15.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=16.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=17.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ⠇ Thinking
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝■■■■  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=18.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ⠋ Thinking
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=19.3
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ⠹ Thinking
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ■■■■⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=20.4
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     ⠼ Thinking
+
+     ▣  Build · gemma4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ■■■⬝⬝⬝⬝⬝  esc interrupt                                                                 tab agents  ctrl+p commands
+=== t=21.4
+
+  ┃
+  ┃  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries
+  ┃  still evicts one entry. Find the cause and fix it.
+  ┃
+
+     + Thought: 3.9s
+
+     task
+
+     ▣  Build · gemma4 · 20.6s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S2                              7.3K  ctrl+p commands

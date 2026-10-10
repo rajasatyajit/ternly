@@ -1,0 +1,600 @@
+=== t=0.0
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=1.0
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   %E55D!5£$5@1#$* 0s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^*3^32)d$F5^e~D 1s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=3.0
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   aa+=~A#^0c4£€a* 3s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=4.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   4$296!F6e@BBc4c 4s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=5.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^*3^32)d$F5^e~D 5s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=6.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   aa+=~A#^0c4£€a* 6s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=7.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   %E55D!5£$5@1#$* 7s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=8.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^d!~&7+2b8)_+)A 8s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=9.1
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   !16cB1d9#df8*6! 9s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=10.2
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   4$296!F6e@BBc4c 10s                                                                   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=11.2
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^d!~&7+2b8)_+)A 11s                                                                   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=12.2
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   !16cB1d9#df8*6! 12s                                                                   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=13.2
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   [uses ls tool]                                                                        Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 12s ────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          39% (12.8K) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+=== t=14.2
+
+ │ Explain what simplelru/lru.go does and how eviction works.                           ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   [uses ls tool]                                                                        Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 12s ────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Untitled Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S1
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          39% (12.8K) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

@@ -1,0 +1,40 @@
+
+  ⎿  /plan to preview
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Ready to code?
+
+   Here is Claude's plan:
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+   Plan for implementing 'once' handler and counting handlers in Emitter
+
+   Context
+
+   The user requires two enhancements to the existing functional event emitter (mitt) implemented in src/index.ts:
+   1. once(type, handler): A method to register a handler that executes only on the next emission of a specified type
+      and is then automatically removed from the emitter.
+   2. emit(type, evt): The emit function must be updated to return the total number of handlers (both type-specific
+      and wildcard) that were called during that emission.
+
+   The existing implementation relies on an EventHandlerMap which stores event types as keys and arrays of handlers
+   (EventHandlerList) as values.
+
+   Architectural Analysis & Proposed Approach
+
+   The implementation requires modifying the core logic within src/index.ts.
+
+   1. Implementing once
+
+   The once handler must behave like a regular on handler during registration, but must trigger an automatic
+   unsubscription immediately after it runs.
+                                                                                                                      ↓
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+   ❯ 1. Yes, and switch to BYPASS PERMISSIONS (no further prompts) for this session
+     2. Yes, manually approve edits
+     3. Tell Claude what to change
+        shift+tab to approve with this feedback
+
+   ctrl+g to edit in VS Code · ~/.claude/plans/typed-sprouting-bachman.md

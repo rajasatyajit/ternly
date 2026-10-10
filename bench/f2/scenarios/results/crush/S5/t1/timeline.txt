@@ -1,0 +1,520 @@
+=== t=0.0
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=1.0
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   %E55D!5£$5@1#$* 0s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^*3^32)d$F5^e~D 1s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=3.0
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   !16cB1d9#df8*6! 3s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=4.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   4$296!F6e@BBc4c 4s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=5.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^*3^32)d$F5^e~D 5s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=6.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   !16cB1d9#df8*6! 6s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=7.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   4$296!F6e@BBc4c 7s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=8.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ^d!~&7+2b8)_+)A 8s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=9.1
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   !16cB1d9#df8*6! 9s                                                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=10.2
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   4$296!F6e@BBc4c 10s                                                                   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=11.2
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎fmt ︎                                                                                 Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (191) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=12.2
+
+ │ Turn 1: name one Go standard library package and say what it does, in one line.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎fmt ︎ handles formatted I/O for the Go programming language.                          Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 12s ────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Name a Go standard library
+                                                                                        package and describe it
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          39% (12.8K) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

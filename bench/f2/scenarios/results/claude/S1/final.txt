@@ -1,0 +1,40 @@
+     always at the front, and the Least Recently Used (LRU) item is always at the back.
+
+  How LRU Eviction Works
+
+  The mechanism relies on two main actions: accessing an item and inserting a new item.
+
+  1. Accessing an Item (Get operation)
+
+  When you retrieve an item using Get(key), the item is considered "recently used."
+  - The cache locates the item using the map ($\text{O}(1)$).
+  - Crucially, the underlying entry is immediately moved to the front of the linked list (MoveToFront). This promotes
+    it, ensuring it won't be the next item to be evicted.
+
+  2. Inserting a New Item (Add operation)
+
+  When you insert or update an item:
+
+  - Update: If the key already exists, its value is updated, and it is promoted to the MRU position (front of the list).
+  - New Insertion: If the key is new, it is placed at the front of the list (MRU position).
+  - Eviction Check: The cache then checks if the list's length exceeds the defined size.
+    - If it exceeds capacity: The system triggers the eviction policy by calling removeOldest().
+
+  3. The Eviction Process (removeOldest operation)
+
+  This is where the LRU principle is enforced:
+  1. Identify Target: The system looks at the tail (back) of the linked list (evictList.Back()), as this entry
+     represents the item that has gone the longest without being accessed—the Least Recently Used item.
+  2. Cleanup: The identified item is removed from both the linked list structure and the lookup map (items).
+  3. Callback: If a user-defined onEvict callback was set up, it is executed, allowing the application to perform
+     necessary cleanup (e.g., closing database connections associated with the evicted key).
+
+  In summary, the LRU cache uses the map for fast lookups and the linked list as an ordered queue that automatically
+  shifts usage order to keep the most relevant data readily accessible.
+
+✻ Cogitated for 2m 21s · done 1:11 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

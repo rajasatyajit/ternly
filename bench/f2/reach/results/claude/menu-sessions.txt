@@ -1,0 +1,40 @@
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │                                               ✕
+                                                                      │1 file changed +1 -1           source: Current ▾
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │
+     model)                                                           │simplelru/lru.go                           +1 -1
+                                                                      │
+     Skills · /skills                                                 │────────────────────────────────────────────────
+     └ 13 skills · 1.9k tokens                                        │simplelru/lru.go                         [ ask ]
+                                                                      │────────────────────────────────────────────────
+     /context all to expand                                           │ 158    if diff < 0 {
+                                                                      │ 159      diff = 0
+❯ /model                                                              │ 160    }
+  ⎿  Kept model as gemma4:latest                                      │ 161 -  for i := 0; i <= diff; i++ {
+                                                                      │ 161 +  for i := 0; i < diff; i++ {
+❯ /diff                                                               │ 162      c.removeOldest()
+  ⎿  Diff panel shown                                                 │ 163    }
+                                                                      │ 164    c.size = size
+❯ /agents                                                             │
+  ⎿  The /agents wizard has been removed.                             │
+                                                                      │
+     Ask Claude to create or update subagents for you (e.g. "create a │
+     code-reviewer subagent that ..."),                               │
+     or edit the files directly:                                      │
+       • .claude/agents/       (this project)                         │
+       • ~/.claude/agents/     (all projects)                         │
+                                                                      │
+     Docs: https://code.claude.com/docs/en/sub-agents                 │
+                                                                      │
+● Unknown command: /todos                                             │
+                                                                      │
+❯ /plan                                                               │
+  ⎿  Enabled plan mode                                                │
+                                                                      │
+
+    /permissions                Manage allow and deny tool permission rules
+    /insights                   Generate a report analyzing your Claude Code sessions
+    /list-agents                List subagents, teammates, and other Claude sessions you can message
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /sessions
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle)

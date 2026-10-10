@@ -1,0 +1,1 @@
+opencode S2 outcome=fail wall=67s

@@ -1,0 +1,40 @@
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎database/sql ︎ provides the standard interface for interacting with SQL databases    ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   in Go.                                                                                Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 29: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎image ︎ provides functionalities for decoding, encoding, and manipulating images.    Name a Go standard library
+                                                                                        package and describe it
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                      	master
+ │ Turn 30: name one Go standard library package and say what it does, in one line.     /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+    ︎runtime ︎ provides functions to get information about the Go runtime and manage    	-S5
+   goroutines.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          43% (14.2K) $0.00
+ │ Turn 31: in one line, what does simplelru/lru.go do?
+                                                                                        Modified Files ──────────────
+    ERROR  Provider Error
+                                                                                        None
+   retry error: Post "http://127.0.0.1:11435/v1/chat/completions": dial tcp
+   127.0.0.1:11435: connect: connection refused                                         LSPs ────────────────────────
+
+ │ Turn 32: try again: in one line, what does simplelru/lru.go do?                      None
+
+   [uses view tool]                                                                     MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 5s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+

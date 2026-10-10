@@ -1,0 +1,40 @@
+● The bug has been fixed in simplelru/lru.go.
+
+  I recommend running the tests to verify that the Resize method now correctly handles capacity increases without
+  unnecessary evictions. Would you like me to run the tests now?
+
+✻ Sautéed for 1m 59s · done 3:31 AM
+
+❯ /context
+  ⎿  Context Usage
+     ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   gemma4:latest
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   32.1k/131.1k tokens (24%)
+     ⛁ ⛁ ⛁ ⛀ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 2k tokens (1.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 28.2k tokens (21.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1.9k tokens (1.5%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝
+
+     Auto-compact window: 131.1k tokens (default for an unrecognized model)
+
+     Skills · /skills
+     └ 13 skills · 1.9k tokens
+
+     /context all to expand
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ Ctrl+Y to paste deleted text ▔
+   Select model
+   Switch between Claude models. Your pick becomes the default for new sessions. For other/previous model names,
+   specify with --model.
+
+     1. Default (recommended)  Use the default model (currently gemma4:latest[1m])
+   ❯ 2. gemma4:latest ✔        Custom Opus model
+     3. Fable                  Fable 5.1 · Most capable for your hardest and longest-running tasks · $10/$50 per Mtok
+     4. gemma4:latest          Custom Sonnet model
+     5. gemma4:latest          Custom Haiku model
+
+   ● High effort (default) ←/→ to adjust
+
+   Enter to set as default · s to use this session only · Esc to cancel

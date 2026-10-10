@@ -1,0 +1,40 @@
+▎ Review the uncommitted change in this repository (git diff) and list every bug you find, with file:line and why.      
+                                                                                                                        
+● I need to see the uncommitted changes first to review them. I will run git diff to get the entire diff of the         
+▏ modified files.                                                                                                       
+▏                                                                                                                       
+                                                                                                                        
+╭ ✓ ▶ run Done · git diff                                                                                               
+│ ▏ output: diff --git a/simplelru/lru.go b/simplelru/lru.go                                                            
+│ ▏ index 5eeb110..31bc438 100644                                                                                       
+│ ▏ 18 lines omitted; Alt+V:output                                                                                      
+╰ ▏  c.size = size                                                                                                      
+                                                                                                                        
+● Based on the git diff, I found two potential bugs/non-standard contract violations in simplelru/lru.go.               
+▏                                                                                                                       
+▏ - File: simplelru/lru.go                                                                                              
+▏ - Lines: ~92 (within Peek function)                                                                                   
+▏ - Why: The Peek function is modified to call c.evictList.MoveToFront(ent). In standard data structure nomenclature,   
+▏   Peek means looking up a value without altering the cache's internal usage order (i.e., it should not update the     
+▏   item's recency). This code makes the Peek operation behave identically to an update or Get operation, which         
+▏   violates the expected contract of a Peek.                                                                           
+▏                                                                                                                       
+▏ - File: simplelru/lru.go                                                                                              
+▏ - Lines: 159 (within Resize function)                                                                                 
+▏ - Why: The loop condition in Resize is changed from for i := 0; i < diff; i++ to for i := 0; i <= diff; i++.          
+▏   Assuming diff correctly represents the number of elements that need to be evicted to meet the new size, this        
+▏   change introduces an off-by-one error, causing the function to evict one extra element compared to the intended     
+▏   target size.                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 14s                                          
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 4.4s   28 avg tok/s   cache 49%    

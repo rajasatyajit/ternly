@@ -1,0 +1,40 @@
+
+     + Thought: 4.3s
+
+  ┃
+  ┃  $ git diff
+  ┃
+  ┃  diff --git a/simplelru/lru.go b/simplelru/lru.go
+  ┃  index 5eeb110..31bc438 100644
+  ┃  --- a/simplelru/lru.go
+  ┃  +++ b/simplelru/lru.go
+  ┃  @@ -88,6 +88,7 @@ func (c *LRU[K, V]) Contains(key K) (ok bool) {
+  ┃   func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
+  ┃     var ent *internal.Entry[K, V]
+  ┃     if ent, ok = c.items[key]; ok {
+  ┃  +    c.evictList.MoveToFront(ent)
+  ┃       return ent.Value, true
+  ┃  …
+  ┃
+  ┃  Click to expand
+  ┃
+
+     + Thought: 19.7s
+
+     Found 2 potential bugs in simplelru/lru.go:
+
+     1. simplelru/lru.go:91: In Peek(key K), the line c.evictList.MoveToFront(ent) promotes the element. This is
+        generally a bug for a "Peek" operation, which should not alter the LRU order/usage metadata.
+     2. simplelru/lru.go:161: The loop in Resize(size int) now runs diff + 1 times (i <= diff), when it should run
+        exactly diff times (i < diff). This causes one unnecessary eviction, potentially making the final cache size
+        smaller than intended.
+
+     ▣  Build · gemma4 · 43.7s
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S4                              8.4K  ctrl+p commands
+

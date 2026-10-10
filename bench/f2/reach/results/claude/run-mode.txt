@@ -1,0 +1,40 @@
+
+❯ /agents
+  ⎿  The /agents wizard has been removed.
+
+     Ask Claude to create or update subagents for you (e.g. "create a code-reviewer subagent that ..."),
+     or edit the files directly:
+       • .claude/agents/       (this project)
+       • ~/.claude/agents/     (all projects)
+
+     Docs: https://code.claude.com/docs/en/sub-agents
+
+● Unknown command: /todos
+
+❯ /plan
+  ⎿  Enabled plan mode
+
+● Unknown command: /jobs. Did you mean /ios?
+
+● Unknown command: /fleet
+
+❯ /resume
+  ⎿  Resume cancelled
+
+● Unknown command: /history
+
+● Unknown command: /approvals
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ ● high · /effort ▔
+   Select model
+   Switch between Claude models. Your pick becomes the default for new sessions. For other/previous model names,
+   specify with --model.
+
+     1. Default (recommended)  Use the default model (currently gemma4:latest[1m])
+   ❯ 2. gemma4:latest ✔        Custom Opus model
+     3. Fable                  Fable 5.1 · Most capable for your hardest and longest-running tasks · $10/$50 per Mtok
+     4. gemma4:latest          Custom Sonnet model
+     5. gemma4:latest          Custom Haiku model
+
+   ● High effort (default) ←/→ to adjust
+
+   Enter to set as default · s to use this session only · Esc to cancel

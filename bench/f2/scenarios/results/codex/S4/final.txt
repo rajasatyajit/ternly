@@ -1,0 +1,40 @@
+› Review the uncommitted change in this repository (git diff) and list every bug you find, with file:line and why.
+• Ran git diff
+  └          c.removeOldest()
+         }
+         c.size = size
+    + 18 lines (^t to expand)
+
+• Ran git diff
+  └          c.removeOldest()
+         }
+         c.size = size
+    + 18 lines (^t to expand)
+
+• I've reviewed the uncommitted changes in simplelru/lru.go and found two potential issues that appear to be bugs or
+  unintended side effects.
+
+  Here is a list of the bugs I found:
+
+  • File: simplelru/lru.go
+    Lines: 93
+    Reason: In Peek(key K), the line c.evictList.MoveToFront(ent) is added. Typically, a Peek operation should be read-
+    only and not alter the internal usage order of the LRU cache. Moving the accessed element to the front changes the
+    state, making it behave like a Get operation, which may violate the expected behavior of a non-mutating peek
+    function.
+
+  • File: simplelru/lru.go
+    Lines: 161
+    Reason: In Resize(size int), the loop condition is changed from for i := 0; i < diff; i++ to for i := 0; i <= diff;
+    i++. This causes the loop to run one extra time (diff + 1 times), resulting in one more element being removed via
+    c.removeOldest() than intended when reducing the cache size.
+
+  Let me know if you'd like me to investigate these findings further or apply any specific fixes!
+
+  Worked for 1m 8s • 01:46
+
+
+› Ask Codex to do anything
+
+  gemma4:latest default · /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/codex-S4 · Review uncommitted changes fo…
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

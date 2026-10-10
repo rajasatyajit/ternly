@@ -1,0 +1,328 @@
+=== t=0.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Turn 2: name one Go standard library package and say what it does, in one line.                                     │
+│                                                                                                                  [↵] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=1.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⢀⠤⠤⡀
+                                                                                                    ⠙⡍⠹⡉
+                                                                                                     ⠑ ⠃
+
+                                                                             °
+
+˚                                          ˚
+                                               ˚                                                            ⠜⠪⠕⠂   ⡢⢔⡢⠄
+                                                           ·                                                  ⢔⢔⡢⠄
+                                                                 ·                                               ⠱⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 0s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=2.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⣠⣒⣒⣄
+                                                                                                    ⢸ ⢣
+                                                                                                     ⠁ ⠁
+
+
+ °                                         ° °
+                                                         ˚
+                                                                                                              ⠠⡢⣒⠤
+                                                                 ·           ·                                  ⠈⠖⠭⠒
+                                                                                                                   ⢐⠤⣒⠤
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 1s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=3.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ⣠⣒⣒⣄
+                                                                                                    ⢠⠃⡇
+                                                                                                    ⠈ ⠈
+
+
+                                           °              °
+
+                                                                 ˚                                              ⠠⡢⣒⠤
+                                                                             ·                                     ⠈⠖⠭⠒
+·                                              ·
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 2s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=4.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                     ⣰⣒⣆
+                                                                                                     ⢠⢃⠇
+                                                                                                     ⠁⠈
+
+
+
+                                                                  ˚
+ ˚                                                                           ˚                                    ⠈⠖⠭⠒
+                                             ·
+                                           ·              ·
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 3s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 10%   cost: unknown (billing basis unknown)   ttft 8.5s   10 avg tok/s   cache 0%
+=== t=5.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+
+
+
+
+
+
+
+
+
+                                                           ⣀⣀⣀
+                                                         ⣰⢫⠵⠒⢿⣲⠆
+                                                         ⡇⣏ ⣀⡤⠤⠖⣒⣲
+                                                         ⢧⡈⠉⢀⠰⡶⢋⣴⠇
+                                                          ⠉⠻⠿⠾⠷⠛⠁                                    ⠠⢯⠽⡄
+                                                      other · drift                                   ⡸⢠⠃
+
+
+
+                                                                °
+˚                                              ˚                             ˚
+                                                          ˚
+                                           ·
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 4.5s   14 avg tok/s   cache 50%
+=== t=6.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+
+
+
+
+
+
+
+
+
+                                                            ⣀⣀⣀⡀
+                                                          ⣠⢏⠵⠒⢿⡳⠆
+                                                          ⡇⣏ ⣀⡤⠴⢒⣒⣲
+                                                          ⢣⡈⠉⢁⠰⡶⢋⣴⠇
+                                                           ⠉⠛⠿⠾⠗⠛⠁                                   ⠠⡯⠽⡄
+                                                       other · drift                                  ⢸⢠⠃
+
+
+
+°                                                                °           °
+                                              ˚            ˚
+                                           ˚
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 4.5s   14 avg tok/s   cache 50%
+=== t=12.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 4.5s   14 avg tok/s   cache 50%

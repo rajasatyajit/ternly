@@ -1,0 +1,40 @@
+▎ Turn 31: in one line, what does simplelru/lru.go do?                                                                  
+                                                                                                                       │
+Note Retry attempt: stream-open 2/3; connection failed before response headers                                         │
+                                                                                                                       │
+Note Retry attempt: transport 1/3; network error; waiting 1.08s                                                        │
+                                                                                                                       │
+Note Retry attempt: transport 2/3; network error; waiting 1.97s                                                        │
+                                                                                                                       │
+Note Retry attempt: transport 3/3; network error; waiting 4.28s                                                        │
+                                                                                                                       │
+Note Retry exhaustion: transport request stopped after 3 retries; network error                                        │
+                                                                                                                       │
+Note Retry attempt: stream-open 3/3; connection failed before response headers                                         │
+                                                                                                                       │
+Note Retry attempt: transport 1/3; network error; waiting 0.96s                                                        │
+                                                                                                                       │
+Note Retry attempt: transport 2/3; network error; waiting 2.03s                                                        │
+                                                                                                                       │
+Note Retry attempt: transport 3/3; network error; waiting 4.32s                                                        │
+                                                                                                                       │
+Note Retry exhaustion: transport request stopped after 3 retries; network error                                        │
+                                                                                                                       │
+Note Retry exhaustion: stream-open stopped after 3 retries; connection failed before response headers                  │
+                                                                                                                       │
+Error Network error: Cannot reach 127.0.0.1:11435 (connection refused): error sending request for url (http://127.0.0. │
+▏     1:11435/v1/chat/completions): client error (Connect): tcp connect error: Connection refused (os error 111)       │
+▏ Alt+V:full error                                                                                                     │
+                                                                                                                       │
+▎ Turn 32: try again: in one line, what does simplelru/lru.go do?                                                      ┃
+                                                                                                                       ┃
+╭ ✓ ▷ read Done · Reading simplelru/lru.go                                                                             ┃
+╰ ▏ done: Reading simplelru/lru.go                                                                                     ┃
+                                                                                                                       ┃
+● simplelru/lru.go implements a non-thread safe, capacity-limited Least Recently Used (LRU) cache data structure.      ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 57s                                          
+ custom · gemma4:latest   context 13%   cost: unknown (billing basis unknown)   ttft 647ms   22 avg tok/s   cache 96%   

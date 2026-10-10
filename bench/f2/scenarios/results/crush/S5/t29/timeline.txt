@@ -1,0 +1,120 @@
+=== t=0.0
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎fmt/scan ︎ is not a standalone package; scanning is typically done using             ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎fmt.Scanf ︎ or similar functions in the  ︎fmt ︎ package.                                Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 25: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎crypto ︎ provides cryptographic primitives, like hashing and encryption.             Name a Go standard library
+                                                                                        package and describe it
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        master
+ │ Turn 26: name one Go standard library package and say what it does, in one line.     /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+    ︎bufio ︎ provides buffered I/O, making reading and writing larger chunks of data      -S5
+   more efficient.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          42% (13.9K) $0.00
+ │ Turn 27: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎html/template ︎ provides a safe templating system for rendering HTML documents.
+                                                                                        None
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        LSPs ────────────────────────
+ │ Turn 28: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎database/sql ︎ provides the standard interface for interacting with SQL databases
+   in Go.                                                                               MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Turn 29: name one Go standard library package and say what it does, in one line.
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+=== t=1.0
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 25: name one Go standard library package and say what it does, in one line.      Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎crypto ︎ provides cryptographic primitives, like hashing and encryption.             █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 26: name one Go standard library package and say what it does, in one line.     Name a Go standard library
+                                                                                        package and describe it
+    ︎bufio ︎ provides buffered I/O, making reading and writing larger chunks of data
+   more efficient.                                                                      master
+                                                                                        /home/satyajit/.claude/jobs/f
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+ │ Turn 27: name one Go standard library package and say what it does, in one line.
+                                                                                        ◇ gemma4 (local)
+    ︎html/template ︎ provides a safe templating system for rendering HTML documents.        via Ollama (local)
+                                                                                          42% (13.9K) $0.00
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        Modified Files ──────────────
+ │ Turn 28: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎database/sql ︎ provides the standard interface for interacting with SQL databases
+   in Go.                                                                             	LSPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+ │ Turn 29: name one Go standard library package and say what it does, in one line.     MCPs ────────────────────────
+
+    ︎image ︎ provides functionalities for decoding,                                       None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Turn 25: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎crypto ︎ provides cryptographic primitives, like hashing and encryption.              Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 26: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎bufio ︎ provides buffered I/O, making reading and writing larger chunks of data      Name a Go standard library
+   more efficient.                                                                      package and describe it
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  master
+                                                                                        /home/satyajit/.claude/jobs/f
+ │ Turn 27: name one Go standard library package and say what it does, in one line.     10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+    ︎html/template ︎ provides a safe templating system for rendering HTML documents.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          42% (14K) $0.00
+ │ Turn 28: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎database/sql ︎ provides the standard interface for interacting with SQL databases
+   in Go.                                                                             	None
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 29: name one Go standard library package and say what it does, in one line.     None
+
+    ︎image ︎ provides functionalities for decoding, encoding, and manipulating images.    MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

@@ -1,0 +1,40 @@
+
+ │ Plan, then implement in src/index.ts: (1) once(type, handler): the handler runs on   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱  
+ │ the next emit of that type only, then is removed; (2) emit returns the number of     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ handlers it called. Use parallel sub-agents if you can.                               Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ✓ View src/index.ts                                                                  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+       1   export type EventType = string | symbol;                                     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+       2
+       3   // An event handler can take an optional event argument                      Plan implementation of once
+       4   // and should not return a value                                             handler and emit counting
+       5   export type Handler<T = unknown> = (event: T) => void;
+       6   export type WildcardHandler<T = Record<string, unknown>> = (                 master
+       7       type: keyof T,                                                           /home/satyajit/.claude/jobs/f
+       8       event: T[keyof T]                                                        10e4ff6/tmp/f2/reach/fx/crush
+       9   ) => void;                                                                   -S3
+      10
+       … (113 lines hidden) [click or space to expand]                                  ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          46% (15.3K) $0.00
+
+   ◇ gemma4 (local) via Ollama (local) in 49s ────────────────────────────────────────  Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy                                                                                                          
+ :::                                                                                    ● crush-config           
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …         
+

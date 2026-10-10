@@ -1,0 +1,77 @@
+== ternly S1 2026-10-10T19:36:19Z (limit 1200s)
+   ternly S1 outcome=answered wall=87s
+== claude S1 2026-10-10T19:38:17Z (limit 1200s)
+   claude S1 outcome=answered wall=187s
+== codex S1 2026-10-10T19:41:59Z (limit 1200s)
+   codex S1 outcome=answered wall=117s
+== crush S1 2026-10-10T19:44:30Z (limit 1200s)
+   crush S1 outcome=answered wall=48s
+== opencode S1 2026-10-10T19:45:53Z (limit 1200s)
+   opencode S1 outcome=answered wall=54s
+== pi S1 2026-10-10T19:47:22Z (limit 1200s)
+   pi S1 outcome=answered wall=73s
+== codewhale S1 2026-10-10T19:49:10Z (limit 1200s)
+   codewhale S1 outcome=answered wall=80s
+== ternly S2 2026-10-10T19:51:04Z (limit 1200s)
+   ternly S2 outcome=fail wall=94s
+== claude S2 2026-10-10T19:53:12Z (limit 1200s)
+   claude S2 outcome=pass wall=201s
+== codex S2 2026-10-10T19:57:07Z (limit 1200s)
+   codex S2 outcome=fail wall=62s
+== crush S2 2026-10-10T19:58:43Z (limit 1200s)
+   crush S2 outcome=fail wall=58s
+== opencode S2 2026-10-10T19:59:45Z (limit 1200s)
+   opencode S2 outcome=fail wall=67s
+== pi S2 2026-10-10T20:01:27Z (limit 1200s)
+   pi S2 outcome=fail wall=82s
+== codewhale S2 2026-10-10T20:03:24Z (limit 1200s)
+   codewhale S2 outcome=fail wall=250s
+== ternly S4 2026-10-10T20:08:08Z (limit 1200s)
+   ternly S4 outcome=peek_bug=n resize_bug=n wall=56s
+== claude S4 2026-10-10T20:09:39Z (limit 1200s)
+   claude S4 outcome=peek_bug=n resize_bug=y wall=285s
+== codex S4 2026-10-10T20:14:59Z (limit 1200s)
+   codex S4 outcome=peek_bug=y resize_bug=y wall=106s
+== crush S4 2026-10-10T20:17:20Z (limit 1200s)
+   crush S4 outcome=peek_bug=y resize_bug=n wall=95s
+== opencode S4 2026-10-10T20:19:28Z (limit 1200s)
+   opencode S4 outcome=peek_bug=y resize_bug=y wall=80s
+== pi S4 2026-10-10T20:22:20Z (limit 1200s)
+   pi S4 outcome=peek_bug=y resize_bug=y wall=58s
+== codewhale S4 2026-10-10T20:23:53Z (limit 1200s)
+   codewhale S4 outcome=peek_bug=y resize_bug=y wall=109s
+== ternly S3 2026-10-10T20:26:17Z (limit 1800s)
+   ternly S3 outcome=once=n count=n wall=46s
+== claude S3 2026-10-10T20:27:08Z (limit 1800s)
+   claude S3 outcome=once=n count=n wall=292s
+== codex S3 2026-10-10T20:32:52Z (limit 1800s)
+   codex S3 outcome=once=n count=n wall=132s
+== crush S3 2026-10-10T20:35:55Z (limit 1800s)
+   crush S3 outcome=once=n count=n wall=89s
+== opencode S3 2026-10-10T20:38:16Z (limit 1800s)
+   opencode S3 outcome=once=n count=n wall=67s
+== pi S3 2026-10-10T20:40:13Z (limit 1800s)
+   pi S3 outcome=once=y count=y wall=126s
+== codewhale S3 2026-10-10T20:43:09Z (limit 1800s)
+   codewhale S3 outcome=once=n count=n wall=274s
+== ternly S5 2026-10-10T20:48:33Z (limit 4500s)
+   ternly S5 outcome=turns=30/30 error_shown=y recovered=y wall=466s
+== claude S5 2026-10-10T20:57:11Z (limit 4500s)
+   claude S5 outcome=turns=30/30 error_shown=y recovered=y wall=606s
+== codex S5 2026-10-10T21:08:08Z (limit 4500s)
+   codex S5 outcome=turns=30/30 error_shown=y recovered=y wall=707s
+== crush S5 2026-10-10T21:20:46Z (limit 4500s)
+   crush S5 outcome=turns=30/30 error_shown=y recovered=y wall=414s
+== opencode S5 2026-10-10T21:28:32Z (limit 4500s)
+   opencode S5 outcome=turns=30/30 error_shown=y recovered=y wall=457s
+== pi S5 2026-10-10T21:36:14Z (limit 4500s)
+   pi S5 outcome=turns=30/30 error_shown=y recovered=y wall=382s
+== codewhale S5 2026-10-10T21:43:39Z (limit 4500s)
+   codewhale S5 outcome=turns=30/30 error_shown=y recovered=y wall=533s
+BATCH DONE 2026-10-10T21:53:36Z
+--- rerun ternly S3 S5 2026-10-10T22:30:37Z (busy-aware idle)
+== ternly S3 2026-10-10T22:30:38Z (limit 1800s)
+   ternly S3 outcome=once=n count=n wall=48s
+== ternly S5 2026-10-10T22:31:46Z (limit 4500s)
+   ternly S5 outcome=turns=30/30 error_shown=y recovered=y wall=765s
+BATCH DONE 2026-10-10T22:45:08Z

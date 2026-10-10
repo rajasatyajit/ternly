@@ -1,0 +1,36 @@
+harness	scenario	outcome	detail	wall
+claude	S1	answered		187s
+claude	S2	pass	changed=y	201s
+claude	S3	none	once=false count=false changed=false	292s
+claude	S4	1/2	peek_bug=false resize_bug=true	285s
+claude	S5	turns=30/30	error_shown=true recovered=true rss=n/m	606s
+codewhale	S1	answered		80s
+codewhale	S2	fail	changed=n	250s
+codewhale	S3	none	once=false count=false changed=false	274s
+codewhale	S4	2/2	peek_bug=true resize_bug=true	109s
+codewhale	S5	turns=30/30	error_shown=true recovered=true rss=n/m	533s
+codex	S1	answered		117s
+codex	S2	fail	changed=n	62s
+codex	S3	none	once=false count=false changed=false	132s
+codex	S4	2/2	peek_bug=true resize_bug=true	106s
+codex	S5	turns=30/30	error_shown=true recovered=true rss=n/m	707s
+crush	S1	no-answer		48s
+crush	S2	fail	changed=n	58s
+crush	S3	none	once=false count=false changed=false	89s
+crush	S4	1/2	peek_bug=true resize_bug=false	95s
+crush	S5	turns=30/30	error_shown=true recovered=true rss=n/m	414s
+opencode	S1	no-answer		54s
+opencode	S2	fail	changed=n	67s
+opencode	S3	none	once=false count=false changed=false	67s
+opencode	S4	2/2	peek_bug=true resize_bug=true	80s
+opencode	S5	turns=30/30	error_shown=true recovered=true rss=n/m	457s
+pi	S1	answered		73s
+pi	S2	fail	changed=n	82s
+pi	S3	both	once=true count=true changed=true	126s
+pi	S4	2/2	peek_bug=true resize_bug=true	58s
+pi	S5	turns=30/30	error_shown=true recovered=true rss=n/m	382s
+ternly	S1	answered		87s
+ternly	S2	fail	changed=n	94s
+ternly	S3	none	once=false count=false changed=false	202s
+ternly	S4	0/2	peek_bug=false resize_bug=false	56s
+ternly	S5	turns=30/30	error_shown=true recovered=true rss=n/m	765s

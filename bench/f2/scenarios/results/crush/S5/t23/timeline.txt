@@ -1,0 +1,120 @@
+=== t=0.0
+
+ │ Turn 18: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎testing ︎ provides a framework for writing and running tests.                         Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 19: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎os/exec ︎ allows running external system commands.                                   Name a Go standard library
+                                                                                        package and describe it
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────
+                                                                                        master
+ │ Turn 20: name one Go standard library package and say what it does, in one line.     /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+    ︎io/ioutil ︎ handles I/O operations like reading and writing files (deprecated in     -S5
+   favor of  ︎os ︎ and  ︎io ︎).
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          41% (13.7K) $0.00
+ │ Turn 21: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎net ︎ provides basic networking primitives, including IP address handling.
+                                                                                        None
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        LSPs ────────────────────────
+ │ Turn 22: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎time/duration ︎ is not a standard package; time durations are represented by
+    ︎time.Duration ︎.                                                                     MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Turn 23: name one Go standard library package and say what it does, in one line.
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+=== t=1.0
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 19: name one Go standard library package and say what it does, in one line.      Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎os/exec ︎ allows running external system commands.                                   █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 20: name one Go standard library package and say what it does, in one line.     Name a Go standard library
+                                                                                        package and describe it
+    ︎io/ioutil ︎ handles I/O operations like reading and writing files (deprecated in
+   favor of  ︎os ︎ and  ︎io ︎).                                                             master
+                                                                                        /home/satyajit/.claude/jobs/f
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+ │ Turn 21: name one Go standard library package and say what it does, in one line.
+                                                                                        ◇ gemma4 (local)
+    ︎net ︎ provides basic networking primitives, including IP address handling.             via Ollama (local)
+                                                                                          41% (13.7K) $0.00
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        Modified Files ──────────────
+ │ Turn 22: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎time/duration ︎ is not a standard package; time durations are represented by
+    ︎time.Duration ︎.                                                                   	LSPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  None
+
+ │ Turn 23: name one Go standard library package and say what it does, in one line.     MCPs ────────────────────────
+
+    ︎path ︎ handles manipulation of URL                                                   None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Turn 19: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎os/exec ︎ allows running external system commands.                                    Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 20: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎io/ioutil ︎ handles I/O operations like reading and writing files (deprecated in     Name a Go standard library
+   favor of  ︎os ︎ and  ︎io ︎).                                                             package and describe it
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  master
+                                                                                        /home/satyajit/.claude/jobs/f
+ │ Turn 21: name one Go standard library package and say what it does, in one line.     10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+    ︎net ︎ provides basic networking primitives, including IP address handling.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          41% (13.7K) $0.00
+ │ Turn 22: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎time/duration ︎ is not a standard package; time durations are represented by
+    ︎time.Duration ︎.                                                                   	None
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 23: name one Go standard library package and say what it does, in one line.     None
+
+    ︎path ︎ handles manipulation of URL paths.                                            MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

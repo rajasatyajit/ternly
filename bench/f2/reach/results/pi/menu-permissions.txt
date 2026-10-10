@@ -1,0 +1,40 @@
+      for i := 0; i <= diff; i++ {
+         c.removeOldest()
+      }
+ ```
+
+ New text:
+
+ ```go
+      for i := 0; i < diff; i++ {
+         c.removeOldest()
+      }
+ ```
+
+ I must ensure I capture the surrounding context in the edit if possible, but focusing only on the loop statement
+ should be sufficient if it is unique enough. The snippet above is unique within the Resize function.
+
+ Let's execute the edit.
+
+
+ /jobs
+
+
+ The user wants me to address a bug report: "in package simplelru, calling Resize with a capacity at least as large as
+ the number of entries still evicts one entry. Find the cause and fix it."
+
+ I have already read simplelru/lru.go. I need to examine the Resize method implementation.
+
+ Looking at simplelru/lru.go:
+
+ ```go
+   // Resize changes
+ ```
+
+ Operation aborted
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/permissions
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-pi (master)
+↑3.2k ↓1.4k R5.1k 3.7%/128k (auto)                                                                         gemma4:latest

@@ -1,0 +1,600 @@
+=== t=0.0
+
+  ╱╱╱╱╱╱  Charm™                    v0.98.1 ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱ ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █        █ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱ █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀▀▀▀▀▀█ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱  ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀        ▀ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+  master • /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-crush
+
+  ◇ gemma4 (local) via Ollama (local)
+
+  LSPs                           MCPs                           Skills
+
+  None                           None                           ● crush-config
+                                                                ● crush-hooks
+                                                                ● jq
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  !  Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still
+ ::: evicts one entry. Find the cause and fix it.
+ :::
+
+  YOLO MODE   tab change focus • ctrl+p commands • shift+tab mode • ctrl+l models • ctrl+j newline • ctrl+c quit …
+=== t=1.0
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   %E55D!5£$5@1#$* 0s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ^*3^32)d$F5^e~D 1s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=3.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   !16cB1d9#df8*6! 3s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=4.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   4$296!F6e@BBc4c 4s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=5.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ^d!~&7+2b8)_+)A 5s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=6.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   !16cB1d9#df8*6! 6s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=7.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   4$296!F6e@BBc4c 7s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=8.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ^d!~&7+2b8)_+)A 8s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=9.1
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   !16cB1d9#df8*6! 9s                                                                   ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=10.2
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   4$296!F6e@BBc4c 10s                                                                  ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=11.2
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ^b8€b=£)0D7^1€^ 11s                                                                  ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=12.2
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   (^80DeCEE$a769+ 12s                                                                  ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          0% (0) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=13.2
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   [uses agent]                                                                         ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+   ◇ gemma4 (local) via Ollama (local) in 13s ────────────────────────────────────────   ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        New Session
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          39% (12.8K) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+
+  !  Go crazy                                                                           ● crush-config
+ :::                                                                                    ● crush-hooks
+ :::                                                                                    ● jq
+
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+=== t=14.3
+
+ │ Bug report: in package simplelru, calling Resize with a capacity at least as large   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ as the number of entries still evicts one entry. Find the cause and fix it.          ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   [uses agent]                                                                         ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+   ◇ gemma4 (local) via Ollama (local) in 13s ────────────────────────────────────────   ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+                                                                                        Bug report simplelru Resize
+                                                                                        evicts entry when capacity is
+
+                                                                                        master
+                                                                                        /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/reach
+                                                                                        -crush
+
+                                                                                        ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+                                                                                          39% (13K) $0.00
+
+                                                                                        Modified Files ──────────────
+
+                                                                                        None
+
+                                                                                        LSPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        MCPs ────────────────────────
+
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

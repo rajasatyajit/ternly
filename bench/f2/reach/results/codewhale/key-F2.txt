@@ -1,0 +1,40 @@
+
+   Settings  ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+   Appearance   Models & providers   Work   Tools & MCP   Trust   Motion   Advanced
+   Search: type to filter  (17/71)
+  ❯ Display         │  Display                                                │Theme
+                    │❯Theme                              underwater     ‹ ›   │theme
+                    │ Language                           auto           ‹ ›   │
+                    │ Background                         (default)      ✎     │current   underwater
+                    │ Quiet transcript                   On             [x]   │saved     underwater
+                    │ Model reasoning in chat            Off            [ ]   │startup   underwater
+                    │ Thinking Default Expanded          Off            [ ]   │source    settings.toml
+                    │ Thinking Preview Lines             2              ✎     │scope     SAVED
+                    │ Thinking background highlight      On             [x]   │apply     applies on save
+                    │ Help Expand Groups                 Off            [ ]   │kind      choice
+                    │ Contextual tips                    On             [x]   │available not observed this session
+                    │ Pin Last Prompt                    On             [x]   │
+                    │ Tool detail level                  Off            [ ]   │system | terminal | shoreline |
+                    │ Inline file changes                Full diff      ‹ ›   │shoreline-light | underwater |
+                    │ Output pacing                      auto           ‹ ›   │underwater-retro | dark | light |
+                    │ Cost currency                      usd            ‹ ›   │grayscale | catppuccin-mocha |
+                    │ Transcript spacing                 comfortable    ‹ ›   │tokyo-night | dracula | gruvbox-dark |
+                    │ Tool cards                         compact        ‹ ›   │claude | matrix | solarized-light | uwu
+                    │                                                         │Enter or click again: Enter opens
+                    │                                                         │choices
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+                    │                                                         │
+  system | terminal | shoreline | shoreline-light | underwater | underwater-retro | dark | light | grayscale |…
+  Preview:  ● never   agent
+  type=filter, Up/Down=select, Enter=edit, Esc=close
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+

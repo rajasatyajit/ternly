@@ -1,0 +1,40 @@
+     └ 13 skills · 1.9k tokens
+
+     /context all to expand
+
+❯ /model
+  ⎿  Kept model as gemma4:latest
+
+❯ /diff
+  ⎿  Diff panel shown
+
+❯ /agents
+  ⎿  The /agents wizard has been removed.
+
+     Ask Claude to create or update subagents for you (e.g. "create a code-reviewer subagent that ..."),
+     or edit the files directly:
+       • .claude/agents/       (this project)
+       • ~/.claude/agents/     (all projects)
+
+     Docs: https://code.claude.com/docs/en/sub-agents
+
+● Unknown command: /todos
+
+❯ /plan
+  ⎿  Enabled plan mode
+
+● Unknown command: /jobs. Did you mean /ios?
+
+● Unknown command: /fleet
+
+❯ /resume
+
+  ❯ /model                      Set the AI model for Claude Code (currently gemma4:latest)
+    /code-review                Review the current diff, or a PR number/branch/path target, for correctness bugs (plus
+                                reuse/simplification/efficiency cleanups where the model's review recipe covers them)…
+    /update-config              Use this skill to configure the Claude Code harness via settings.json. Automated
+                                behaviors ("from now on when X", "each time X", "whenever X", "before/after X") requi…
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /mode
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle)

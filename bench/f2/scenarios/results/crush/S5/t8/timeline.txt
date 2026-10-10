@@ -1,0 +1,120 @@
+=== t=0.0
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 3: name one Go standard library package and say what it does, in one line.       Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎os ︎ provides a platform-independent interface to operating system functionality.    █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 4: name one Go standard library package and say what it does, in one line.      Name a Go standard library
+                                                                                        package and describe it
+    ︎io ︎ defines the basic interfaces for input and output operations.
+                                                                                        master
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+ │ Turn 5: name one Go standard library package and say what it does, in one line.      -S5
+
+    ︎strings ︎ provides functions for manipulating strings.                               ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    39% (13K) $0.00
+
+ │ Turn 6: name one Go standard library package and say what it does, in one line.      Modified Files ──────────────
+
+    ︎time ︎ provides constructs for measuring and representing time.                      None
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 7: name one Go standard library package and say what it does, in one line.      None
+
+    ︎math ︎ provides basic mathematical constants and functions.                          MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Turn 8: name one Go standard library package and say what it does,	in one line.
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+=== t=1.0
+
+    ︎os ︎ provides a platform-independent interface to operating system functionality.    ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+ │ Turn 4: name one Go standard library package and say what it does, in one line.      █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+    ︎io ︎ defines the basic interfaces for input and output operations.                   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  Name a Go standard library
+                                                                                        package and describe it
+ │ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                        master
+    ︎strings ︎ provides functions for manipulating strings.                               /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  -S5
+
+ │ Turn 6: name one Go standard library package and say what it does, in one line.      ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+    ︎time ︎ provides constructs for measuring and representing time.                        39% (13K) $0.00
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  Modified Files ──────────────
+
+ │ Turn 7: name one Go standard library package and say what it does, in one line.      None
+
+    ︎math ︎ provides basic mathematical constants and functions.                          LSPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+ │ Turn 8: name one Go standard library package and say what it does, in one line.      MCPs ────────────────────────
+
+    ︎encoding/json ︎ provides methods for marsh                                           None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 4: name one Go standard library package and say what it does, in one line.       Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎io ︎ defines the basic interfaces for input and output operations.                   █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 5: name one Go standard library package and say what it does, in one line.      Name a Go standard library
+                                                                                        package and describe it
+    ︎strings ︎ provides functions for manipulating strings.
+                                                                                        master
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+ │ Turn 6: name one Go standard library package and say what it does, in one line.      -S5
+
+    ︎time ︎ provides constructs for measuring and representing time.                      ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    39% (13K) $0.00
+
+ │ Turn 7: name one Go standard library package and say what it does, in one line.      Modified Files ──────────────
+
+    ︎math ︎ provides basic mathematical constants and functions.                          None
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 8: name one Go standard library package and say what it does, in one line.      None
+
+    ︎encoding/json ︎ provides methods for marshaling and unmarshaling JSON.               MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

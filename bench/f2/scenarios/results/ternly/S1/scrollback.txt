@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/ternly-S1 SimpleLRU Go Implementation Wal… · bwrap · yolo
+
+  When you call  c.Add(key, value) :
+  
+  1. Update: If the  key  already exists, the existing entry is moved to the front of the  evictList  (marking
+  it as most recently used, line 53), and its value is updated. No eviction occurs. 
+  2. Insertion: If the  key  is new, it is added to the front of the  evictList  via  c.evictList.PushFront(key,
+  value)  (line 59), and registered in the map. 
+  3. Check & Evict: The code checks if the length of the list now exceeds the configured  size  (line 62). 
+  4. If the size is exceeded,  c.removeOldest()  is called (line 65), which triggers the eviction.
+
+  #### B. The Eviction Process ( removeOldest  and  removeElement )
+
+  The eviction relies on two specific internal methods:
+
+  1. Identifying Oldest Item ( removeOldest  method, line 170): This function accesses the back of the     
+   evictList  ( c.evictList.Back() ), which always points to the Least Recently Used (LRU) item.
+  2. Removal ( removeElement  method, line 175): Once the entry is found: 
+    • It is removed from the internal list via  c.evictList.Remove(e)  (line 177). 
+    • It is deleted from the  items  map (line 178), ensuring future lookups for that key will fail.
+    • Crucially, if an  EvictCallback  function ( onEvict ) was provided when the LRU was created, it is called
+    here (line 180-181), allowing the client code to perform actions (like logging, notifying services, etc.)
+    when an item is removed. 
+    
+  
+  ### Summary of Operations
+
+   Method              │ Action                           │ Eviction Logic
+  ─────────────────────┼──────────────────────────────────┼─────────────────────────────────────────────────────      
+    Add                │ Inserts/Updates an item.         │ If capacity is exceeded, triggers  removeOldest() . 
+    Get                │ Retrieves an existing item.      │ It moves the item to the front of the list
+                       │                                  │ ( MoveToFront ), marking it as recently used, but   
+                       │                                  │ does not trigger eviction.                         
+    Contains  /  Peek  │ Checks existence/value.          │ Does not update usage or trigger eviction.
+    RemoveOldest       │ Explicitly removes the LRU item. │ Direct invocation of the eviction mechanism.
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.6k/131.1k  ↑11.0k ↓1.4k ⚡26%  $0.0000

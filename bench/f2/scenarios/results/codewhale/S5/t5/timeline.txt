@@ -1,0 +1,287 @@
+=== t=0.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.4s   16 avg tok/s   cache 75%
+=== t=1.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+… reasoning hidden ▎                                                                                 ⠠⡯⠽⡄
+                                                                                                      ⢸⢠⠃
+
+
+
+
+                                                                °
+˚                                              ˚                             ˚
+     ⠜⠪⠕⠂   ⢐⠤⣒⠤ ⢔⢔⡢⠄                                     ˚
+       ⠠⡢⣒⠤           ⠱⠪⠕⠂                 ·
+          ⠈⠖⠭⠒ ⠜⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 0s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.4s   16 avg tok/s   cache 75%
+=== t=2.0
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                     ⢀⣀⡀
+… reasoning hidden ▎                                                                                ⠐⢗⠒⡞⠂
+                                                                                                     ⠘⠄⠸
+
+
+
+                                                                  °
+ °                                           °                               °
+                                                          ˚
+       ⡰⢔⡢⠄   ⢐⠤⣒⠤  ⠪⠪⠕⠂                   ˚
+         ⠠⡢⣒⠤           ⢢⢔⡢⠄
+             ⠐⡤⣒⠤⢀⠦⣒⠤
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 1s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.4s   16 avg tok/s   cache 75%
+=== t=3.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting
+▏ strings
+
+
+
+                                                          °
+
+                                            ˚
+          ⢔⢔⡢⠄   ⠠⠓⠭⠒  ⠈⠖⠭⠒
+·           ⠈⠖⠭⠒          ⢐⠤⣒⠤                 ·                ·
+                ⢐⠤⣒⠤ ⢔⢔⡢⠄                                                    ·
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 2s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.4s   16 avg tok/s   cache 75%
+=== t=4.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting
+▏ strings.
+
+
+
+
+                                          °
+
+ ˚          ⠱⠪⠕⠂    ⠐⠕⠭⠒  ⠕⠪⠕⠂                ˚                   ˚
+               ⠨⠒⠭⠒          ⠜⠪⠕⠂                         ·                  ·
+                  ⠠⠓⠭⠒  ⠱⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.0s   17 avg tok/s   cache 80%
+=== t=5.1
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting
+▏ strings.
+
+
+
+
+                                           °
+˚
+             ⠜⠪⠕⠂    ⠨⠒⠭⠒ ⠐⠕⠭⠒               ˚           ˚       ˚
+                ⠐⠕⠭⠒          ⠱⠪⠕⠂                                           ·
+                   ⠈⠖⠭⠒  ⠜⠪⠕⠂
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.0s   17 avg tok/s   cache 80%
+=== t=11.2
+▎ Turn 1: name one Go standard library package and say what it does, in one line.
+
+● The fmt package provides formatting capabilities, used for input and output operations (like printing, scanning, and
+▏ formatting data).
+
+▎ Turn 2: name one Go standard library package and say what it does, in one line.
+
+● The net/http package provides an HTTP client and server implementation, allowing for making and receiving HTTP
+▏ requests.
+
+▎ Turn 3: name one Go standard library package and say what it does, in one line.
+
+● The time package provides functionality for measuring and displaying time, including dates, durations, and time
+▏ zones.
+
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+
+● The os package provides a platform-independent interface to operating system functionality, allowing access to file
+▏ system and process information.
+
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting
+▏ strings.
+
+
+
+
+
+
+
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 2.0s   17 avg tok/s   cache 80%

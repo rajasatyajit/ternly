@@ -1,0 +1,40 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                          ▄
+                                         █▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█
+                                         █  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀
+                                         ▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀
+
+
+                       ┃
+                       ┃  Ask anything… "Fix a TODO in the codebase"
+                       ┃
+                       ┃  Build · gemma4 Ollama (local)
+                       ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                                                                       tab agents  ctrl+p commands
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S4:master                                      1.18.35
+

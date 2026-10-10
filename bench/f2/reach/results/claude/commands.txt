@@ -1,0 +1,38 @@
+cost not listed
+status listed
+context listed
+usage listed
+stats not listed
+tokens not listed
+model listed
+models not listed
+diff listed
+changes not listed
+agents listed
+tasks listed
+todos listed
+plan listed
+jobs listed
+fleet listed
+session not listed
+sessions not listed
+resume listed
+history listed
+permissions listed
+approvals listed
+mode listed
+why listed
+errors listed
+logs not listed
+debug listed
+checkpoints not listed
+timeline listed
+tree not listed
+undo not listed
+rewind listed
+rewind not run (state-changing)
+review not listed
+init listed
+init not run (state-changing)
+compact listed
+compact not run (state-changing)

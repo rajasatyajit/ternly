@@ -1,0 +1,40 @@
+       ordered sequence of entries.                         
+     - items: A standard Go map used to provide O(1) average-time complexity for looking up keys.                       
+     - onEvict: An optional callback function (EvictCallback) that the caller can provide to execute code whenever an   
+       entry is automatically removed from the cache.       
+ 3. Key Operations:           
+     - Add(key, value): Adds or updates an item. If the key exists, it moves the item to the front (marking it as most  
+       recently used). If the cache is full, it triggers an eviction.                                                   
+     - Get(key): Retrieves a value. If found, it moves the item to the front.                                           
+     - Peek(key): Retrieves a value without changing its position in the usage order.                                   
+     - Purge(): Clears the entire cache, invoking the onEvict callback for every item removed.                          
+
+ ### 🗑️ How Eviction Works    
+
+ Eviction is the process by which the cache removes the oldest item when a new item must be added and the cache is at   
+ maximum capacity.            
+
+ 1. Triggering Eviction:      
+     - When Add(key, value) is called, the code first checks the cache size against the defined c.size.                 
+     - If c.evictList.Length() > c.size, an eviction event must occur.                                                  
+     - The function c.removeOldest() is called to handle the eviction.                                                  
+
+ 2. Finding the Item to Evict (LRU Principle):              
+     - The LRU item is always located at the back of the internal usage list: c.evictList.Back().                       
+
+ 3. The Removal Process (removeElement):                    
+    Once the Least Recently Used entry (e) is identified, removeElement(e) executes three critical steps:               
+     - Remove from Order: The entry is removed from the ordered list (c.evictList.Remove(e)).                           
+     - Remove from Index: The entry is deleted from the lookup map (delete(c.items, e.Key)).                            
+     - Execute Callback: If a user-defined onEvict function was provided when creating the cache, it is called, passing 
+       the key and value of the item that was just removed. 
+
+ In essence, the cache uses the internal list to track usage age and the map for fast access, leveraging removeOldest   
+ to ensure the item that hasn't been accessed for the longest time is always the one sacrificed when capacity is        
+ exceeded.                    
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                              
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/pi-S1 (master)
+↑3.3k ↓1.5k R3.3k CH51.3% 3.7%/128k (auto)                                                                 gemma4:latest

@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly Debugging SimpleLRU Resize Beha… · bwrap · y
+  ollama/qwen3.8:latest                0.50     394s        $0        $0  4.375
+  ollama/gemma4:latest                 0.15     140s        $0        $0  5.171
+  ollama/granite4.2:latest             0.15     381s        $0        $0  14.12
+  ollama/gemma4:26b                    0.15     395s        $0        $0  14.62
+  ollama/gemma4:31b                    0.15     396s        $0        $0  14.66
+  mode     yolo  (ask: confirm edits and unsafe commands · edits: auto-allow edits · yolo: also commands · plan: read-on
+  sandbox  bwrap
+  always   nothing yet (answer [a] to a prompt)
+  trusted MCP servers  none
+  read-only tools never ask; destructive commands always ask; some are always refused
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  per-turn limits: 60 steps · 30m0s · $2.00   session budget: $0.00  (0 = off; changes apply from the next turn)
+  simplelru/lru.go | 10 +++++-----
+   1 file changed, 5 insertions(+), 5 deletions(-)
+  diff --git a/simplelru/lru.go b/simplelru/lru.go
+  index 9d1a926..5b14385 100644
+  --- a/simplelru/lru.go
+  +++ b/simplelru/lru.go
+  @@ -154,15 +154,15 @@ func (c *LRU[K, V]) Cap() int {
+
+   // Resize changes the cache size.
+   func (c *LRU[K, V]) Resize(size int) (evicted int) {
+  -    diff := c.Len() - size
+  -    if diff < 0 {
+  -        diff = 0
+  +    removals := c.Len() - size
+  +    if removals < 0 {
+  +        removals = 0
+   }
+  -    for i := 0; i <= diff; i++ {
+  +    for i := 0; i < removals; i++ {
+   c.removeOldest()
+   }
+   c.size = size
+  -    return diff
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ /                                                                                                                  │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.7k/131.1k  ↑27.6k ↓4.0k ⚡67%  $0.0000

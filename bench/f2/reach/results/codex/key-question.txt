@@ -1,0 +1,40 @@
+› Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+  Context window:      100% left (10.8K used / 258K)
+  Limits:              data not available yet
+
+• Model changed to gemma4:latest medium for Plan mode.
+
+• Unrecognized command '/jobs'. Type "/" for a list of supported commands.
+
+■ No saved chat found matching '/jobs'.
+
+• Copying last message…
+
+• Copy unconfirmed; /export saves chat
+
+• Copying last message…
+
+• Copy unconfirmed; /export saves chat
+
+■ Cannot open external editor: set $VISUAL or $EDITOR before starting Codex.
+
+■ Cannot open external editor: set $VISUAL or $EDITOR before starting Codex.
+
+  Keyboard shortcuts
+
+  Compose                       Session                             Transcript (open first)
+  /        Commands             tab        Send message             ^t                         Open transcript
+  @        Mention files        shift+tab  Change mode              f3                         Find text
+  !        Shell command        alt+,      Less reasoning           pgup / pgdn                Scroll
+  ^j       New line             alt+.      More reasoning           ^space                     Start selection
+  ^v       Paste image          f8         Voice                    ^home / ^end               Top / latest
+  ^g       External editor      ←          Agents (empty prompt)    shift+alt+, / shift+alt+.  Top / latest
+  ^r       Search history       f4         Inspect activity
+  esc esc  Edit last message    ^c         Quit
+
+  /keymap customize
+
+› Ask Codex to do anything
+
+  gemma4:latest medium · /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-codex                    Plan mode
+  ? / esc close

@@ -1,0 +1,40 @@
+
+     /context all to expand
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ ● high · /effort ▔
+   Settings  Status   Config   Usage   Stats
+
+   Session
+
+   Total cost:            $0.2801 (costs may be inaccurate due to usage of unknown models)
+   Total duration (API):  2m 24s
+   Total duration (wall): 3m 13s
+   Total code changes:    1 line added, 1 line removed
+   Usage by model:
+          gemma4:latest:  31.1k input, 3.4k output, 77.3k cache read, 0 cache write ($0.2801)
+   Prompt cache (main):   4 requests · 73% of input tokens from cache · no misses · warm (5m TTL, last activity 59s
+   ago)
+
+   Esc to cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

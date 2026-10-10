@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly Debugging SimpleLRU Resize Beha… · bwrap · y
+    ⎿     82        _, ok = c.items[key]
+    ⎿     83        return ok
+    ⎿     84    }
+    ⎿     85
+    ⎿     86    // Peek returns the key value (or undefined if not found) without updating
+    ⎿     87    // the "recently used"-ness of the key.
+    ⎿     88    func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
+    ⎿     89        var ent *internal.Entry[K, V]
+    ⎿     90        if ent, ok = c.items[key]; ok {
+    ⎿     91            return ent.Value, true
+    ⎿     92        }
+    ⎿     93        return
+    ⎿     94    }
+    ⎿     95
+    ⎿     96    // Remove removes the provided key from the cache, returning if the
+    ⎿     97    // key was contained.
+    ⎿     98    func (c *LRU[K, V]) Remove(key K) (present bool) {
+    ⎿     99        if ent, ok := c.items[key]; ok {
+    ⎿    100            c.removeElement(ent)
+    ⎿    101            return true
+    ⎿    102        }
+    ⎿    103        return false
+    ⎿    104    }
+    ⎿    105
+    ⎿    106    // RemoveOldest removes the oldest item from the cache.
+    ⎿    107    func (c *LRU[K, V]) RemoveOldest() (key K, value V, ok bool) {
+    ⎿    108        if ent := c.evictList.Back(); ent != nil {
+    ⎿    109            c.removeElement(ent)
+    ⎿    110            return ent.Key, ent.Value, true
+    ⎿    111        }
+    ⎿    112        return
+    ⎿    113    }
+    ⎿    114
+    ⎿    115    // GetOldest returns the oldest entry
+    ⎿    116    func (c *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.7k/131.1k  ↑27.6k ↓4.0k ⚡67%  $0.0000

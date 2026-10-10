@@ -1,0 +1,1 @@
+claude S4 outcome=peek_bug=n resize_bug=y wall=285s

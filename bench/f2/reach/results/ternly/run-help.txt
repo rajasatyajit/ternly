@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly Debugging SimpleLRU Resize Beha… · bwrap · y
+    /config [key value]                effective settings; set one for this session
+    /permissions                       permission mode and what's allowed this session
+    /mode ask|edits|yolo|plan          permission mode
+    /verify <cmd|off>                  the check run after edits
+    /doctor                            check sandbox, tools, providers, memory
+    /theme [dark|light|auto]           colour theme
+    /about                             version and build
+  Changes
+    /review                            review uncommitted changes with the strongest model
+    /diff                              working-tree changes (git diff + untracked)
+    /commit [message]                  commit all changes (message written by the cheapest model if omitted)
+    /git <args>                        run a git command (sandboxed)
+  Planning & modes
+    /plan [prompt|off]                 read-only mode: investigate and plan, no edits
+    /ask [prompt]                      a read-only turn (or switch to read-only mode)
+    /code [prompt]                     back to normal editing mode
+    /architect <prompt>                strongest model plans, cheapest capable model edits
+  Files & shell
+    /add <files>                       pin files: their contents go with every prompt
+    /drop [files]                      unpin files (all without arguments)
+    /ls                                list pinned files
+    /run <command>                     run a shell command (also !cmd); output goes with the next prompt
+    /test [command]                    run the tests; on failure the model fixes them
+    /lint [command]                    run the linter; on failure the model fixes it
+    /web <url>                         fetch a page as text for the next prompt
+    /editor                            compose the prompt in $EDITOR
+  Extensions
+    /plugin [add|update|remove|enable|disable|info|scope|import|marketplace] install, review and manage plugins (pinned,
+    /skills                            skills, agents and rules available to the model
+    /agents                            subagents the model can delegate to
+    /mcp                               MCP servers and their tools · login|logout <server>
+    /tools                             the tools the model can call
+    /commands [reload]                 user-defined commands; reload them
+  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · P
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.7k/131.1k  ↑27.6k ↓4.0k ⚡67%  $0.0000

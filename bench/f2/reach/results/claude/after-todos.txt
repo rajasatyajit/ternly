@@ -1,0 +1,40 @@
+     ⛁ ⛁ ⛁ ⛀ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶                                              │                                               ✕
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category                │1 file changed +1 -1           source: Current ▾
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 2k tokens (1.5%)          │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 28.2k tokens (21.5%)       │simplelru/lru.go                           +1 -1
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1.9k tokens (1.5%)               │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)                  │────────────────────────────────────────────────
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)   │simplelru/lru.go                         [ ask ]
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │────────────────────────────────────────────────
+                                                                      │ 158    if diff < 0 {
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │ 159      diff = 0
+     model)                                                           │ 160    }
+                                                                      │ 161 -  for i := 0; i <= diff; i++ {
+     Skills · /skills                                                 │ 161 +  for i := 0; i < diff; i++ {
+     └ 13 skills · 1.9k tokens                                        │ 162      c.removeOldest()
+                                                                      │ 163    }
+     /context all to expand                                           │ 164    c.size = size
+                                                                      │
+❯ /model                                                              │
+  ⎿  Kept model as gemma4:latest                                      │
+                                                                      │
+❯ /diff                                                               │
+  ⎿  Diff panel shown                                                 │
+                                                                      │
+❯ /agents                                                             │
+  ⎿  The /agents wizard has been removed.                             │
+                                                                      │
+     Ask Claude to create or update subagents for you (e.g. "create a │
+     code-reviewer subagent that ..."),                               │
+     or edit the files directly:                                      │
+       • .claude/agents/       (this project)                         │
+       • ~/.claude/agents/     (all projects)                         │
+                                                                      │
+     Docs: https://code.claude.com/docs/en/sub-agents                 │
+                                                                      │
+● Unknown command: /todos                                             │
+                                                    ● high · /effort  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

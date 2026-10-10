@@ -123,3 +123,22 @@ them inside it.
 - The command-surface discovery pass ran at `nice 19` on its own tmux socket, without the lock.
   It sent no prompt, except one discovery keystroke in Claude Code that sent `//help`; that's
   noted in its capture.
+
+## Results (2026-10-10/11, gemma4:latest, 120×40, all cells inside the boundary)
+
+Scores come from `scenarios/tools/score` and are saved as `scenarios/results/scores.tsv`. The screens and timelines are in `scenarios/results/<harness>/<S>/`; files over 64 KB are gzipped.
+
+| harness | S1 explain | S2 fix | S3 feature | S4 review (2 bugs) | S5 30 turns + outage |
+|---|---|---|---|---|---|
+| ternly | answered | fail: no edit; the model said "I have corrected the loop condition" and ternly didn't flag it | none: the no-progress guard stopped a repeated failing edit | 0/2: asked the user for the diff instead of running git diff | 30/30, error shown, recovered |
+| Claude Code | answered | **pass** | none | 1/2 (resize) | 30/30, error shown, recovered |
+| Codex | answered | fail (no edit) | none | 2/2 | 30/30, error shown, recovered |
+| Crush | no answer: gemma4 printed `[uses ls tool]` as text | fail | none | 1/2 (peek) | 30/30, error shown, recovered |
+| OpenCode | no answer: gemma4 printed `read{filePath:…}` as text | fail | none | 2/2 | 30/30, error shown, recovered |
+| Pi | answered | fail | **both** | 2/2 | 30/30, error shown, recovered |
+| CodeWhale | answered | fail (no edit) | none | 2/2 | 30/30, error shown, recovered |
+
+- **Single runs.** Every cell is one run with a 9.6 GB local model, so the outcomes are noisy. In its reach session, ternly made the S2 fix and verified it, though it failed the timed S2 cell.
+- **RSS after S5 is n/m.** The first probe summed only the pane process (box.sh, about 3.7 MB for every harness). `run.sh` now sums the whole process tree (`rss_tree_kb`), and the scorer ignores the old value. Agent A's performance probe measures RSS separately.
+- **The idle detector waits for real idleness.** A screen is idle only when nothing changed for the quiet period and none of the last 8 non-empty lines shows a busy marker. ternly's "Thinking…" does not animate, so the two ternly cells that first ended mid-turn (S3, S5) were archived and re-run.
+- **Information reach:** see `reach/MATRIX.md`; the evidence is in `reach/results/<harness>/`.
