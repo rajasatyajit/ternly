@@ -1,0 +1,40 @@
+
+  Help — Commands, skills, and keys ───────────────────────────────────────────────────────────────────────────────────
+
+  Type to filter                                                                                           213 entries
+
+  ▾ Navigation (10)
+  ▸ Alt+G / Alt+Shift+G         Jump to top/bottom (empty input)
+    Alt+[ / Alt+]               Jump between tool blocks
+    Alt+↑ / Alt+↓               Scroll transcript
+    Ctrl+Home / Ctrl+End        Jump to top/bottom
+    Ctrl+Shift+E / Cmd+Shift+E  Toggle the file tree in the workbar
+    Ctrl+Shift+Tab              Cycle the workbar backwards
+    Ctrl+Tab / Ctrl+]           Cycle the workbar (to-do, agents, jobs, background)
+    PgUp / PgDn                 Scroll transcript by page
+    Shift+↑ / Shift+↓           Browse conversation history
+    ↑ / ↓                       Scroll, browse input history, or pick attachments
+  ▸ Input editing (14)
+  ▸ Actions (17)
+  ▸ Modes (6)
+  ▸ Sessions (3)
+  ▸ Clipboard (4)
+  ▸ Pointer (4)
+  ▸ Help (1)
+  ▸ Common commands (12)
+  ▸ All commands (95)
+  ▸ Skills (47)
+
+
+
+
+
+
+
+
+
+
+
+      Up/Down move     PgUp/PgDn jump   ←/→     Esc close
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+

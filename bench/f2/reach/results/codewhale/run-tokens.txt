@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+  /model       - Switch or view model                                                                                  │
+  /fleet workers - this session's agents                                                                               │
+  /task list   - Show background task queue                                                                            │
+  /help        - Show help                                                                                             │
+                                                                                                                       │
+  Mode Tips                                                                                                            │
+  ────────────────────────────────────────────────────────────                                                         │
+  Work — makes the changes you ask for, with tools                                                                     │
+  /mode plan to research and present a plan first                                                                      │
+  Shift+Tab cycles permission: Ask → Auto-Review → Full Access                                                         │
+                                                                                                                       │
+Note Token Usage:                                                                                                      │
+▏    ─────────────────────────────                                                                                     │
+▏    Active context:        ~11281 / 128000 (8.8%)                                                                     │
+▏    Last API input:        28328 (turn telemetry; may count repeated prefix across tool rounds)                       │
+▏    Last API output:       2028                                                                                       │
+▏    Cache hit/miss:        13288 hit / 15040 miss (telemetry/cost only)                                               │
+▏    Cumulative tokens:     30356 (session usage telemetry)                                                            │
+▏    Priced amount:         unknown                                                                                    │
+▏    API messages:          4                                                                                          │
+▏    Chat messages:         9                                                                                          │
+▏    Model:                 gemma4:latest                                                                              │
+▏    Cache-write (cache-creation) tokens this session: not reported. Billed above the input rate where the provider    │
+▏    publishes a write premium; see /cache for the per-turn breakdown.                                                 ┃
+▏                                                                                                                      ┃
+▏    This is an estimate, not a bill: it is computed locally from provider-reported token usage and published rates,   ┃
+▏    and can differ from your invoice.                                                                                 ┃
+▏    Covered: 0 of 1 money-metered turn(s) priced.                                                                     ┃
+▏    Excluded: 1 money-metered turn(s) had no authoritative price (billing basis unknown); their spend is missing from ┃
+▏    the total above.                                                                                                  ┃
+▏    Audited routes (redacted):                                                                                        ┃
+▏    provider=custom identity=custom model=gemma4:latest surface=unclassified endpoint_                                ┃
+▏    fp=9d7a1b946b33f681ceeadb541d350a5b806dec27a91c1f4f964edf0fcb338cfa billing_mode=unknown currency=unpriced        ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s                       Backtrack canceled
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

@@ -1,0 +1,82 @@
+=== t=0.0
+
+ Packages used so far:
+ 1. fmt
+ 2. net/http
+ 3. os
+ 4. strings
+ 5. time
+ 6. sync
+ 7. io
+ 8. encoding/json
+ 9. regexp
+ 10. math
+ 11. bytes
+ 12. errors
+ 13. log
+ 14. database/sql
+ 15. net
+ 16. flag
+ 17. context
+ 18. testing
+
+ Candidate packages:
+ strconv (converts between string and various basic types)
+ unicode (provides support for Unicode characters)
+ crypto/sha256 (secure hashing)
+ html (HTML escaping/parsing)
+
+ I will choose strconv.
+
+ strconv package: Implements conversions between basic data types and their string representations.
+
+
+ Turn 20: name one Go standard library package and say what it does, in one line.
+
+
+── ⠋ Working ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/pi-S5 (master)
+↑2.0k ↓829 R33k CH98.7% 2.0%/128k (auto)                                                                   gemma4:latest
+=== t=1.0
+ 1. fmt
+ 2. net/http
+ 3. os
+ 4. strings
+ 5. time
+ 6. sync
+ 7. io
+ 8. encoding/json
+ 9. regexp
+ 10. math
+ 11. bytes
+ 12. errors
+ 13. log
+ 14. database/sql
+ 15. net
+ 16. flag
+ 17. context
+ 18. testing
+
+ Candidate packages:
+ strconv (converts between string and various basic types)
+ unicode (provides support for Unicode characters)
+ crypto/sha256 (secure hashing)
+ html (HTML escaping/parsing)
+
+ I will choose strconv.
+
+ strconv package: Implements conversions between basic data types and their string representations.
+
+
+ Turn 20: name one Go standard library package and say what it does, in one line.
+
+
+ archive/zip package: Used for reading and writing ZIP files.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/pi-S5 (master)
+↑2.1k ↓845 R35k CH97.9% 1.8%/128k (auto)                                                                   gemma4:latest

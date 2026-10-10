@@ -1,0 +1,40 @@
+ team · members                                                                                                 workers
+ No team selected — built-in team · 11 members
+▸ @ Coordinator · you     gemma4:latest                 Role  Coordinator — this session's model leads the Fleet
+  ◆ manager               follow Coordinator
+  ◆ scout                 follow Coordinator            Model  gemma4:latest · custom · max→effective unavailable
+  ■ builder               follow Coordinator
+  ◇ reviewer              follow Coordinator            Access  full session access
+  ● verifier              follow Coordinator
+  · consultant            follow Coordinator            Description  The Coordinator leads this session. Press Enter to
+  ▲ synthesizer           follow Coordinator            change its model and thinking. Roles set to follow the
+  · worker                follow Coordinator            Coordinator use this route; pinned roles keep their own models.
+  · planner               follow Coordinator
+  · custom                follow Coordinator            saved for this session only
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ↑↓ move  Enter model & thinking  Tab workers  f saved teams  Esc close

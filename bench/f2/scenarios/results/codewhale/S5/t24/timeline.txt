@@ -1,0 +1,164 @@
+=== t=0.0
+▎ Turn 16: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+▎ Turn 17: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The sort package provides generic methods for sorting slices of any type that implements the sort.Interface.         │
+                                                                                                                       │
+▎ Turn 18: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The unicode/utf8 package provides utility functions for encoding, decoding, and measuring UTF-8 sequences.           │
+                                                                                                                       │
+▎ Turn 19: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The crypto/rand package provides cryptographically secure pseudo-random number generation, essential for security    │
+▏ applications.                                                                                                        │
+                                                                                                                       │
+▎ Turn 20: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     ┃
+▏ computations.                                                                                                        ┃
+                                                                                                                       ┃
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. ┃
+                                                                                                                       ┃
+▎ Turn 24: name one Go standard library package and say what it does, in one line.                                     ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 06s   Esc to interrupt
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 711ms   22 avg tok/s   cache 96%
+=== t=1.0
+▎ Turn 17: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The sort package provides generic methods for sorting slices of any type that implements the sort.Interface.         │
+                                                                                                                       │
+▎ Turn 18: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The unicode/utf8 package provides utility functions for encoding, decoding, and measuring UTF-8 sequences.           │
+                                                                                                                       │
+▎ Turn 19: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The crypto/rand package provides cryptographically secure pseudo-random number generation, essential for security    │
+▏ applications.                                                                                                        │
+                                                                                                                       │
+▎ Turn 20: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     ┃
+▏ computations.                                                                                                        ┃
+                                                                                                                       ┃
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. ┃
+                                                                                                                       ┃
+▎ Turn 24: name one Go standard library package and say what it does, in one line.    ⠈⠖⠭⠒           ⡢⢔⡢⠄              ┃
+                                                                                         ⢐⠤⣒⠤ ⠠⡢⣒⠤                     ┃
+● The io/fs package provides a consistent, platform                                                                    ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 0s   Work bar (Ctrl+])   worked 1m 07s   Esc to interrupt
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 711ms   22 avg tok/s   cache 96%
+=== t=2.0
+▎ Turn 17: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The sort package provides generic methods for sorting slices of any type that implements the sort.Interface.         │
+                                                                                                                       │
+▎ Turn 18: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The unicode/utf8 package provides utility functions for encoding, decoding, and measuring UTF-8 sequences.           │
+                                                                                                                       │
+▎ Turn 19: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The crypto/rand package provides cryptographically secure pseudo-random number generation, essential for security    │
+▏ applications.                                                                                                        │
+                                                                                                                       │
+▎ Turn 20: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     ┃
+▏ computations.                                                                                                        ┃
+                                                                                                                       ┃
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. ┃
+                                                                                                                       ┃
+▎ Turn 24: name one Go standard library package and say what it does, in one line.       ⢐⠤⣒⠤          ⠜⠪⠕⠂            ┃
+                                                                                                                       ┃
+● The io/fs package provides a consistent, platform-independent interface for accessing file system resources.         ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 08s
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 695ms   22 avg tok/s   cache 96%
+=== t=3.1
+▎ Turn 17: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The sort package provides generic methods for sorting slices of any type that implements the sort.Interface.         │
+                                                                                                                       │
+▎ Turn 18: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The unicode/utf8 package provides utility functions for encoding, decoding, and measuring UTF-8 sequences.           │
+                                                                                                                       │
+▎ Turn 19: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The crypto/rand package provides cryptographically secure pseudo-random number generation, essential for security    │
+▏ applications.                                                                                                        │
+                                                                                                                       │
+▎ Turn 20: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The log package implements a simple logging facility for writing timestamped messages to an output destination.      │
+                                                                                                                       │
+▎ Turn 21: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The net package provides a basic interface for network connectivity, allowing connections to hosts via various       │
+▏ protocols like TCP and UDP.                                                                                          │
+                                                                                                                       │
+▎ Turn 22: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math/big package implements arithmetic on arbitrary-precision numbers, used for cryptographic and scientific     ┃
+▏ computations.                                                                                                        ┃
+                                                                                                                       ┃
+▎ Turn 23: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The testing package facilitates writing unit, integration, and benchmark tests, and running them within Go projects. ┃
+                                                                                                                       ┃
+▎ Turn 24: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The io/fs package provides a consistent, platform-independent interface for accessing file system resources.         ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 08s
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 695ms   22 avg tok/s   cache 96%

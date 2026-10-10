@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+▏                                                                                                                      │
+▏ I will investigate the implementation in simplelru/lru.go to find the root cause of this eviction behavior and then  │
+▏ fix it by modifying the relevant logic.                                                                              │
+▏                                                                                                                      │
+▏ Starting by reading simplelru/lru.go.                                                                                ┃
+▏                                                                                                                      ┃
+                                                                                                                       ┃
+╭ ✓ ▷ read Done · Reading simplelru/lru.go                                                                             ┃
+╰ ▏ done: Reading simplelru/lru.go                                                                                     ┃
+                                                                                                                       ┃
+● The analysis of simplelru/lru.go confirmed that the bug lies in the Resize method's loop condition. The original     ┃
+▏ loop condition (i <= diff) caused an unnecessary eviction even when the capacity was being increased or remained the ┃
+▏ same, as it executed one extra time when diff was zero or negative (after clamping).                                 ┃
+▏                                                                                                                      ┃
+▏ I have updated the Resize function to fix the loop boundary.                                                         ┃
+▏                                                                                                                      ┃
+▏ I will now apply the change to simplelru/lru.go.                                                                     ┃
+▏                                                                                                                      ┃
+                                                                                                                       ┃
+Note Session Cost:                                                                                                     ┃
+▏    ─────────────────────────────                                                                                     ┃
+▏    Estimated total: unknown                                                                                          ┃
+▏                                                                                                                      ┃
+▏    No turn has an authoritative price in the selected currency.                                                      ┃
+▏                                                                                                                      ┃
+▏    This is an estimate, not a bill: it is computed locally from provider-reported token usage and published rates,   ┃
+▏    and can differ from your invoice.                                                                                 ┃
+▏    Covered: 0 of 1 money-metered turn(s) priced.                                                                     ┃
+▏    Excluded: 1 money-metered turn(s) had no authoritative price (billing basis unknown); their spend is missing from ┃
+▏    the total above.                                                                                                  ┃
+▏    Audited routes (redacted):                                                                                        ┃
+▏    provider=custom identity=custom model=gemma4:latest surface=unclassified endpoint_                                ┃
+▏    fp=9d7a1b946b33f681ceeadb541d350a5b806dec27a91c1f4f964edf0fcb338cfa billing_mode=unknown currency=unpriced        ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s                       Backtrack canceled
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

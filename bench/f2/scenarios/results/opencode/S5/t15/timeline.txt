@@ -1,0 +1,120 @@
+=== t=0.0
+  ┃
+  ┃  Turn 11: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     encoding/json provides methods for encoding and decoding JSON data in Go.
+
+     ▣  Build · gemma4 · 1.1s
+
+  ┃
+  ┃  Turn 12: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     errors provides standard error values and wrapping utilities for error handling in Go.
+
+     ▣  Build · gemma4 · 1.2s
+
+  ┃
+  ┃  Turn 13: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     context provides a way to carry deadlines, cancellation signals, and other request-scoped values across API
+     boundaries.
+
+     ▣  Build · gemma4 · 1.6s
+
+  ┃
+  ┃  Turn 14: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     log provides a simple, standard logging facility that can be customized for output.
+
+     ▣  Build · gemma4 · 1.4s
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S5                              7.8K  ctrl+p commands
+=== t=1.0
+  ┃
+  ┃  Turn 12: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     errors provides standard error values and wrapping utilities for error handling in Go.
+
+     ▣  Build · gemma4 · 1.2s
+
+  ┃
+  ┃  Turn 13: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     context provides a way to carry deadlines, cancellation signals, and other request-scoped values across API
+     boundaries.
+
+     ▣  Build · gemma4 · 1.6s
+
+  ┃
+  ┃  Turn 14: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     log provides a simple, standard logging facility that can be customized for output.
+
+     ▣  Build · gemma4 · 1.4s
+
+  ┃
+  ┃  Turn 15: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     flag provides a mechanism for getting command-line flags into
+
+     ▣  Build · gemma4
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝■■■■■■⬝  esc interrupt                                                                       7.8K  ctrl+p commands
+=== t=2.0
+  ┃
+  ┃  Turn 12: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     errors provides standard error values and wrapping utilities for error handling in Go.
+
+     ▣  Build · gemma4 · 1.2s
+
+  ┃
+  ┃  Turn 13: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     context provides a way to carry deadlines, cancellation signals, and other request-scoped values across API
+     boundaries.
+
+     ▣  Build · gemma4 · 1.6s
+
+  ┃
+  ┃  Turn 14: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     log provides a simple, standard logging facility that can be customized for output.
+
+     ▣  Build · gemma4 · 1.4s
+
+  ┃
+  ┃  Turn 15: name one Go standard library package and say what it does, in one line.
+  ┃
+
+     flag provides a mechanism for getting command-line flags into a program.
+
+     ▣  Build · gemma4 · 1.3s
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · gemma4 Ollama (local)
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/opencode-S5                              7.8K  ctrl+p commands

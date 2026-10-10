@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly Debugging SimpleLRU Resize Beha… · bwrap · y
+
+  The  simplelru  package files are  simplelru/lru.go ,  simplelru/lru_interface.go , and
+   simplelru/lru_test.go . I will now read  simplelru/lru.go  to find and inspect the  Resize  function
+  implementation.
+  ● Read simplelru/lru.go  0ms
+
+  The cause of the bug is an off-by-one error in the  Resize  function regarding the loop termination condition
+  and the handling of negative differences.
+
+  When resizing up (capacity $S$ > current length $L$), the variable  diff  was calculated as negative, zeroed
+  out to 0, and then the loop  for i := 0; i <= diff; i++  executed exactly once when  diff  was 0,
+  unnecessarily evicting an entry. When resizing down, the loop ran one iteration too many.
+
+  I am fixing the logic by using  removals  and ensuring the loop runs exactly  removals  times ( i < removals )
+  and that  removals  is never negative.
+  ● Edit simplelru/lru.go  (-9 +9 lines)  0ms
+
+  I have applied the fix to  simplelru/lru.go  to correct the off-by-one error and prevent unnecessary evictions
+  when resizing the cache.
+
+  The change correctly calculates the required number of removals and iterates exactly that many times,
+  preventing unintended evictions during size increase or under-eviction during size decrease.
+
+  I will now run the project check to verify the code integrity.
+  ● Bash go build ./... && go vet ./...  750ms
+
+  I have corrected the off-by-one error in the  Resize  function within  simplelru/lru.go . The previous logic
+  caused an unnecessary eviction when the new capacity was equal to or larger than the current number of
+  entries, and also an off-by-one error when shrinking.
+
+  The fix ensures that only the exact number of entries required to meet the new capacity are evicted. The code
+  compiles and passes  go vet .
+  ● Verify go build ./... && go vet ./...  199ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.7k/131.1k  ↑27.6k ↓4.0k ⚡67%  $0.0000

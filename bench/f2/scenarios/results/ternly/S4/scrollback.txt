@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/ternly-S4    Bug Detection In Code Changes · bwrap · yolo
+
+  ◆ ternly  0.1.0 · Code, ternly.
+  ● ollama      7 models, 5 with tools · local
+  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on fail
+
+❯ Review the uncommitted change in this repository (git diff) and list every bug you find, with file:line and why.
+  ◆ ollama/gemma4:latest  T1 · local · pinned · reasoning low
+
+  Please provide the  git diff  you would like me to review. Once I have the diff, I will analyze it for 
+  potential bugs and list them with file:line and explanation. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                          ctx 3.1k/131.1k  ↑2.8k ↓416  $0.0000

@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly                                 bwrap · yolo
+
+  ◆ ternly  0.1.0 · Code, ternly.
+  ● ollama      7 models, 5 with tools · local
+  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on fail
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ auto-routing                                                                                             ↑0 ↓0  $0.0000

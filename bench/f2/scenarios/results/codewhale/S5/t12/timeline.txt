@@ -1,0 +1,287 @@
+=== t=0.0
+▎ Turn 4: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+▎ Turn 5: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       ┃
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  ┃
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                                     ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   19 avg tok/s   cache 91%
+=== t=1.0
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.      ⢐⠤⣒⠤         ⢀⠦⣒⠤              ┃
+                                                                                           ⠜⠪⠕⠂⠐⡤⣒⠤                    ┃
+… reasoning hidden ▎                                                                                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 0s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   19 avg tok/s   cache 91%
+=== t=2.0
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.        ⠨⠒⠭⠒          ⡰⢔⡢⠄           ┃
+                                                                                              ⡰⢔⡢⠄⢢⢔⡢⠄                 ┃
+… reasoning hidden ▎                                                                                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 1s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   19 avg tok/s   cache 91%
+=== t=3.1
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.           ⠜⠪⠕⠂          ⠐⠕⠭⠒        ┃
+                                                                                                 ⢔⢔⡢⠄⠨⠒⠭⠒              ┃
+… reasoning hidden ▎                                                                                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   reasoning 2s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   19 avg tok/s   cache 91%
+=== t=4.1
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.             ⠐⠕⠭⠒           ⠈⠖⠭⠒     ┃
+                                                                                                   ⠱⠪⠕⠂ ⠠⠓⠭⠒           ┃
+● The regexp package provides regular expression                                                                       ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 4s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   19 avg tok/s   cache 91%
+=== t=5.1
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                             ⢢⢔⡢⠄      ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                ⢢⢔⡢⠄           ⡢⢔⡢⠄  ┃
+                                                                                                     ⠕⠪⠕⠂  ⢔⢔⡢⠄        ┃
+● The regexp package provides regular expression matching and operations on strings.                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   20 avg tok/s   cache 92%
+=== t=6.1
+▎ Turn 5: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The strings package provides functions for manipulating strings, including searching, replacing, and splitting       │
+▏ strings.                                                                                                             │
+                                                                                                                       │
+▎ Turn 6: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The io package defines basic interfaces for I/O operations, such as Reader and Writer, allowing code to work with    │
+▏ various sources and destinations of data.                                                                            │
+                                                                                                                       │
+▎ Turn 7: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       ┃
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   ┃
+                                                                                                                       ┃
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      ┃
+                                                                                                                       ┃
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      ┃
+▏ boundaries and goroutines.                                                                                           ┃
+                                                                                                                       ┃
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      ┃
+                                                                                                                       ┃
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The regexp package provides regular expression matching and operations on strings.                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 1.1s   20 avg tok/s   cache 92%

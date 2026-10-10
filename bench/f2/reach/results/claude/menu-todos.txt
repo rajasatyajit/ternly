@@ -1,0 +1,40 @@
+     ⛁ ⛀ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   gemma4:latest                              │                                               ✕
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   32.1k/131.1k tokens (24%)                  │1 file changed +1 -1           source: Current ▾
+     ⛁ ⛁ ⛁ ⛀ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶                                              │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category                │simplelru/lru.go                           +1 -1
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 2k tokens (1.5%)          │
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 28.2k tokens (21.5%)       │────────────────────────────────────────────────
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1.9k tokens (1.5%)               │simplelru/lru.go                         [ ask ]
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)                  │────────────────────────────────────────────────
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)   │ 158    if diff < 0 {
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │ 159      diff = 0
+                                                                      │ 160    }
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │ 161 -  for i := 0; i <= diff; i++ {
+     model)                                                           │ 161 +  for i := 0; i < diff; i++ {
+                                                                      │ 162      c.removeOldest()
+     Skills · /skills                                                 │ 163    }
+     └ 13 skills · 1.9k tokens                                        │ 164    c.size = size
+                                                                      │
+     /context all to expand                                           │
+                                                                      │
+❯ /model                                                              │
+  ⎿  Kept model as gemma4:latest                                      │
+                                                                      │
+❯ /diff                                                               │
+  ⎿  Diff panel shown                                                 │
+                                                                      │
+❯ /agents                                                             │
+  ⎿  The /agents wizard has been removed.                             │
+                                                                      │
+     Ask Claude to create or update subagents for you (e.g. "create a │
+     code-reviewer subagent that ..."),                               │
+     or edit the files directly:                                      │
+       • .claude/agents/       (this project)                         │
+       • ~/.claude/agents/     (all projects)                         │
+                                                                      │
+
+  No commands match "/todos"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /todos
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

@@ -1,0 +1,40 @@
+› Explain what simplelru/lru.go does and how eviction works.
+
+  2. evictList (Linked List): An underlying structure (from github.com/hashicorp/golang-lru/v2/internal) maintains the
+     order of access. The head of the list represents the Most Recently Used (MRU) item, and the tail represents the
+     Least Recently Used (LRU) item.
+
+  ### Eviction Mechanism
+
+  Eviction in this implementation is driven by the cache's defined size (capacity) and is managed during the Add
+  operation.
+
+  1. Accessing an Item (Get):
+      • When Get(key K) is called, if the key exists, the entry is retrieved and then immediately moved to the front of
+        the access list (c.evictList.MoveToFront(ent)). This marks it as the most recently used item, preventing it from
+        being evicted soon.
+
+  2. Adding a New Item (Add):
+      • If a key already exists, it is updated and moved to the front (acting as a hit).
+      • If a new key is added, it is pushed to the front.
+      • The cache then checks if its length exceeds c.size. If it does, the removeOldest() function is called.
+
+  3. Least Recently Used Removal (removeOldest):
+      • The removeOldest() function targets the back of the linked list (c.evictList.Back()), which corresponds to the
+        LRU item.
+
+      • This item is removed from both the linked list and the internal map.
+
+      • A custom EvictCallback (if provided during initialization) is triggered with the evicted key and value, allowing
+        external logic to react to the eviction.
+
+  In summary, the cache achieves LRU behavior by constantly promoting accessed items to the front of an ordered list and
+  always evicting the item at the tail when the size limit is breached.
+
+  Worked for 1m 20s • 01:14
+
+
+› Ask Codex to do anything
+
+  gemma4:latest default · /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/codex-S1 · Explain LRU eviction logic
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

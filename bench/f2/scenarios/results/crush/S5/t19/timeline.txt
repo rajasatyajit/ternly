@@ -1,0 +1,120 @@
+=== t=0.0
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 14: name one Go standard library package and say what it does, in one line.      Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎log ︎ provides functions for writing log messages to an output.                      █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 15: name one Go standard library package and say what it does, in one line.     Name a Go standard library
+                                                                                        package and describe it
+    ︎bytes ︎ implements buffer manipulation for byte slices like  ︎[]byte ︎.
+                                                                                        master
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+ │ Turn 16: name one Go standard library package and say what it does, in one line.     -S5
+
+    ︎unsafe ︎ allows interaction with low-level memory representation.                    ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    41% (13.5K) $0.00
+
+ │ Turn 17: name one Go standard library package and say what it does, in one line.     Modified Files ──────────────
+
+    ︎reflect ︎ provides functionality to inspect and manipulate Go values at runtime.     None
+
+   ◇ gemma4 (local) via Ollama (local) in 4s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 18: name one Go standard library package and say what it does, in one line.     None
+
+    ︎testing ︎ provides a framework for writing and running tests.                        MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=1.0
+
+    ︎log ︎ provides functions for writing log messages to an output.                      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────   Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+ │ Turn 15: name one Go standard library package and say what it does, in one line.     █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+    ︎bytes ︎ implements buffer manipulation for byte slices like  ︎[]byte ︎.                ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  Name a Go standard library
+                                                                                        package and describe it
+ │ Turn 16: name one Go standard library package and say what it does, in one line.
+                                                                                        master
+    ︎unsafe ︎ allows interaction with low-level memory representation.                    /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  -S5
+
+ │ Turn 17: name one Go standard library package and say what it does, in one line.     ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+    ︎reflect ︎ provides functionality to inspect and manipulate Go values at runtime.       41% (13.5K) $0.00
+
+   ◇ gemma4 (local) via Ollama (local) in 4s ─────────────────────────────────────────  Modified Files ──────────────
+
+ │ Turn 18: name one Go standard library package and say what it does, in one line.     None
+
+    ︎testing ︎ provides a framework for writing and running tests.                        LSPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+ │ Turn 19: name one Go standard library package and say what it does, in one line.     MCPs ────────────────────────
+
+    ︎os/exec ︎ allows running                                                             None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 15: name one Go standard library package and say what it does, in one line.      Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎bytes ︎ implements buffer manipulation for byte slices like  ︎[]byte ︎.                █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 16: name one Go standard library package and say what it does, in one line.     Name a Go standard library
+                                                                                        package and describe it
+    ︎unsafe ︎ allows interaction with low-level memory representation.
+                                                                                        master
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+ │ Turn 17: name one Go standard library package and say what it does, in one line.     -S5
+
+    ︎reflect ︎ provides functionality to inspect and manipulate Go values at runtime.     ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+   ◇ gemma4 (local) via Ollama (local) in 4s ─────────────────────────────────────────    41% (13.5K) $0.00
+
+ │ Turn 18: name one Go standard library package and say what it does, in one line.     Modified Files ──────────────
+
+    ︎testing ︎ provides a framework for writing and running tests.                        None
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 19: name one Go standard library package and say what it does, in one line.     None
+
+    ︎os/exec ︎ allows running external system commands.                                   MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

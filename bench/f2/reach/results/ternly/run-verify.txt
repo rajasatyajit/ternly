@@ -1,0 +1,40 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly Debugging SimpleLRU Resize Beha… · bwrap · y
+  context: ~5.7k tokens of 131.1k (ollama/gemma4:latest, 4%)
+    system prompt        1.2k  ██████
+    tool definitions     1.8k  █████████
+    memory notes            0
+    your messages          48
+    answers               668  ███
+    tool results         1.9k  █████████
+  estimates at ~3.6 characters per token · /compact summarises older turns
+  ternly 0.1.0
+  session    20261011-042515-df7e82 “Debugging SimpleLRU Resize Behavior”
+  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-ternly
+  model      pinned ollama/gemma4:latest · last used ollama/gemma4:latest
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · ollama/nomic-embed-text:latest · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ Ollama (local) — the Ollama daemon at 127.0.0.1:11435 · 7 models · free (this machine)
+    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), not used as a backend: ternly doesn't driv
+  routing for ~5.7k tokens of context
+  model                                   p     time     money     quota  score
+  ollama/qwen3.8:latest                0.50     394s        $0        $0  4.375
+  ollama/gemma4:latest                 0.15     140s        $0        $0  5.171
+  ollama/granite4.2:latest             0.15     381s        $0        $0  14.12
+  ollama/gemma4:26b                    0.15     395s        $0        $0  14.62
+  ollama/gemma4:31b                    0.15     396s        $0        $0  14.66
+  mode     yolo  (ask: confirm edits and unsafe commands · edits: auto-allow edits · yolo: also commands · plan: read-on
+  sandbox  bwrap
+  always   nothing yet (answer [a] to a prompt)
+  trusted MCP servers  none
+  read-only tools never ask; destructive commands always ask; some are always refused
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/gemma4:latest T1                                                  ctx 5.7k/131.1k  ↑27.6k ↓4.0k ⚡67%  $0.0000

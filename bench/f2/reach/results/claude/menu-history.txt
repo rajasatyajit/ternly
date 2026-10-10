@@ -1,0 +1,40 @@
+
+     Auto-compact window: 131.1k tokens (default for an unrecognized model)
+
+     Skills · /skills
+     └ 13 skills · 1.9k tokens
+
+     /context all to expand
+
+❯ /model
+  ⎿  Kept model as gemma4:latest
+
+❯ /diff
+  ⎿  Diff panel shown
+
+❯ /agents
+  ⎿  The /agents wizard has been removed.
+
+     Ask Claude to create or update subagents for you (e.g. "create a code-reviewer subagent that ..."),
+     or edit the files directly:
+       • .claude/agents/       (this project)
+       • ~/.claude/agents/     (all projects)
+
+     Docs: https://code.claude.com/docs/en/sub-agents
+
+● Unknown command: /todos
+
+❯ /plan
+  ⎿  Enabled plan mode
+
+● Unknown command: /jobs. Did you mean /ios?
+
+● Unknown command: /fleet
+
+❯ /resume
+
+  No commands match "/history"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /history
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle)

@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+▏                                                                                                                      │
+▏    No turn has an authoritative price in the selected currency.                                                      │
+▏                                                                                                                      │
+▏    This is an estimate, not a bill: it is computed locally from provider-reported token usage and published rates,   │
+▏    and can differ from your invoice.                                                                                 │
+▏    Covered: 0 of 1 money-metered turn(s) priced.                                                                     │
+▏    Excluded: 1 money-metered turn(s) had no authoritative price (billing basis unknown); their spend is missing from │
+▏    the total above.                                                                                                  │
+▏    Audited routes (redacted):                                                                                        │
+▏    provider=custom identity=custom model=gemma4:latest surface=unclassified endpoint_                                │
+▏    fp=9d7a1b946b33f681ceeadb541d350a5b806dec27a91c1f4f964edf0fcb338cfa billing_mode=unknown currency=unpriced        │
+                                                                                                                       │
+Note codewhale 0.10.1                                                                                                  │
+▏                                                                                                                      │
+▏    Route:           custom · gemma4:latest · reasoning max→effective unavailable                                     │
+▏    Directory:       /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-codewhale                             ┃
+▏    Project docs:    no project docs                                                                                  ┃
+▏    Mode:            Work · approvals never · shell on · workspace                                                    ┃
+▏    Safety:          sandbox workspace-write, network off                                                             ┃
+▏    MCP:             0 configured                                                                                     ┃
+▏                                                                                                                      ┃
+▏    Context window:  8.8% used (11281 / 128000 tokens)                                                                ┃
+▏    Window source:   fallback (unverified) · Catalog: models.dev live · 8397 offerings · fetched 2m ago · Cloud       ┃
+▏    facts: off                                                                                                        ┃
+▏    Window override: [providers.custom] context_window in config.toml                                                 ┃
+▏    Session:         c098b893-1179-4d33-be89-81855e0c829b · 7 cells · 4 API messages                                  ┃
+▏    Session tokens:  28328 in · 2028 out · 30356 total · cache 13288 hit / 15040 miss                                 ┃
+▏    Session cost:    $0.0000                                                                                          ┃
+▏    Session metrics: 1 turn · 3 steps │ LLM 1m11s · Tool call 0s │ TTFT avg 4.9s · 28 avg tok/s │ Cache hit 47% │     ┃
+▏    Input 28.3K                                                                                                       ┃
+▏    Tool outputs:    no large outputs tracked                                                                         ┃
+▏                                                                                                                      ┃
+▏    Per-turn tokens: /tokens · Footer items: /statusline                                                              ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s                       Backtrack canceled
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

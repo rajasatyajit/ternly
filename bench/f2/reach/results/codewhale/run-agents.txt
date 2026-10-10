@@ -1,0 +1,40 @@
+─ team ──────────────────────── fleet  setup  workers ─────────────────
+
+  live agent status · role · objective · model · elapsed
+No agents in this session.
+Set up roles with /fleet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Esc close  ↑/↓ select  Enter focus  X stop  R refresh  F fleet/setup

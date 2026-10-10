@@ -1,0 +1,40 @@
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎html/template ︎ provides a safe templating system for rendering HTML documents.      ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+ │ Turn 28: name one Go standard library package and say what it does, in one line.      ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎database/sql ︎ provides the standard interface for interacting with SQL databases
+   in Go.                                                                               Name a Go standard library
+                                                                                        package and describe it
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                      	master
+ │ Turn 29: name one Go standard library package and say what it does, in one line.     /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+    ︎image ︎ provides functionalities for decoding, encoding, and manipulating images.    -S5
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ◇ gemma4 (local)
+                                                                                          via Ollama (local)
+ │ Turn 30: name one Go standard library package and say what it does, in one line.       42% (14K) $0.00
+
+    ︎runtime ︎ provides functions to get information about the Go runtime and manage      Modified Files ──────────────
+   goroutines.
+                                                                                        None
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        LSPs ────────────────────────
+ │ Turn 31: in one line, what does simplelru/lru.go do?
+                                                                                        None
+    ERROR  Provider Error
+                                                                                        MCPs ────────────────────────
+   retry error: Post "http://127.0.0.1:11435/v1/chat/completions": dial tcp
+   127.0.0.1:11435: connect: connection refused                                         None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …
+

@@ -1,0 +1,40 @@
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 66k (50.3%)                  │                                               ✕
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛝ Autocompact buffer: 33k tokens (25.2%)   │1 file changed +1 -1           source: Current ▾
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝                                              │
+                                                                      │simplelru/lru.go                           +1 -1
+     Auto-compact window: 131.1k tokens (default for an unrecognized  │
+     model)                                                           │────────────────────────────────────────────────
+                                                                      │simplelru/lru.go                         [ ask ]
+     Skills · /skills                                                 │────────────────────────────────────────────────
+     └ 13 skills · 1.9k tokens                                        │ 158    if diff < 0 {
+                                                                      │ 159      diff = 0
+     /context all to expand                                           │ 160    }
+                                                                      │ 161 -  for i := 0; i <= diff; i++ {
+❯ /model                                                              │ 161 +  for i := 0; i < diff; i++ {
+  ⎿  Kept model as gemma4:latest                                      │ 162      c.removeOldest()
+                                                                      │ 163    }
+❯ /diff                                                               │ 164    c.size = size
+  ⎿  Diff panel shown                                                 │
+                                                                      │
+❯ /agents                                                             │
+  ⎿  The /agents wizard has been removed.                             │
+                                                                      │
+     Ask Claude to create or update subagents for you (e.g. "create a │
+     code-reviewer subagent that ..."),                               │
+     or edit the files directly:                                      │
+       • .claude/agents/       (this project)                         │
+       • ~/.claude/agents/     (all projects)                         │
+                                                                      │
+     Docs: https://code.claude.com/docs/en/sub-agents                 │
+                                                                      │
+● Unknown command: /todos                                             │
+                                                                      │
+❯ /plan                                                               │
+  ⎿  Enabled plan mode                                                │
+                                                                      │
+
+  No commands match "/fleet"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /fleet
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle)

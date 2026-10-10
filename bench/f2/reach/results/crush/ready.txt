@@ -1,0 +1,40 @@
+
+  ╱╱╱╱╱╱  Charm™                    v0.98.1 ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱ ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █        █ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱ █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀▀▀▀▀▀█ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+  ╱╱╱╱╱╱  ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀        ▀ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+  master • /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-crush
+
+  ◇ gemma4 (local) via Ollama (local)
+
+  LSPs                           MCPs                           Skills
+
+  None                           None                           ● crush-config
+                                                                ● crush-hooks
+                                                                ● jq
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  !  Go crazy
+ :::
+ :::
+
+  YOLO MODE   tab change focus • / or ctrl+p commands • shift+tab mode • ctrl+l models • ctrl+j newline • ctrl+c quit •
+

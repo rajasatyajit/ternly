@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+▏    minimax-m3:cloud                                                                                                  │
+▏    mistral-large-3:675b-cloud                                                                                        │
+▏    mxbai-embed-large:latest                                                                                          │
+▏    nemotron-3-ultra:cloud                                                                                            │
+▏    nomic-embed-text:latest                                                                                           │
+▏    qwen3-embedding:0.6b                                                                                              │
+▏    qwen3.8:latest                                                                                                    │
+                                                                                                                       │
+Note No changes since session start                                                                                    │
+                                                                                                                       │
+Note No tasks found.                                                                                                   │
+                                                                                                                       │
+Note No live Bash jobs. Bash jobs are process-local; after a restart, inspect durable task artifacts for prior command │
+▏    output.                                                                                                           │
+                                                                                                                       │
+Note Permission rules                                                                                                  │
+▏    Source: active user permissions.toml                                                                              │
+▏    Path: "/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-codewhale/permissions.toml"                  │
+▏    File status: missing                                                                                              │
+▏    Rule count: 0                                                                                                     │
+▏    No permission rules configured.                                                                                   │
+▏                                                                                                                      │
+▏    Access now: Never                                                                                                 │
+▏    never: only tools considered safe/read-only run; everything else is blocked without a prompt.                     ┃
+▏    Decisions made without a prompt (Auto-Review guardian verdicts, blocks, and holds) appear as transcript notes and ┃
+▏    in the audit log at                                                                                               ┃
+▏    "/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/homes/reach-codewhale/.codewhale/audit.log". Full Access is    ┃
+▏    chosen deliberately with Shift+Tab or /config, never by a rule.                                                   ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ /tree                                                                                                               │
+│ ▸ /tree     Show session history as a tree (leaf = active branch)                                                    │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                  [↵] │
+╰enter:run · tab:complete · ↑↓:select · esc:keep typing ───────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

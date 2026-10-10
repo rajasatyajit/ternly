@@ -1,0 +1,120 @@
+=== t=0.0
+
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎io/ioutil ︎ handles I/O operations like reading and writing files (deprecated in     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+   favor of  ︎os ︎ and  ︎io ︎).                                                              Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 21: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎net ︎ provides basic networking primitives, including IP address handling.           Name a Go standard library
+                                                                                        package and describe it
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        master
+ │ Turn 22: name one Go standard library package and say what it does, in one line.     /home/satyajit/.claude/jobs/f
+                                                                                        10e4ff6/tmp/f2/reach/fx/crush
+    ︎time/duration ︎ is not a standard package; time durations are represented by         -S5
+    ︎time.Duration ︎.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          41% (13.8K) $0.00
+ │ Turn 23: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎path ︎ handles manipulation of URL paths.
+                                                                                        None
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        LSPs ────────────────────────
+ │ Turn 24: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎fmt/scan ︎ is not a standalone package; scanning is typically done using
+    ︎fmt.Scanf ︎ or similar functions in the  ︎fmt ︎ package.                               MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=1.0
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+ │ Turn 21: name one Go standard library package and say what it does, in one line.      Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+    ︎net ︎ provides basic networking primitives, including IP address handling.           █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+ │ Turn 22: name one Go standard library package and say what it does, in one line.     Name a Go standard library
+                                                                                        package and describe it
+    ︎time/duration ︎ is not a standard package; time durations are represented by
+    ︎time.Duration ︎.                                                                     master
+                                                                                        /home/satyajit/.claude/jobs/f
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+ │ Turn 23: name one Go standard library package and say what it does, in one line.
+                                                                                        ◇ gemma4 (local)
+    ︎path ︎ handles manipulation of URL paths.                                              via Ollama (local)
+                                                                                          41% (13.8K) $0.00
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────
+                                                                                        Modified Files ──────────────
+ │ Turn 24: name one Go standard library package and say what it does, in one line.
+                                                                                        None
+    ︎fmt/scan ︎ is not a standalone package; scanning is typically done using
+    ︎fmt.Scanf ︎ or similar functions in the  ︎fmt ︎ package.                             	LSPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  None
+
+ │ Turn 25: name one Go standard library package and say what it does, in one line.     MCPs ────────────────────────
+
+    ︎crypto ︎ provides cryptographic primitives, like                                     None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   esc cancel • tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models …
+=== t=2.0
+
+ │ Turn 21: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+    ︎net ︎ provides basic networking primitives, including IP address handling.            Charm™               v0.98.1
+                                                                                        ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+                                                                                         ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+ │ Turn 22: name one Go standard library package and say what it does, in one line.     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+
+    ︎time/duration ︎ is not a standard package; time durations are represented by         Name a Go standard library
+    ︎time.Duration ︎.                                                                     package and describe it
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  master
+                                                                                        /home/satyajit/.claude/jobs/f
+ │ Turn 23: name one Go standard library package and say what it does, in one line.     10e4ff6/tmp/f2/reach/fx/crush
+                                                                                        -S5
+    ︎path ︎ handles manipulation of URL paths.
+                                                                                        ◇ gemma4 (local)
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────    via Ollama (local)
+                                                                                          42% (13.8K) $0.00
+ │ Turn 24: name one Go standard library package and say what it does, in one line.
+                                                                                        Modified Files ──────────────
+    ︎fmt/scan ︎ is not a standalone package; scanning is typically done using
+    ︎fmt.Scanf ︎ or similar functions in the  ︎fmt ︎ package.                             	None
+
+   ◇ gemma4 (local) via Ollama (local) in 2s ─────────────────────────────────────────  LSPs ────────────────────────
+
+ │ Turn 25: name one Go standard library package and say what it does, in one line.     None
+
+    ︎crypto ︎ provides cryptographic primitives, like hashing and encryption.             MCPs ────────────────────────
+
+   ◇ gemma4 (local) via Ollama (local) in 1s ─────────────────────────────────────────  None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …

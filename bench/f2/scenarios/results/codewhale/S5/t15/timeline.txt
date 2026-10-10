@@ -1,0 +1,123 @@
+=== t=0.0
+▎ Turn 7: name one Go standard library package and say what it does, in one line.
+● The sync package provides primitives for synchronizing goroutines, such as mutexes and wait groups.                  │
+                                                                                                                       │
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   │
+                                                                                                                       │
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      │
+▏ boundaries and goroutines.                                                                                           │
+                                                                                                                       │
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      │
+                                                                                                                       │
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       ┃
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           ┃
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The regexp package provides regular expression matching and operations on strings.                                   ┃
+                                                                                                                       ┃
+▎ Turn 13: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The unsafe package provides access to low-level memory operations, allowing for type assertions and pointer          ┃
+▏ manipulation outside of Go's normal type safety.                                                                     ┃
+                                                                                                                       ┃
+▎ Turn 14: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The encoding/json package provides the ability to encode and decode Go values into and from JSON format.             ┃
+                                                                                                                       ┃
+▎ Turn 15: name one Go standard library package and say what it does, in one line.                                     ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 954ms   20 avg tok/s   cache 93%
+=== t=1.0
+▎ Turn 7: name one Go standard library package and say what it does, in one line.
+▎ Turn 8: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   │
+                                                                                                                       │
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      │
+▏ boundaries and goroutines.                                                                                           │
+                                                                                                                       │
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      │
+                                                                                                                       │
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           │
+                                                                                                                       ┃
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The regexp package provides regular expression matching and operations on strings.                                   ┃
+                                                                                                                       ┃
+▎ Turn 13: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The unsafe package provides access to low-level memory operations, allowing for type assertions and pointer          ┃
+▏ manipulation outside of Go's normal type safety.                                                                     ┃
+                                                                                                                       ┃
+▎ Turn 14: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The encoding/json package provides the ability to encode and decode Go values into and from JSON format.             ┃
+                                                                                                                       ┃
+▎ Turn 15: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The flag package is used to parse command-line flags, allowing programs                                              ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a follow-up…                                                                                                   │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   working 0s   Work bar (Ctrl+])   Esc to interrupt
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 954ms   20 avg tok/s   cache 93%
+=== t=2.0
+▎ Turn 8: name one Go standard library package and say what it does, in one line.
+                                                                                                                       │
+● The errors package provides functions for creating and handling errors, allowing errors to be checked and wrapped.   │
+                                                                                                                       │
+▎ Turn 9: name one Go standard library package and say what it does, in one line.                                      │
+                                                                                                                       │
+● The context package provides a way to carry request-scoped data, cancellation signals, and deadlines across API      │
+▏ boundaries and goroutines.                                                                                           │
+                                                                                                                       │
+▎ Turn 10: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The fmt/path package provides functionality for manipulating paths in a system-independent way.                      │
+                                                                                                                       │
+▎ Turn 11: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       │
+● The math package provides basic mathematical functions, such as trigonometry and exponential calculations.           │
+                                                                                                                       │
+▎ Turn 12: name one Go standard library package and say what it does, in one line.                                     │
+                                                                                                                       ┃
+● The regexp package provides regular expression matching and operations on strings.                                   ┃
+                                                                                                                       ┃
+▎ Turn 13: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The unsafe package provides access to low-level memory operations, allowing for type assertions and pointer          ┃
+▏ manipulation outside of Go's normal type safety.                                                                     ┃
+                                                                                                                       ┃
+▎ Turn 14: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The encoding/json package provides the ability to encode and decode Go values into and from JSON format.             ┃
+                                                                                                                       ┃
+▎ Turn 15: name one Go standard library package and say what it does, in one line.                                     ┃
+                                                                                                                       ┃
+● The flag package is used to parse command-line flags, allowing programs to accept configuration parameters from the  ┃
+▏ command line.                                                                                                        ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])
+ custom · gemma4:latest   context 11%   cost: unknown (billing basis unknown)   ttft 913ms   20 avg tok/s   cache 93%

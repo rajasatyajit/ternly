@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev…
+▏    Input 28.3K                                                                                                       │
+▏    Tool outputs:    no large outputs tracked                                                                         │
+▏                                                                                                                      │
+▏    Per-turn tokens: /tokens · Footer items: /statusline                                                              │
+                                                                                                                       │
+  ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+  codewhale                                                                                                            │
+  ============================================                                                                         │
+  Model:      gemma4:latest                                                                                            │
+  Mode:       ACT                                                                                                      │
+  Workspace:  /home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/reach/fx/reach-codewhale                                     │
+  History:    8 messages                                                                                               │
+  Tokens:     30356 (session)                                                                                          │
+                                                                                                                       │
+  Quick Actions                                                                                                        │
+  ────────────────────────────────────────────────────────────                                                         │
+  /workspace   - Switch folders or worktrees                                                                           │
+  /restore     - Roll files back to a turn snapshot                                                                    │
+  /tokens      - Show session spend and context                                                                        │
+  /links       - Codewhale, community & provider links                                                                 │
+  /skills      - List available skills                                                                                 │
+  /config      - Inspect and change settings                                                                           ┃
+  /settings    - Show persistent settings                                                                              ┃
+  /model       - Switch or view model                                                                                  ┃
+  /fleet workers - this session's agents                                                                               ┃
+  /task list   - Show background task queue                                                                            ┃
+  /help        - Show help                                                                                             ┃
+                                                                                                                       ┃
+  Mode Tips                                                                                                            ┃
+  ────────────────────────────────────────────────────────────                                                         ┃
+  Work — makes the changes you ask for, with tools                                                                     ┃
+  /mode plan to research and present a plan first                                                                      ┃
+  Shift+Tab cycles permission: Ask → Auto-Review → Full Access                                                         ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 1m 11s                       Backtrack canceled
+ custom · gemma4:latest   context 12%   cost: unknown (billing basis unknown)   ttft 4.9s   28 avg tok/s   cache 47%

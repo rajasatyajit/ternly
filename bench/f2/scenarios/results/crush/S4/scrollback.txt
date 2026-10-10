@@ -1,0 +1,40 @@
+
+ │ Review the uncommitted change in this repository (git diff) and list every bug you   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱  
+ │ find, with file:line and why.                                                        ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+                                                                                         Charm™               v0.98.1
+   ✓ Bash git diff                                                                      ▄▀▀▀▀ █▀▀▀▄ █   █ ▄▀▀▀▀ █   █
+                                                                                        █     █▀▀▀▄ █   █ ▀▀▀▀█ █▀▀▀█
+      diff --git a/simplelru/lru.go b/simplelru/lru.go                                   ▀▀▀▀ ▀   ▀  ▀▀▀  ▀▀▀▀  ▀   ▀
+      index 5eeb110..31bc438 100644                                                     ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱
+      --- a/simplelru/lru.go
+      +++ b/simplelru/lru.go                                                            Reviewing uncommitted changes
+      @@ -88,6 +88,7 @@ func (c *LRU[K, V]) Contains(key K) (ok bool) {                 for bugs in git diff
+       func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
+           var ent *internal.Entry[K, V]                                                master
+           if ent, ok = c.items[key]; ok {                                              /home/satyajit/.claude/jobs/f
+      +        c.evictList.MoveToFront(ent)                                             10e4ff6/tmp/f2/reach/fx/crush
+               return ent.Value, true                                                   -S4
+     … (11 lines hidden) [click or space to expand]
+                                                                                        ◇ gemma4 (local)
+   There is one functional bug and one quality change:                                    via Ollama (local)
+                                                                                          44% (14.6K) $0.00
+
+   1. Bug in Capacity Increase: In  ︎simplelru/lru.go:159 ︎, changing the loop condition  Modified Files ──────────────
+   from  ︎i < diff ︎ to  ︎i <= diff ︎ causes  ︎c.removeOldest() ︎ to execute $diff+1$ times
+   when the new size ( ︎size ︎) is larger than the current size, resulting in             None
+   unnecessary evictions. The loop should execute  ︎diff ︎ times maximum, and should
+   only execute when  ︎diff ︎ is negative (the original  ︎diff ︎ guards against this).      LSPs ────────────────────────
+   2. Quality/Feature: In  ︎simplelru/lru.go:92 ︎, adding  ︎c.evictList.MoveToFront(ent) ︎
+   in  ︎Peek ︎ ensures correct LRU behavior by updating the entry's recency score, which  None
+   is likely correct but should be verified against the exact LRU contract. 
+                                                                                        MCPs ────────────────────────
+   ◇ gemma4 (local) via Ollama (local) in 59s ────────────────────────────────────────
+                                                                                        None
+
+                                                                                        Skills ──────────────────────
+  !  Go crazy                                                                                                         
+ :::                                                                                    ● crush-config
+ :::                                                                                    ● crush-hooks
+                                                                                        ● jq
+  YOLO MODE   tab focus chat • shift+tab mode • / or ctrl+p commands • ctrl+l models • ctrl+b toggle sidebar …         
+

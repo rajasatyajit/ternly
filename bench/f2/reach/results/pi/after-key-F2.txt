@@ -1,0 +1,40 @@
+                                                   Main nano help text
+
+ The nano editor is designed to emulate the functionality and ease-of-use
+ of the UW Pico text editor.  There are four main sections of the editor.
+ The top line shows the program version, the current filename being
+ edited, and whether or not the file has been modified.  Next is the main
+ editor window showing the file being edited.  The status line is the
+ third line from the bottom and shows important messages.  The bottom two
+ lines show the most commonly used shortcuts in the editor.
+
+ Shortcuts are written as follows: Control-key sequences are notated with
+ a '^' and can be entered either by using the Ctrl key or pressing the Esc
+ key twice.  Meta-key sequences are notated with 'M-' and can be entered
+ using either the Alt, Cmd, or Esc key, depending on your keyboard setup.
+ Also, pressing Esc twice and then typing a three-digit decimal number
+ from 000 to 255 will enter the character with the corresponding value.
+ The following keystrokes are available in the main editor window.
+ Alternative keys are shown in parentheses:
+
+^G     (F1)      Display this help text
+^X     (F2)      Close the current buffer / Exit from nano
+^O     (F3)      Write the current buffer (or the marked region) to disk
+^R     (Ins)     Insert another file into current buffer (or into new buffer)
+
+^F     (^W)      Search forward for a string or a regular expression
+^\     (M-R)     Replace a string or a regular expression
+^K     (F9)      Cut current line (or marked region) and store it in cutbuffer
+^U     (F10)     Paste the contents of cutbuffer at current cursor position
+
+^T               Execute a function or an external command
+^J     (F4)      Justify the current paragraph
+
+^C     (F11)     Display the position of the cursor
+^/     (M-G)     Go to line and column number
+
+M-U              Undo the last operation
+M-E              Redo the last undone operation
+Search [Backwards]:
+^C Cancel
+

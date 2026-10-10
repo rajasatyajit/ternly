@@ -1,0 +1,40 @@
+▎ Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still ev… 
+                                                                                                                       │
+● The bug has been fixed in simplelru/lru.go. The Resize function now correctly checks if the current cache size (     │
+▏ c.Len()) is greater than the desired size before attempting any eviction.                                            │
+▏                                                                                                                      │
+▏ The corrected logic looks like this:                                                                                 │
+    func (c *LRU[K, V]) Resize(size int) (evicted int) {                                                               │
+    toEvict := c.Len() - size                                                                                          │
+    if toEvict <= 0 {                                                                                                  │
+    c.size = size                                                                                                      │
+    return 0                                                                                                           │
+    }                                                                                                                  │
+    evicted = 0                                                                                                        │
+    for i := 0; i < toEvict; i++ {                                                                                     │
+    if _, _, ok := c.RemoveOldest(); ok {                                                                              │
+    evicted++                                                                                                          │
+    } else {                                                                                                           │
+    break                                                                                                              │
+    }                                                                                                                  │
+    }                                                                                                                  │
+    c.size = size                                                                                                      │
+    return evicted,                                                                                                    │
+    }                                                                                                                  │
+▏                                                                                                                      │
+▏ The changes have been committed to simplelru/lru.go.                                                                 │
+▏                                                                                                                      │
+▏ To complete the task fully, I need to run the unit tests: go test ./simplelru. However, the attempts to execute this │
+▏ shell command have been denied by the system.                                                                        ┃
+▏                                                                                                                      ┃
+▏ Current Status:                                                                                                      ┃
+▏ - Change implemented: Yes (simplelru/lru.go fixed).                                                                  ┃
+▏ - Verification (Tests): Pending/Unverified (BLOCKED by runtime environment).                                         ┃
+▏                                                                                                                      ┃
+▏ I await permission to run the test suite to confirm the fix.                                                         ┃
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│❯ Type a message…                                                                                                     │
+│                                                                                                                  [·] │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● never  Shift+Tab to change   work (Tab)   Work bar (Ctrl+])   worked 3m 20s                                          
+ custom · gemma4:latest   context 14%   cost: unknown (billing basis unknown)   ttft 1.7s   31 avg tok/s   cache 86%    

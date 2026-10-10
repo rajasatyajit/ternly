@@ -1,0 +1,11 @@
+ok   canary under the real home is unreadable
+ok   the ternly repo is invisible
+ok   ~/.ssh is invisible
+ok   the harness install is read-only
+ok   /usr is read-only
+ok   the ternly binary is read-only
+ok   the workspace is writable
+ok   the temp HOME is writable
+info escape attempt written inside the sandbox at /home/satyajit/.ternly-f2-escape-1413768
+ok   the local model proxy is reachable
+ok   a write under the real home did not persist outside the sandbox

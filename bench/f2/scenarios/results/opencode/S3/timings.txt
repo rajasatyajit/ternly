@@ -1,0 +1,1 @@
+turn idle after 59.0 s (last change at 28.5 s)

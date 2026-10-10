@@ -1,0 +1,40 @@
+
+  route · configured ────────────────────────────────────────────────────────────────────────────browse catalog (2145)─
+
+  provider custom
+     Model · configured                                                                    Thinking
+      Model          Provider    Context                                                    auto  choose per turn
+   ▸  gemma4:latest  custom      no reasoning · tools                                       off   no extra reasoning
+      auto           ready · per turn · local heuristic · no router request                 high  deeper reasoning
+                                                                                            max   maximum reasoning
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   ↑↓ move  Tab switch  Type search any model  Enter apply  ⇧D set startup default  ⇧A browse catalog (2145)
+   Ctrl+S sort  ⇧F fleet  ⇧P pin  Esc cancel
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
