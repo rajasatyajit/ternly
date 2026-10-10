@@ -32,7 +32,9 @@ shared local model, 5 scenarios, 20 facts, and the tiers. Two parallel survey ru
 - routing on/off;
 - session tokens and cost.
 
-That's 3 of the 20 facts (workspace, permission mode, cost).
+That's 3 of the 20 facts (workspace, permission mode, cost) on a fresh screen. **Mid-session, 8 are at 0
+keys** (model + tier, context, cost, last error, verify, session, mode, workspace; measured in the survey
+below).
 
 **Defects visible in the capture:**
 - The welcome hint is cut off at 80 columns.
@@ -192,8 +194,82 @@ Accessible mode (--accessible): linear and announced; no redraws, no animation
 The bytes numbers are set from the survey's measured best, not invented here. They're filled in
 with the survey results, before review.
 
-## Survey (filled from bench/f2/probe and bench/f2/reach)
-*Pending the two survey runs.*
+## Survey, part 1: scenarios and information reach (track2/f2-reach, PR #30)
+**Method:**
+- All 7 harnesses ran the same local model (gemma4:latest), at 120×40, each inside a bubblewrap boundary
+  (`bench/f2/scenarios/box.sh`: a tmpfs over the real home, only the workspace and a temp HOME writable).
+- All 35 per-cell canary checks passed.
+- One run per cell. A small model makes task outcomes noisy, so the outcomes judge the UI's behaviour around
+  the work, not the model.
+- Gemini CLI and the Cursor agent need an account sign-in, so they're docs-only and not scored on these lines.
+
+| Harness | S1 explain | S2 fix | S3 feature | S4 review | S5 30 turns + outage |
+|---|---|---|---|---|---|
+| ternly | answered | fail (claimed a fix it didn't make; not flagged) | none (no-progress guard stopped a repeated failing edit) | 0/2 (asked the user for the diff) | 30/30, error shown, recovered |
+| Claude Code 2.1.296 | answered | **pass** | none | 1/2 | 30/30, error shown, recovered |
+| Codex 0.162.1 | answered | fail (no edit) | none | 2/2 | 30/30, error shown, recovered |
+| Crush v0.98.1 | no answer (tool calls printed as text) | fail | none | 1/2 | 30/30, error shown, recovered |
+| OpenCode v1.18.35 | no answer (same) | fail | none | 2/2 | 30/30, error shown, recovered |
+| Pi v1.1.0 | answered | fail | **both** | 2/2 | 30/30, error shown, recovered |
+| CodeWhale v0.10.1 | answered | fail (no edit) | none | 2/2 | 30/30, error shown, recovered |
+
+**Information reach, 20 facts** (bench/f2/reach/MATRIX.md, with an evidence screen per cell):
+
+| | ternly | Claude Code | Codex | Crush | OpenCode | Pi | CodeWhale |
+|---|---|---|---|---|---|---|---|
+| at 0 keys | 8 | 5 | 4 | **10** | 5 | 5 | 6 |
+| reachable at all | 12 | 12 | 12 | 10 | 9 | 7 | **13** |
+| not in the UI (∞) | 4 | 4 | 4 | 5 | 7 | 7 | 3 |
+| not observed (no plan or approval occurred) | 3 | 3 | 3 | 4 | 3 | 4 | 3 |
+
+**Where each harness leads, measured:**
+- **ternly:** the only "why this model" in any harness (`/why`), the only inline verify status, and session
+  and mode in a pinned header.
+- **Crush:** 10 facts at 0 keys in a permanent sidebar, including the files changed. It costs ~30 columns.
+- **Codex:** an agent command center at 1 key (`←`), and a footer warning counter.
+- **Claude Code:** inline per-edit diffs, a footer that pairs the mode with how to change it, and a live agent cue.
+- **CodeWhale:** the densest footer (elapsed, time to first token, tok/s), and an honest "cost: unknown" where
+  Claude Code showed $0.28 for a free local model.
+- **Pi:** the branch in the footer.
+
+**ternly's measured gaps:**
+- running agents ∞;
+- turn elapsed ∞;
+- tokens this turn ∞;
+- git branch ∞;
+- the mode truncated by a long workspace path at 120 columns;
+- Esc and Ctrl+U don't clear typed input;
+- a false "I fixed it" went unflagged (S2). That's a core fact-check gap, reported for Track 1; not a UI change.
+
+**Not measured:**
+- RSS after S5: the first probe counted only the wrapper. Fixed for the next run.
+- The plan and pending-approval facts: no session reached those states.
+
+## Survey, part 2: performance and adaptation per tier (track2/f2-probe, PR #29)
+*Pending: the 137-cell sandboxed matrix is still running.*
+
+## What the proposal takes from the survey (targets for ternly)
+| Fact | Today | Target | Source of the idea |
+|---|---|---|---|
+| running agents | ∞ | 0 (lanes) / 1 (Ctrl+G panel) | Claude's live cue; Codex's command center, with filters |
+| turn elapsed + ttft + tok/s | ∞ | 0 (receipt per turn and status) | CodeWhale's footer |
+| tokens this turn | ∞ | 0 (receipt) | none at 0 keys today; ternly would be first |
+| git branch / dirty | ∞ / 6 | 0 (header) | Pi's and Crush's branch |
+| files changed | 6 | 0 at ≥ 160 columns (rail), 1 (Ctrl+D) otherwise | Crush's Modified Files |
+| the diff of a change | 6 | 0 inline per edit, 1 panel | Claude's inline diffs; OpenCode's review view |
+| cost | 0 | 0, and it says "unknown" when it can't price | CodeWhale; never Claude's mispricing |
+| mode | 0, truncatable | 0, never truncated; shows how to change it | Claude's footer |
+| last error | 0 inline | 0 inline + a footer counter + 1 key for detail | Codex's warning counter |
+| why this model | 5 | 0 (one-line reason on the routing card) / 1 (Ctrl+R) | ternly's own `/why` |
+
+**Target:** ≥ 16 of 20 facts at ≤ 1 key, none unavailable. The best today is 10 at 0 keys (Crush) and 13 reachable
+at all (CodeWhale).
+
+**Bugs to fix along the way:**
+- the mode truncation;
+- Esc and Ctrl+U clearing input;
+- the welcome hint cut off at 80 columns;
+- the palette misaligned at 80 columns.
 
 ## Decisions needed (for the owner's review)
 1. The key map for the Level-2 panels (the Ctrl+D and Ctrl+R conflicts).
