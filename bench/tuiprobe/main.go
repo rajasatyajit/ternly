@@ -13,6 +13,7 @@
 // Steps (separated by ';'):
 //
 //	stable QUIET_MS [MAX_MS]   wait until no output for QUIET_MS (records the time)
+//	until MAX_MS TEXT          wait until the emulated screen shows TEXT; records ms since launch (\s is a space)
 //	keys TEXT                  type TEXT one key at a time; per key: echo latency and bytes until quiet
 //	type TEXT                  send TEXT at once (\n is Enter, \e is Escape)
 //	enter | esc | tab | ctrlc | ctrld
@@ -35,6 +36,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -89,17 +91,19 @@ func (r *recorder) state() (int, time.Time) {
 
 // Result is the measurement of one run.
 type Result struct {
-	Cmd     []string          `json:"cmd"`
-	Env     []string          `json:"env"`
-	Cols    int               `json:"cols"`
-	Rows    int               `json:"rows"`
-	Steps   []StepResult      `json:"steps"`
-	Snaps   map[string]string `json:"snaps,omitempty"`
-	Bytes   int               `json:"bytes_total"`
-	Gzip    int               `json:"bytes_gzip"`
-	Tech    Technique         `json:"technique"`
-	Exited  string            `json:"exited,omitempty"`
-	Elapsed float64           `json:"elapsed_s"`
+	Cmd       []string          `json:"cmd"`
+	Env       []string          `json:"env"`
+	Cols      int               `json:"cols"`
+	Rows      int               `json:"rows"`
+	Steps     []StepResult      `json:"steps"`
+	Snaps     map[string]string `json:"snaps,omitempty"`
+	Bytes     int               `json:"bytes_total"`
+	Gzip      int               `json:"bytes_gzip"`
+	Tech      Technique         `json:"technique"`
+	Exited    string            `json:"exited,omitempty"`
+	Reaped    []int             `json:"reaped,omitempty"`    // leftover processes with the run's HOME, stopped after the run
+	Survivors []int             `json:"survivors,omitempty"` // still alive after SIGKILL (should be none)
+	Elapsed   float64           `json:"elapsed_s"`
 }
 
 // StepResult is one step's measurement; unused fields are omitted.
@@ -416,6 +420,29 @@ func (p *probe) run(step string) StepResult {
 		}
 		n1, _ := p.rec.state()
 		sr.Bytes = n1 - n0
+	case "until":
+		max := time.Duration(argInt(1, 60000)) * time.Millisecond
+		want := ""
+		if len(f) > 2 {
+			want = unescape(strings.TrimSpace(strings.TrimPrefix(rest, f[1])))
+		}
+		deadline := time.Now().Add(max)
+		sr.OK = false
+		for time.Now().Before(deadline) {
+			if strings.Contains(p.rec.emu.String(), want) {
+				sr.OK, sr.MS = true, ms(time.Since(p.rec.start))
+				break
+			}
+			select {
+			case <-p.done:
+				deadline = time.Now()
+			case <-p.rec.notify:
+			case <-time.After(5 * time.Millisecond):
+			}
+		}
+		if !sr.OK {
+			sr.Note = "not seen: " + want
+		}
 	case "keys":
 		for _, k := range unescape(rest) {
 			n0, _ := p.rec.state()
@@ -525,7 +552,16 @@ func main() {
 	out := flag.String("out", "", "result JSON (default: stdout)")
 	raw := flag.String("raw", "", "gzipped raw output with a chunk timing index (optional)")
 	dir := flag.String("dir", "", "working directory")
+	reapHome := flag.String("reap", "", "only reap: stop every process whose environment has HOME=<this>, report, exit (1 if any survive)")
 	flag.Parse()
+	if *reapHome != "" {
+		sig, surv := reap(*reapHome, 3*time.Second)
+		fmt.Printf("reaped %d process(es) %v; survivors %v\n", len(sig), sig, surv)
+		if len(surv) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
 	if flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: tuiprobe [flags] -- command [args]")
 		os.Exit(2)
@@ -629,6 +665,15 @@ func probeRun(argv []string, cols, rows int, envSpec string, clean bool, dir, st
 	}()
 	waitErr := make(chan error, 1)
 	go func() { waitErr <- c.Wait(); close(p.done) }()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		s := <-sigs
+		_ = syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+		reap(homeOf(envSpec), 2*time.Second)
+		fmt.Fprintf(os.Stderr, "tuiprobe: stopped by %v; the program and its HOME's processes were stopped\n", s)
+		os.Exit(143)
+	}()
 	for _, s := range strings.Split(steps, ";") {
 		s = strings.TrimSpace(s)
 		if s == "" {
@@ -653,6 +698,9 @@ func probeRun(argv []string, cols, rows int, envSpec string, clean bool, dir, st
 	}
 	m.Close()
 	_ = emu.Close()
+	// daemons the program started outside its process group (Codex's
+	// app-server) keep the run's HOME: stop them too, and say so.
+	p.res.Reaped, p.res.Survivors = reap(homeOf(envSpec), 3*time.Second)
 	rec.mu.Lock()
 	all := append([]byte(nil), rec.buf.Bytes()...)
 	cs := append([]chunk(nil), rec.chunks...)

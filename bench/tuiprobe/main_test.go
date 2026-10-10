@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -23,6 +25,11 @@ func TestMain(m *testing.M) {
 }
 
 func fake() {
+	if os.Getenv("TUIPROBE_DAEMON") == "1" { // leave a daemon outside the process group, like Codex's app-server
+		c := exec.Command("sleep", "60")
+		c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		_ = c.Start()
+	}
 	fd := int(os.Stdin.Fd())
 	if t, err := unix.IoctlGetTermios(fd, unix.TCGETS); err == nil {
 		t.Lflag &^= unix.ECHO | unix.ICANON
@@ -111,5 +118,19 @@ func TestBuildEnv(t *testing.T) {
 	env := strings.Join(buildEnv("TUIPROBE_X=,TUIPROBE_Y=2,NO_COLOR=1", false), "\n")
 	if strings.Contains(env, "TUIPROBE_X=") || !strings.Contains(env, "TUIPROBE_Y=2") || !strings.Contains(env, "NO_COLOR=1") {
 		t.Fatalf("env: %s", env)
+	}
+}
+
+func TestUntil(t *testing.T) {
+	exe, _ := os.Executable()
+	res, err := probeRun([]string{exe}, 80, 24, "TUIPROBE_FAKE=1", false, "", "until 10000 hello\\sprobe; until 300 never-shown", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Steps[0].OK || res.Steps[0].MS <= 0 {
+		t.Fatalf("until (shown): %+v", res.Steps[0])
+	}
+	if res.Steps[1].OK || res.Steps[1].Note == "" {
+		t.Fatalf("until (never shown): %+v", res.Steps[1])
 	}
 }
