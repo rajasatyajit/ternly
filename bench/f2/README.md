@@ -1,0 +1,79 @@
+# F2 survey: scenarios and information reach (method)
+
+This follows `bench/f2/SPEC.md` (on track2/f2): the harnesses, isolation, the shared model, the
+scenarios S1–S5 and the 20 facts. Everything is driven by shell glue around Go tools. There is no
+Python (the owner's rule).
+
+## Layout
+| Path | What |
+|---|---|
+| `scenarios/launch.sh` | starts one harness in a private tmux server with an isolated `HOME`/`XDG_*` and its documented custom-endpoint config for the local `gemma4:latest` (via the proxy on :11435) |
+| `scenarios/onboard.sh` | answers first-run dialogs by screen text; "ready" must hold on 3 consecutive polls, 2 s apart |
+| `scenarios/rec.sh` | tmux recorder: `type`, `wait` (a timeline of screen captures until idle or a limit), `snap`, `stop` |
+| `scenarios/run.sh` | one scenario cell: fixture, launch, onboard, prompt(s), timeline, final and scrollback screens, timings, provisional outcome, cleanup |
+| `scenarios/batch.sh` | every cell, resumable and detached-safe (details below) |
+| `scenarios/tools/prep` | makes a fresh fixture from the Phase C suite's pinned repositories; S2 seeds the lru-resize bug, S4 leaves two seeded bugs uncommitted |
+| `scenarios/tools/proxy` | TCP forwarder :11435 → Ollama :11434. S5 stops it mid-session to make a real provider failure, then restarts it |
+| `scenarios/tools/homekill` | stops every process whose environment has `HOME` inside a run directory (by `/proc/<pid>/environ`, never by command line) |
+| `scenarios/tools/score` | computes each cell's outcome from its saved recording and fixture |
+| `reach/discover.sh` | captures a harness's command surfaces (no prompt sent) |
+| `reach/reach.sh`, `reach/reach-all.sh` | the information-reach session per harness, resumable |
+
+## How the batch runs, and why
+**The batch is detached and resumable:**
+- start: `R=<runtime> setsid nohup bench/f2/scenarios/batch.sh > $R/batch.log 2>&1 < /dev/null &`;
+- progress: `$R/out/state.txt`;
+- a rerun skips any cell that has `result.txt`.
+
+**The shared lock is taken with `flock -o`,** so nothing a cell starts inherits it. The first
+survey run deadlocked for 7¾ hours because a helper started inside the lock kept the lock's file
+descriptor.
+
+**Every cell has a hard limit:** 1200 s, 1800 s for S3, 4500 s for S5. A hung harness becomes
+`outcome=timeout`, never a stalled batch.
+
+**Cleanup after every cell:** the tmux session is killed and `homekill` stops every process with
+that cell's HOME. That includes Codex's `app-server` daemon, which keeps running in its own
+session after the TUI exits.
+
+**The model proxy runs outside the lock,** started by the batch and stopped when it ends.
+
+**Outcomes come from `tools/score`, not the inline check in `run.sh`.** The inline S1 check
+grepped the scrollback, which includes the prompt ("…how eviction works", "simplelru/lru.go"). It
+passed a Codex run whose prompt was never submitted: Codex's folder-trust dialog appears about
+3.5 s after its prompt glyph and swallowed the Enter. The scorer drops prompt lines first, and
+`onboard.sh` now waits for 3 stable polls. That cell was re-run.
+
+**Outcome checks** (objective only; the model is small and failures are data):
+
+| Scenario | Outcome |
+|---|---|
+| S1 | the answer names the LRU mechanism (least-recently-used, MoveToFront, removeOldest, evictList…) |
+| S2 | `go test ./simplelru/` passes on the fixture afterwards |
+| S3 | `once(` exists and `emit` returns a value |
+| S4 | how many of the two seeded bugs the review names |
+| S5 | turns completed of 30; whether the provider failure was shown; whether the next turn recovered; RSS |
+
+## Information reach
+`reach.sh <harness>`:
+1. **A real mid-session state:** on a fresh S2 fixture, the harness fixes the bug, which leaves an
+   edit, a diff, a test run, tokens and cost. The idle screen afterwards is the 0-key evidence.
+2. **Slash commands:** each candidate is typed **without Enter** and the autocomplete menu is
+   captured. It runs only if the menu lists it, so an unknown command is never sent to the model.
+   Commands that change state or call the model (review, init, compact, undo, rewind) are only
+   checked for existence.
+3. **Key chords:** Ctrl+O, Ctrl+T, Ctrl+G, Ctrl+B, Ctrl+], F1, F2, ← and `?`. Each is pressed,
+   captured, and undone.
+
+**Keystrokes are counted as typed:** `/cost⏎` = 6, a chord = 1, the minimum over the ways found.
+Autocomplete could shorten a typed command; the count doesn't assume it. Every matrix cell cites
+the screen that shows the fact.
+
+## Isolation and what is not touched
+- Each harness gets a fresh temp `HOME`, so no real config, credentials or folder-trust list is
+  read or written.
+- No subscription sign-in, and no paid API.
+- Gemini CLI needs a Google sign-in, and the Cursor agent a Cursor account, so both are docs-only.
+- The command-surface discovery pass ran at `nice 19` on its own tmux socket, without the lock.
+  It sent no prompt, except one discovery keystroke in Claude Code that sent `//help`; that's
+  noted in its capture.
