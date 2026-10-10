@@ -1,0 +1,1 @@
+lru-evict-order          auto                         run 0  no-change       79s  ollama/llama3.1:8b

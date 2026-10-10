@@ -1,0 +1,13 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — T1 task → est. 28 s, quota, p≥0.70; next deepseek-v4-pro:cloud (est. 28 s, quota) · reasoning low
+  → grep func.*Resize
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go test ./simplelru/ 2>&1 | tail -5
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 193ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 39% cache hits · 16727 tokens in, 462 out
+done in 11.657s
+
+--- answer ---
+Off-by-one: the loop `for i := 0; i <= diff; i++` evicts `diff+1` entries. Fixing:Fixed. The loop in `simplelru/lru.go:161` used `i <= diff`, evicting one extra entry; changed to `i < diff`. `go test ./simplelru/` passes.

@@ -1,0 +1,14 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T2 task → est. 1.9 min, local, GPU 100%, p≥0.22; next gemma4:e4b (est. 6.0 min, local, GPU 52%)
+
+$0.0000 · 0% cache hits · 2690 tokens in, 57 out
+done in 13.211s
+
+--- answer ---
+{"name": "grep", "parameters": 
+{"pattern": 
+"(^.*\(windowed\).*\n).*?return .*(None).*", 
+"limit": 0, 
+"glob": "*", 
+"ignore_case": True, 
+"path": "/"}}

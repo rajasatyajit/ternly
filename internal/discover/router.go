@@ -78,7 +78,18 @@ func (r *Router) Pinned() *Model { r.mu.RLock(); defer r.mu.RUnlock(); return r.
 var (
 	reHard = regexp.MustCompile(`(?i)\b(architect\w*|design|refactor\w*|redesign|migrat\w*|concurren\w*|race|deadlock|secur\w*|vulnerab\w*|perf\w*|optimi[sz]\w*|debug\w*|root.?cause|implement\w*|from scratch|end.to.end|multi.?file|across|rewrite|algorithm|protocol|distributed|scal\w+)\b`)
 	reEasy = regexp.MustCompile(`(?i)\b(rename|typo|comment|docstring|format|explain|what (is|does)|summari[sz]e|list|show|find|where|which|lint|bump|readme)\b`)
+	// reChange: the prompt asks for a change in behaviour, not a trivial
+	// edit: a defect described by its symptom, or behaviour to add or change.
+	// Locating the code, editing it and passing a check takes several correct
+	// tool calls, which T1 models measurably can't do (ADR 029: the suite's
+	// eight bug reports all went to llama3.1:8b as T1 — "find the cause"
+	// matched reEasy — and none got a single tool call through).
+	reChange = regexp.MustCompile(`(?i)\b(bug|broken|fails?|failing|failure|crash\w*|regress\w*|incorrect\w*|wrong(ly)?|panic\w*|exception|doesn'?t|does not|isn'?t|is not|instead of|implement\w*|add (a |an |two |the |new )*(function|method|field|option|flag|endpoint|parameter|argument|command|feature|support)s?|change \S+ to|make \S+ (accept|return|support|handle))\b`)
 )
+
+// ClassifyV1 turns off the code-change floor (only to measure it: the
+// suite's A/B, TERNLY_ROUTING_FIX; ADR 029).
+var ClassifyV1 bool
 
 // Classify estimates difficulty 1..3 with zero tokens spent.
 func Classify(prompt string, failures int) int {
@@ -88,7 +99,7 @@ func Classify(prompt string, failures int) int {
 	switch {
 	case hard >= 2 || (hard == 1 && words > 60) || words > 250:
 		d = 3
-	case hard == 0 && reEasy.MatchString(prompt) && words < 40:
+	case hard == 0 && reEasy.MatchString(prompt) && words < 40 && (ClassifyV1 || !reChange.MatchString(prompt)):
 		d = 1
 	}
 	return min(3, d+failures)

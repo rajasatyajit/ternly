@@ -76,6 +76,16 @@ type Agent struct {
 	KnownSymbol func(ref string) (exists, decidable bool)
 	// NoFactChecks turns the answer checks off (only to measure their effect).
 	NoFactChecks bool
+	// Levers are Phase C's quality levers (ADR 029), off unless turned on.
+	Levers Levers
+	// NoTextCallEscalation turns off escalation when a model writes a tool
+	// call as text (only to measure it: TERNLY_ROUTING_FIX; ADR 029).
+	NoTextCallEscalation bool
+	// Deterministic pins sampling (temperature 0, a fixed seed) where the
+	// provider supports it; Responses, when set, answers identical
+	// deterministic requests from disk (ADR 029).
+	Deterministic bool
+	Responses     *llm.Cache
 	// DepCheck looks up dependencies the model adds (manifest edits, install
 	// commands) in their registries. nil: not checked (--no-net).
 	DepCheck *deps.Checker
@@ -115,6 +125,9 @@ type Agent struct {
 	journal    Journal
 	note       string // harness note prepended to the next prompt (e.g. workspace drift)
 	nextEffort string // the next turn's reasoning budget (SetNextEffort), consumed at turn start
+	verdict    string // the last turn's final verification verdict ("" when no check ran)
+	nextDiff   int    // the next turn's difficulty, set by the PlanFirst lever (0: classify the prompt)
+	plan       []PlanStep
 	system     string
 	current    *discover.Model
 }
@@ -261,6 +274,9 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			extra = strings.TrimSpace(extra + "\n\nContext from a plugin hook:\n" + framed)
 		}
 	}
+	a.mu.Lock()
+	a.verdict = ""
+	a.mu.Unlock()
 	a.Reg.Hold() // from now on tool changes wait for a turn boundary
 	changed := capabilityNote(a.Reg.Commit())
 	// The model is picked first: how much it may lean on memory notes follows
@@ -269,6 +285,11 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 	// grows with it), keeping the previous turn's model unless another is
 	// clearly better (ADR 018).
 	diff := discover.Classify(prompt, 0)
+	a.mu.Lock()
+	if a.nextDiff > 0 {
+		diff, a.nextDiff = a.nextDiff, 0
+	}
+	a.mu.Unlock()
 	ctxTok := estTokens(a.system, a.Export().History)
 	need := ctxTok + 16000
 	model, reason := a.Router.PickFor(diff, ctxTok, need, a.currentModel())
@@ -399,6 +420,20 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 			st.answer = msg.Content
 		}
 
+		if len(calls) == 0 && !st.textCallTold && !a.NoTextCallEscalation {
+			if name := textToolCall(msg.Content, a.Reg.Specs()); name != "" {
+				// The model wrote a tool call as text instead of making it:
+				// nothing ran. A model that can't call tools has failed the
+				// turn (ADR 018's escalation; ADR 029: T1 models did this on
+				// every bug report in the suite).
+				st.textCallTold = true
+				a.count(func(s *Stats) { s.TextCalls++ })
+				a.Emit(Event{Kind: EvStatus, Text: model.Key() + " wrote a " + name + " call as text instead of calling the tool"})
+				model = a.escalate(model, need, st, "escalated: the model wrote a tool call as text instead of calling it")
+				a.appendUser(msgTextCall)
+				continue
+			}
+		}
 		if len(calls) == 0 {
 			// Model thinks it's done. If it changed code, prove it.
 			if st.edited || st.shellRan {
@@ -406,6 +441,9 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				st.edited, st.shellRan = false, false
 				if ran {
 					st.Verdict = verdict
+					a.mu.Lock()
+					a.verdict = verdict
+					a.mu.Unlock()
 					st.checkResult(label, out, verdict == VerdictVerified)
 				}
 				switch {
@@ -429,7 +467,7 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 						return
 					}
 					failures++
-					if failures >= 2 { // cascade: only pay for a stronger model when the cheap one demonstrably failed
+					if failures >= 2 && !a.Levers.NoVerifyEscalation { // cascade: only pay for a stronger model when the cheap one demonstrably failed
 						model = a.escalate(model, need, st, "escalated after repeated verification failure")
 					}
 					framed, _ := a.Reg.Frame.Wrap("verify", out)
@@ -604,7 +642,12 @@ func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cl := llm.New(m.Provider.Endpoint())
+	ep := m.Provider.Endpoint()
+	cl := a.Responses.Wrap(llm.New(ep), ep)
+	if a.Deterministic { // pinned sampling (ADR 029); only these requests are cached
+		temp, seed := 0.0, deterministicSeed
+		req.Temperature, req.Seed = &temp, &seed
+	}
 	var text strings.Builder
 	var calls []llm.ToolCall
 	var thinking []json.RawMessage

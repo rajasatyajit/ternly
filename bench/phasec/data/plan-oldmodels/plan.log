@@ -1,0 +1,50 @@
+[2026-10-08T19:04:23Z] step 1/13 A1-fix-textcall: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-textcall -env TERNLY_ROUTING_FIX=textcall -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+suite run: 2 to run, 6 already done (binary a772bdecbbb4, commit )
+semver-tilde             auto                         run 0  no-change      164s  ollama/llama3.1:8b → ollama/granite3.3:8b
+ternly-wilson            auto                         run 0  oracle-fail    669s  ollama/llama3.1:8b → ollama/gemma4:e4b
+[2026-10-08T19:18:18Z] step 1/13 A1-fix-textcall: done
+[2026-10-08T19:18:18Z] step 2/13 A2-fix-none: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-none -env TERNLY_ROUTING_FIX=none -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+suite run: 8 to run, 0 already done (binary a772bdecbbb4, commit )
+lru-evict-order          auto                         run 0  no-change       20s  ollama/llama3.1:8b
+lru-resize               auto                         run 0  no-change       52s  ollama/llama3.1:8b
+mi-split-maxsplit        auto                         run 0  no-change      158s  ollama/granite3.3:8b
+mi-rstrip                auto                         run 0  no-change       24s  ollama/llama3.1:8b
+mitt-off                 auto                         run 0  no-change       95s  ollama/granite3.3:8b
+semver-caret             auto                         run 0  no-change       15s  ollama/llama3.1:8b
+semver-tilde             auto                         run 0  no-change      120s  ollama/granite3.3:8b
+ternly-wilson            auto                         run 0  no-change       18s  ollama/llama3.1:8b
+[2026-10-08T19:26:43Z] step 2/13 A2-fix-none: done
+[2026-10-08T19:26:43Z] step 3/13 A3-fix-both: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-both -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+suite run: 8 to run, 0 already done (binary a772bdecbbb4, commit )
+lru-evict-order          auto                         run 0  no-change       94s  ollama/gemma4:e4b
+lru-resize               auto                         run 0  pass           221s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+mi-split-maxsplit        auto                         run 0  no-change       40s  ollama/llama3.1:8b
+mi-rstrip                auto                         run 0  no-change       45s  ollama/llama3.1:8b
+mitt-off                 auto                         run 0  pass           369s  ollama/gemma4:e4b → ollama/qwen3.6:latest → ollama/granite3.3:2b
+semver-caret             auto                         run 0  pass           278s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+semver-tilde             auto                         run 0  pass           350s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+ternly-wilson            auto                         run 0  pass           533s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+[2026-10-08T19:58:58Z] step 3/13 A3-fix-both: done
+[2026-10-08T19:58:58Z] step 4/13 B-control: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 2 -arm control -bin {BIN} -out {OUT}/levers
+suite run: 40 to run, 0 already done (binary f681cd32e555, commit b85cad9ca9e6)
+lru-evict-order          auto                         run 0  pass           427s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+lru-resize               auto                         run 0  pass           143s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+lru-peek-expiry          auto                         run 0  pass           292s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+mi-split-maxsplit        auto                         run 0  pass           397s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+mi-rstrip                auto                         run 0  no-change       63s  ollama/llama3.1:8b
+mi-chunk-weight          auto                         run 0  no-change       29s  ollama/gemma4:e4b
+mitt-once                auto                         run 0  no-change       27s  ollama/llama3.1:8b
+mitt-off                 auto                         run 0  pass           315s  ollama/gemma4:e4b → ollama/qwen3.6:latest → ollama/granite3.3:2b → ollama/llama3.1:8b-instruct-q4_K_M
+mitt-emit-count          auto                         run 0  pass           632s  ollama/llama3.1:8b → ollama/qwen3.6:latest → ollama/gemma4:e4b → ollama/llama3.1:8b-instruct-q4_K_M
+semver-caret             auto                         run 0  pass           478s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+semver-tilde             auto                         run 0  pass           230s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+semver-bump              auto                         run 0  no-change       30s  ollama/llama3.1:8b
+ternly-wilson            auto                         run 0  pass           593s  ollama/llama3.1:8b → ollama/qwen3.6:latest
+ternly-retry-after       auto                         run 0  no-change       22s  ollama/llama3.1:8b
+ternly-gitenv-without    auto                         run 0  no-change       79s  ollama/llama3.1:8b
+semver-pre-order         auto                         run 0  no-change      110s  ollama/gemma4:e4b
+mi-windowed-step         auto                         run 0  no-change       16s  ollama/llama3.1:8b
+lru-2q-promote           auto                         run 0  pass           315s  ollama/gemma4:e4b → ollama/qwen3.6:latest
+ternly-finaljson         auto                         run 0  no-change      201s  ollama/llama3.1:8b → ollama/qwen3.6:latest → ollama/gemma4:e4b
+mitt-emit-async          auto                         run 0  pass           708s  ollama/llama3.1:8b → ollama/qwen3.6:latest → ollama/gemma4:e4b → ollama/granite3.3:2b
+lru-evict-order          auto                         run 1  no-change       32s  ollama/llama3.1:8b

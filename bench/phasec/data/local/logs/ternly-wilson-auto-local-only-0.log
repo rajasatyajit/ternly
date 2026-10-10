@@ -1,0 +1,36 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T1 task → est. 33 s, local, GPU 100%, p≥0.45; next granite3.3:8b (est. 33 s, local, GPU 100%)
+  → grep Wilson\(|wilson\(  internal/eval
+  ✗ grep failed: error: invalid arguments for grep:
+  → grep \d+\.\d+\.\d+  internal/eval
+  ✗ grep failed: error: invalid arguments for grep:
+  … generating (2 chunks, 32s)
+  → grep \d+\.\d+\.\d+  internal/eval
+  → grep Wilson\(|wilson\(  internal/eval
+
+$0.0000 · 39% cache hits · 6125 tokens in, 966 out
+done in 1m40.127s
+
+--- answer ---
+The issue is caused by the `Wilson` method in the `Counts` struct in the `evaluate` package. This method is not being used correctly, leading to wide intervals. 
+
+To fix this issue, we need to update the `Wilson` method in the `Counts` struct. We should use the correct formula for the Wilson score interval, which is given by `lo = (n - k / n) * p + z * sqrt((n - k) * p * (1 - p) / n)`, where `n` is the total number of samples, `k` is the number of samples that are positive, `p` is the proportion of positive samples, and `z` is the z-score corresponding to the desired confidence level.
+
+Here is the corrected code for the `Wilson` method:
+
+```go
+func (c Counts) Wilson() (lo, hi float64) {
+    p := c.Positive / float64(c.Total)
+    n := float64(c.Total)
+    k := float64(c.Positive)
+    z := 1.96 // z-score for 95% confidence interval
+    lo = (n - k / n) * p + z * math.Sqrt((n - k) * p * (1 - p) / n)
+    hi = (n - k / n) * p - z * math.Sqrt((n - k) * p * (1 - p) / n)
+    return
+}
+```
+
+This code uses the correct formula for the Wilson score interval and should give the expected results. 
+
+Summary:
+The issue was caused by using the wrong formula for the Wilson score interval in the `Wilson` method of the `Counts` struct. The corrected code has been provided above.

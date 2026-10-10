@@ -52,6 +52,17 @@ type Request struct {
 	// "high", or "" to send nothing (the model's default; ADR 015). Only set
 	// for models known to reason.
 	Effort string
+	// Temperature and Seed pin sampling where the provider supports it
+	// (nil: the provider's default). Deterministic mode sets 0 and a fixed
+	// seed (ADR 029); Anthropic takes no seed.
+	Temperature *float64 `json:",omitempty"`
+	Seed        *int     `json:",omitempty"`
+}
+
+// Deterministic reports whether r asks for pinned sampling (temperature 0
+// and a seed): the only requests a response cache may answer.
+func (r Request) Deterministic() bool {
+	return r.Temperature != nil && *r.Temperature == 0 && r.Seed != nil
 }
 
 type Usage struct{ In, Out, CacheRead, CacheWrite int }

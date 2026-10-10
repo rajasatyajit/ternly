@@ -94,16 +94,16 @@ func TestUpsertAllGolden(t *testing.T) {
 		}
 		return out
 	}
-	drift := false
 	for _, q := range []string{"postgres", "server 7", "queries v7", "s42", "nothing here"} {
 		want, got := key(fresh.SearchText(q, 20)), key(all.SearchText(q, 20))
 		if !slices.Equal(want, got) {
 			t.Errorf("%q: fresh %v\nbatched %v", q, want, got)
 		}
-		drift = drift || !slices.Equal(want, key(one.SearchText(q, 20)))
-	}
-	if !drift {
-		t.Fatal("test premise: per-item upserts should have drifted from the exact index")
+		// Per-item upserts used to drift here (dead versions counted in idf,
+		// ADR 028's finding); with live document frequency they don't (ADR 029).
+		if one := key(one.SearchText(q, 20)); !slices.Equal(want, one) {
+			t.Errorf("%q: fresh %v\nper-item %v", q, want, one)
+		}
 	}
 	if fresh.Len() != all.Len() || one.Len() != all.Len() {
 		t.Fatalf("len %d / %d / %d", fresh.Len(), one.Len(), all.Len())

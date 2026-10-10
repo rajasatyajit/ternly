@@ -1,0 +1,15 @@
+{
+  "out": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix",
+  "arm": "fix-both",
+  "binary_sha256": "a772bdecbbb4f5cdc2989356226bc3884883f68956eaad5cc87de6380c7f783a",
+  "commit": "",
+  "total": 8,
+  "skipped_already_done": 0,
+  "done_this_run": 8,
+  "running": [],
+  "last": "ternly-wilson auto run 0: pass",
+  "pid": 3845150,
+  "started": "2026-10-08T19:26:44.004519894Z",
+  "updated": "2026-10-08T19:58:58.235229063Z",
+  "finished": "2026-10-08T19:58:58.235228833Z"
+}

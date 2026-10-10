@@ -95,6 +95,9 @@ func (c *anthropic) body(r Request) map[string]any {
 		maxTok = 8192
 	}
 	b := map[string]any{"model": r.Model, "max_tokens": maxTok, "messages": msgs, "stream": true}
+	if r.Temperature != nil && r.Effort == "" { // extended thinking requires the default temperature
+		b["temperature"] = *r.Temperature
+	}
 	if budget := thinkingBudget[r.Effort]; budget > 0 && canThink(r.Messages) {
 		b["thinking"] = map[string]any{"type": "enabled", "budget_tokens": budget}
 		b["max_tokens"] = max(maxTok, budget+8192)

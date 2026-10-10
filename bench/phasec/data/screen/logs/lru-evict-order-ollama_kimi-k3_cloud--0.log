@@ -1,0 +1,13 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/*.go
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go build ./... && go vet ./... && go test ./simplelru/ ./... 2>&1 | tail -20
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 151ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 74% cache hits · 21442 tokens in, 600 out
+done in 14.094s
+
+--- answer ---
+Found it: `removeOldest` at simplelru/lru.go:170 evicts `c.evictList.Front()` — the newest entry — instead of `Back()` (the oldest). Items are pushed to the front and `MoveToFront` on hits, so the front is MRU and the back is LRU; `RemoveOldest`/`GetOldest` correctly use `Back()`.Fixed. The bug was in `removeOldest` at simplelru/lru.go:170: it removed `evictList.Front()` (the most recently used entry, since new items and cache hits go to the front) instead of `evictList.Back()` (the least recently used one). Changed `Front()` → `Back()`, matching `RemoveOldest`/`GetOldest`. Build, vet, and all package tests pass.

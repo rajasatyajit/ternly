@@ -1,0 +1,19 @@
+◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → bash grep -rn "func (c \*Cache) Resize" --include=*.go -A 20 .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → find_symbol Resize
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go build ./... && go vet ./... && go test ./simplelru/
+  → read_file simplelru/lru_test.go
+  → read_file simplelru/lru_test.go
+  → edit_file simplelru/lru_test.go  (-5 +18 lines)
+  → bash go build ./... && go vet ./... && go test ./simplelru/
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 146ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered
+
+$0.0000 · 91% cache hits · 42299 tokens in, 697 out
+done in 21.483s
+
+--- answer ---
+Found it: the loop at simplelru/lru.go:161 uses `i <= diff`, an off-by-one that removes one extra entry even when `size >= Len()`.Also adding a regression test for the reported case (resize to a capacity ≥ current length):Fixed: the eviction loop in `simplelru/lru.go:161` used `i <= diff` (off-by-one), removing one entry too many even when the new capacity ≥ current length. Changed it to `i < diff` and added a regression check in `TestLRU_Resize`. Build, vet, and `go test ./simplelru/` all pass.

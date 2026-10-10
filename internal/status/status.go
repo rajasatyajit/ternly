@@ -31,6 +31,7 @@ type Agent interface {
 	Ledger() agent.Ledger
 	Current() *discover.Model
 	Context() agent.ContextUse
+	PlanSteps() []agent.PlanStep
 }
 
 // Rediscover re-runs discovery (Reconnect).
@@ -166,6 +167,9 @@ func (c *Core) Snapshot() surface.Snapshot {
 		u := c.agent.Context()
 		s.Meter = surface.Meter{ContextUsed: u.System + u.Tools + u.Notes + u.User + u.Assistant + u.ToolResults, ContextMax: u.Window,
 			CostUSD: l.Cost, Turns: l.Turns, CacheRate: l.CacheRate()}
+		for _, p := range c.agent.PlanSteps() { // the PlanFirst lever's plan (ADR 029)
+			s.Plan = append(s.Plan, surface.PlanItem{Text: p.Text, State: p.State})
+		}
 	}
 	return s
 }

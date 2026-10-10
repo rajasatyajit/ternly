@@ -20,7 +20,10 @@ type fakeAgent struct {
 	cur *discover.Model
 	l   agent.Ledger
 	u   agent.ContextUse
+	p   []agent.PlanStep
 }
+
+func (f *fakeAgent) PlanSteps() []agent.PlanStep { return f.p }
 
 func (f *fakeAgent) Ledger() agent.Ledger      { return f.l }
 func (f *fakeAgent) Current() *discover.Model  { return f.cur }
@@ -299,5 +302,18 @@ func TestLines(t *testing.T) {
 	}
 	if l := Lines(nil, nil, now); !strings.Contains(strings.Join(l, " "), "ollama serve") {
 		t.Errorf("no connections: %q", l)
+	}
+}
+
+// The PlanFirst lever's plan reaches the snapshot (ADR 021 Plan, ADR 029).
+func TestSnapshotPlan(t *testing.T) {
+	a := &fakeAgent{p: []agent.PlanStep{{Text: "edit lru.go", State: "done"}, {Text: "run the tests", State: "pending"}}}
+	c := New(discover.NewRouter(), a, nil, nil)
+	got := c.Snapshot().Plan
+	if len(got) != 2 || got[0].Text != "edit lru.go" || got[0].State != "done" || got[1].State != "pending" {
+		t.Fatalf("plan = %+v", got)
+	}
+	if New(discover.NewRouter(), &fakeAgent{}, nil, nil).Snapshot().Plan != nil {
+		t.Fatal("no plan: Plan should be nil")
 	}
 }

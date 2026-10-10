@@ -1,0 +1,18 @@
+# Phase C remaining measurements (local-only: Ollama Cloud's monthly limit is exhausted).
+# Steps A*: finish the routing-fix A/B on the binary that measured its first 14 rows (fix/ternly, sha a772bd…).
+A1-fix-textcall  -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-textcall -env TERNLY_ROUTING_FIX=textcall -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+A2-fix-none      -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-none -env TERNLY_ROUTING_FIX=none -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+A3-fix-both      -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-both -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+# B: control on HEAD (levers off, routing fixes on), 2 runs for run-to-run noise.
+B-control        -models auto -args --local-only -parallel 1 -timeout 15m -runs 2 -arm control -bin {BIN} -out {OUT}/levers
+# C: one arm per lever, paired by task with the control.
+C1-plan_first    -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm plan_first -env TERNLY_LEVERS=plan_first -bin {BIN} -out {OUT}/levers
+C2-best_of       -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm best_of=2 -env TERNLY_LEVERS=best_of=2 -bin {BIN} -out {OUT}/levers
+C3-no_verify_esc -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm no_verify_escalation -env TERNLY_LEVERS=no_verify_escalation -bin {BIN} -out {OUT}/levers
+C4-outline_reads -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm outline_reads -env TERNLY_LEVERS=outline_reads -bin {BIN} -out {OUT}/levers
+C5-no_schema_rep -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm no_schema_repair -env TERNLY_LEVERS=no_schema_repair -bin {BIN} -out {OUT}/levers
+C6-nofactcheck   -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -arm nofactcheck -env TERNLY_NO_FACT_CHECKS=1 -bin {BIN} -out {OUT}/levers
+# D: reproducibility, 5 runs of 4 short tasks.
+D1-sampled       -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -arm sampled -bin {BIN} -out {OUT}/repro
+D2-det           -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -arm det -env TERNLY_DETERMINISTIC=1,TERNLY_RESPONSE_CACHE=0 -bin {BIN} -out {OUT}/repro
+D3-det-cache     -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -stable-ws -arm det-cache -env TERNLY_DETERMINISTIC=1,TERNLY_RESPONSE_CACHE_DIR={OUT}/cache -bin {BIN} -out {OUT}/repro

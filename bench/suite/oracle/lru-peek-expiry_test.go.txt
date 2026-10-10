@@ -1,0 +1,34 @@
+package expirable
+
+import (
+	"testing"
+	"time"
+)
+
+func TestOraclePeekWithExpiry(t *testing.T) {
+	l := NewLRU[string, int](3, nil, time.Hour)
+	defer l.Close()
+	before := time.Now()
+	l.Add("a", 1)
+	l.Add("b", 2)
+	v, exp, ok := l.PeekWithExpiry("a")
+	if !ok || v != 1 {
+		t.Fatalf("PeekWithExpiry(a) = %v %v", v, ok)
+	}
+	if exp.Before(before.Add(59*time.Minute)) || exp.After(time.Now().Add(61*time.Minute)) {
+		t.Fatalf("expiry %v isn't about an hour from now", exp)
+	}
+	if k, _, _ := l.GetOldest(); k != "a" {
+		t.Fatalf("PeekWithExpiry must not update recency: oldest = %q", k)
+	}
+	if v, exp, ok := l.PeekWithExpiry("missing"); ok || v != 0 || !exp.IsZero() {
+		t.Fatalf("missing key: %v %v %v", v, exp, ok)
+	}
+	s := NewLRU[string, int](3, nil, 10*time.Millisecond)
+	defer s.Close()
+	s.Add("x", 9)
+	time.Sleep(30 * time.Millisecond)
+	if v, exp, ok := s.PeekWithExpiry("x"); ok || v != 0 || !exp.IsZero() {
+		t.Fatalf("expired entry: %v %v %v", v, exp, ok)
+	}
+}

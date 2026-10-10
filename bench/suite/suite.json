@@ -1,0 +1,559 @@
+{
+ "version": "1",
+ "repos": {
+  "golang-lru": {
+   "url": "https://github.com/hashicorp/golang-lru",
+   "commit": "9c13c57de0bedd6b3e21183b34072e417ffa69d1",
+   "lang": "go"
+  },
+  "more-itertools": {
+   "url": "https://github.com/more-itertools/more-itertools",
+   "commit": "81c21a8db1c922260cd673841257fb9b112c1318",
+   "lang": "python"
+  },
+  "mitt": {
+   "url": "https://github.com/developit/mitt",
+   "commit": "6b41670516ed8e8b738612f60491995470aa63b3",
+   "lang": "ts"
+  },
+  "semver": {
+   "url": "https://github.com/dtolnay/semver",
+   "commit": "280ebcb6edac3aa4cdc545dbff8a26c5ac4861fe",
+   "lang": "rust",
+   "prep": [
+    {
+     "write": "Cargo.toml",
+     "from": "fixtures/semver-Cargo.toml"
+    },
+    {
+     "remove": "benches"
+    }
+   ]
+  },
+  "ternly": {
+   "url": "self",
+   "commit": "9dd40a8",
+   "lang": "go"
+  }
+ },
+ "tasks": [
+  {
+   "id": "lru-evict-order",
+   "repo": "golang-lru",
+   "class": "bugfix",
+   "prompt": "Bug report: in package simplelru, when the cache is full, adding a new key evicts the most recently used entry instead of the least recently used one. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "simplelru/lru.go",
+     "old": "func (c *LRU[K, V]) removeOldest() {\n\tif ent := c.evictList.Back(); ent != nil {",
+     "new": "func (c *LRU[K, V]) removeOldest() {\n\tif ent := c.evictList.Front(); ent != nil {"
+    }
+   ],
+   "oracle": {
+    "simplelru/oracle_test.go": "oracle/lru-evict-order_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./simplelru/"
+   ]
+  },
+  {
+   "id": "lru-resize",
+   "repo": "golang-lru",
+   "class": "bugfix",
+   "prompt": "Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still evicts one entry. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "simplelru/lru.go",
+     "old": "\tfor i := 0; i < diff; i++ {\n\t\tc.removeOldest()",
+     "new": "\tfor i := 0; i <= diff; i++ {\n\t\tc.removeOldest()"
+    }
+   ],
+   "oracle": {
+    "simplelru/oracle_resize_test.go": "oracle/lru-resize_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./simplelru/"
+   ]
+  },
+  {
+   "id": "lru-peek-expiry",
+   "repo": "golang-lru",
+   "class": "feature",
+   "prompt": "Add a method to the expirable LRU (package expirable): `func (c *LRU[K, V]) PeekWithExpiry(key K) (value V, expiresAt time.Time, ok bool)`. It returns the value and the time the entry expires, without updating recency (like Peek). For a missing key, or an entry that has already expired, it returns the zero value, the zero time and false.",
+   "seed": [],
+   "oracle": {
+    "expirable/oracle_test.go": "oracle/lru-peek-expiry_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./expirable/"
+   ],
+   "reference": [
+    {
+     "file": "expirable/expirable_lru.go",
+     "old": "// Remove removes the provided key from the cache, returning if the\n",
+     "new": "// PeekWithExpiry returns the value and its expiry time without updating recency.\nfunc (c *LRU[K, V]) PeekWithExpiry(key K) (value V, expiresAt time.Time, ok bool) {\n\tc.mu.Lock()\n\tdefer c.mu.Unlock()\n\tent, found := c.items[key]\n\tif !found || time.Now().After(ent.ExpiresAt) {\n\t\treturn value, expiresAt, false\n\t}\n\treturn ent.Value, ent.ExpiresAt, true\n}\n\n// Remove removes the provided key from the cache, returning if the\n"
+    }
+   ]
+  },
+  {
+   "id": "mi-split-maxsplit",
+   "repo": "more-itertools",
+   "class": "bugfix",
+   "prompt": "Bug report: more_itertools.split_at does one more split than maxsplit allows: with maxsplit=1 it splits twice. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "more_itertools/more.py",
+     "old": "            if keep_separator:\n                yield [item]\n            if maxsplit == 1:",
+     "new": "            if keep_separator:\n                yield [item]\n            if maxsplit == 0:"
+    }
+   ],
+   "oracle": {
+    "oracle_test_split.py": "oracle/mi-split-maxsplit_test.py"
+   },
+   "cmd": [
+    "python3",
+    "-I",
+    "-m",
+    "unittest",
+    "discover",
+    "-q",
+    "-s",
+    ".",
+    "-t",
+    ".",
+    "-p",
+    "oracle_test_split.py"
+   ]
+  },
+  {
+   "id": "mi-rstrip",
+   "repo": "more-itertools",
+   "class": "bugfix",
+   "prompt": "Bug report: more_itertools.rstrip repeats items: when items that match pred appear between items that don't, they are yielded more than once. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "more_itertools/more.py",
+     "old": "            yield from cache\n            cache_clear()\n            yield x",
+     "new": "            yield from cache\n            yield x"
+    }
+   ],
+   "oracle": {
+    "oracle_test_rstrip.py": "oracle/mi-rstrip_test.py"
+   },
+   "cmd": [
+    "python3",
+    "-I",
+    "-m",
+    "unittest",
+    "discover",
+    "-q",
+    "-s",
+    ".",
+    "-t",
+    ".",
+    "-p",
+    "oracle_test_rstrip.py"
+   ]
+  },
+  {
+   "id": "mi-chunk-weight",
+   "repo": "more-itertools",
+   "class": "feature",
+   "prompt": "Add a function to more_itertools: `chunked_by_weight(iterable, max_weight, weight=len)`. It yields lists of consecutive items, each list as long as possible while the sum of weight(item) over the list stays <= max_weight. An item whose own weight exceeds max_weight is yielded alone in its own list. Empty input yields nothing. max_weight <= 0 raises ValueError. It must be importable as `from more_itertools import chunked_by_weight` (add it to the module's __all__).",
+   "seed": [],
+   "oracle": {
+    "oracle_test_weight.py": "oracle/mi-chunk-weight_test.py"
+   },
+   "cmd": [
+    "python3",
+    "-I",
+    "-m",
+    "unittest",
+    "discover",
+    "-q",
+    "-s",
+    ".",
+    "-t",
+    ".",
+    "-p",
+    "oracle_test_weight.py"
+   ],
+   "reference": [
+    {
+     "file": "more_itertools/more.py",
+     "old": "    'chunked',\n",
+     "new": "    'chunked',\n    'chunked_by_weight',\n"
+    },
+    {
+     "file": "more_itertools/more.py",
+     "old": "def chunked_even(iterable, n):",
+     "new": "def chunked_by_weight(iterable, max_weight, weight=len):\n    \"\"\"Yield lists of consecutive items whose total weight is <= max_weight.\"\"\"\n    if max_weight <= 0:\n        raise ValueError('max_weight must be positive')\n    buf, total = [], 0\n    for item in iterable:\n        w = weight(item)\n        if buf and total + w > max_weight:\n            yield buf\n            buf, total = [], 0\n        buf.append(item)\n        total += w\n        if total >= max_weight:\n            yield buf\n            buf, total = [], 0\n    if buf:\n        yield buf\n\n\ndef chunked_even(iterable, n):"
+    }
+   ]
+  },
+  {
+   "id": "mitt-once",
+   "repo": "mitt",
+   "class": "feature",
+   "prompt": "Add `once(type, handler)` to mitt's emitter (src/index.ts, including the Emitter interface): the handler runs on the next emit of that type only, then is removed. `off(type, handler)` with the same handler before it fires cancels it. Wildcard ('*') support isn't required.",
+   "seed": [],
+   "oracle": {
+    "oracle.test.ts": "oracle/mitt-once.test.ts"
+   },
+   "cmd": [
+    "node",
+    "--test",
+    "oracle.test.ts"
+   ],
+   "reference": [
+    {
+     "file": "src/index.ts",
+     "old": "\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;",
+     "new": "\tonce<Key extends keyof Events>(type: Key, handler: Handler<Events[Key]>): void;\n\n\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {",
+     "new": "\t\tonce<Key extends keyof Events>(type: Key, handler: GenericEventHandler) {\n\t\t\tconst self = this as Emitter<Events>;\n\t\t\tconst wrap = ((evt: Events[Key]) => {\n\t\t\t\tself.off(type, wrap as Handler<Events[Key]>);\n\t\t\t\tself.off(type, handler as Handler<Events[Key]>);\n\t\t\t\t(handler as Handler<Events[Key]>)(evt);\n\t\t\t}) as GenericEventHandler & { orig?: GenericEventHandler };\n\t\t\twraps.set(handler, wrap);\n\t\t\tself.on(type, wrap as Handler<Events[Key]>);\n\t\t},\n\n\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\t\t\tif (handler) {\n\t\t\t\t\thandlers.splice(handlers.indexOf(handler) >>> 0, 1);",
+     "new": "\t\t\t\tif (handler) {\n\t\t\t\t\tconst w = wraps.get(handler);\n\t\t\t\t\tif (w && handlers.indexOf(w) >= 0) {\n\t\t\t\t\t\thandlers.splice(handlers.indexOf(w), 1);\n\t\t\t\t\t\twraps.delete(handler);\n\t\t\t\t\t}\n\t\t\t\t\tif (handlers.indexOf(handler) >= 0) handlers.splice(handlers.indexOf(handler), 1);"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\tall = all || new Map();",
+     "new": "\tall = all || new Map();\n\tconst wraps = new Map<GenericEventHandler, GenericEventHandler>();"
+    }
+   ]
+  },
+  {
+   "id": "mitt-off",
+   "repo": "mitt",
+   "class": "bugfix",
+   "prompt": "Bug report: in mitt, calling off(type, handler) with a handler that was never registered for that type removes a different handler. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "src/index.ts",
+     "old": "handlers.splice(handlers.indexOf(handler) >>> 0, 1);",
+     "new": "handlers.splice(handlers.indexOf(handler), 1);"
+    }
+   ],
+   "oracle": {
+    "oracle.test.ts": "oracle/mitt-off.test.ts"
+   },
+   "cmd": [
+    "node",
+    "--test",
+    "oracle.test.ts"
+   ]
+  },
+  {
+   "id": "mitt-emit-count",
+   "repo": "mitt",
+   "class": "feature",
+   "prompt": "Change mitt's emit (src/index.ts, including the Emitter interface) to return the number of handlers it called: the handlers for that type plus the wildcard ('*') handlers. It returns 0 when there are none.",
+   "seed": [],
+   "oracle": {
+    "oracle.test.ts": "oracle/mitt-emit-count.test.ts"
+   },
+   "cmd": [
+    "node",
+    "--test",
+    "oracle.test.ts"
+   ],
+   "reference": [
+    {
+     "file": "src/index.ts",
+     "old": "\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;\n\temit<Key extends keyof Events>(\n\t\ttype: undefined extends Events[Key] ? Key : never\n\t): void;",
+     "new": "\temit<Key extends keyof Events>(type: Key, event: Events[Key]): number;\n\temit<Key extends keyof Events>(\n\t\ttype: undefined extends Events[Key] ? Key : never\n\t): number;"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {\n\t\t\tlet handlers = all!.get(type);",
+     "new": "\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]): number {\n\t\t\tlet n = 0;\n\t\t\tlet handlers = all!.get(type);"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\t\t\t\t\thandler(evt!);\n\t\t\t\t\t});",
+     "new": "\t\t\t\t\t\tn++;\n\t\t\t\t\t\thandler(evt!);\n\t\t\t\t\t});"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\t\t\t\t\thandler(type, evt!);\n\t\t\t\t\t});\n\t\t\t}\n\t\t}",
+     "new": "\t\t\t\t\t\tn++;\n\t\t\t\t\t\thandler(type, evt!);\n\t\t\t\t\t});\n\t\t\t}\n\t\t\treturn n;\n\t\t}"
+    }
+   ]
+  },
+  {
+   "id": "semver-caret",
+   "repo": "semver",
+   "class": "bugfix",
+   "prompt": "Bug report: in the semver crate, the requirement ^1.2 doesn't match version 1.2.0 (it should: ^1.2 means >=1.2.0, <2.0.0). Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "src/eval.rs",
+     "old": "        if cmp.major > 0 {\n            return ver.minor >= minor;",
+     "new": "        if cmp.major > 0 {\n            return ver.minor > minor;"
+    }
+   ],
+   "oracle": {
+    "tests/oracle.rs": "oracle/semver-caret.rs"
+   },
+   "cmd": [
+    "cargo",
+    "test",
+    "--offline",
+    "-q"
+   ]
+  },
+  {
+   "id": "semver-tilde",
+   "repo": "semver",
+   "class": "bugfix",
+   "prompt": "Bug report: in the semver crate, the requirement ~1.2.3 matches 1.2.1 and doesn't match 1.2.5; it should be the other way round (~1.2.3 means >=1.2.3, <1.3.0). Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "src/eval.rs",
+     "old": "    if let Some(patch) = cmp.patch {\n        if ver.patch != patch {\n            return ver.patch > patch;",
+     "new": "    if let Some(patch) = cmp.patch {\n        if ver.patch != patch {\n            return ver.patch < patch;"
+    }
+   ],
+   "oracle": {
+    "tests/oracle.rs": "oracle/semver-tilde.rs"
+   },
+   "cmd": [
+    "cargo",
+    "test",
+    "--offline",
+    "-q"
+   ]
+  },
+  {
+   "id": "semver-bump",
+   "repo": "semver",
+   "class": "feature",
+   "prompt": "Add two methods to semver's Version: `pub fn bump_minor(&self) -> Version` (minor + 1, patch 0) and `pub fn bump_patch(&self) -> Version` (patch + 1). Both return a release version: the result has an empty pre-release and empty build metadata. The original is unchanged.",
+   "seed": [],
+   "oracle": {
+    "tests/oracle.rs": "oracle/semver-bump.rs"
+   },
+   "cmd": [
+    "cargo",
+    "test",
+    "--offline",
+    "-q"
+   ],
+   "reference": [
+    {
+     "file": "src/lib.rs",
+     "old": "impl Version {\n",
+     "new": "impl Version {\n    /// The next minor release: minor + 1, patch 0, no pre-release or build.\n    pub fn bump_minor(&self) -> Version {\n        Version::new(self.major, self.minor + 1, 0)\n    }\n\n    /// The next patch release: patch + 1, no pre-release or build.\n    pub fn bump_patch(&self) -> Version {\n        Version::new(self.major, self.minor, self.patch + 1)\n    }\n\n"
+    }
+   ]
+  },
+  {
+   "id": "ternly-wilson",
+   "repo": "ternly",
+   "class": "bugfix",
+   "prompt": "Bug report: internal/eval's Counts.Wilson returns 95% intervals that are too wide: for 5 bad out of 10 it gives about [0.14, 0.86], but the Wilson score interval is about [0.24, 0.76]. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "internal/eval/record.go",
+     "old": "\thalf := z * math.Sqrt(p*(1-p)/n+z*z/(4*n*n)) / den",
+     "new": "\thalf := z * math.Sqrt(p*(1-p)/n+z*z/(4*n*n))"
+    }
+   ],
+   "oracle": {
+    "internal/eval/oracle_wilson_test.go": "oracle/ternly-wilson_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./internal/eval/"
+   ]
+  },
+  {
+   "id": "ternly-retry-after",
+   "repo": "ternly",
+   "class": "feature",
+   "prompt": "In internal/llm, retryAfter parses an HTTP Retry-After header. Make it also accept a decimal number of seconds (\"1.5\" is 1.5 s; \"0.25\" is 250 ms), keeping integers and HTTP dates working. Negative or non-numeric values still mean 0.",
+   "seed": [],
+   "oracle": {
+    "internal/llm/oracle_retry_test.go": "oracle/ternly-retry-after_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./internal/llm/"
+   ],
+   "reference": [
+    {
+     "file": "internal/llm/llm.go",
+     "old": "\tif t, err := http.ParseTime(h); err == nil && t.After(now) {",
+     "new": "\tif f, err := strconv.ParseFloat(h, 64); err == nil {\n\t\treturn time.Duration(max(f, 0) * float64(time.Second))\n\t}\n\tif t, err := http.ParseTime(h); err == nil && t.After(now) {"
+    }
+   ]
+  },
+  {
+   "id": "ternly-gitenv-without",
+   "repo": "ternly",
+   "class": "feature",
+   "prompt": "Add to internal/gitenv: `func Without(base []string, keys ...string) []string`. It returns a new slice with every KEY=value entry whose KEY is one of keys removed, keeping the order of the rest. It never modifies base. With no keys it returns a copy of base.",
+   "seed": [],
+   "oracle": {
+    "internal/gitenv/oracle_without_test.go": "oracle/ternly-gitenv-without_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./internal/gitenv/"
+   ],
+   "reference": [
+    {
+     "file": "internal/gitenv/gitenv.go",
+     "old": "// Command is exec.CommandContext",
+     "new": "// Without returns a copy of base without the entries whose key is in keys.\nfunc Without(base []string, keys ...string) []string {\n\tout := make([]string, 0, len(base))\n\tfor _, kv := range base {\n\t\tk, _, _ := strings.Cut(kv, \"=\")\n\t\tdrop := false\n\t\tfor _, x := range keys {\n\t\t\tdrop = drop || k == x\n\t\t}\n\t\tif !drop {\n\t\t\tout = append(out, kv)\n\t\t}\n\t}\n\treturn out\n}\n\n// Command is exec.CommandContext"
+    }
+   ]
+  },
+  {
+   "id": "semver-pre-order",
+   "repo": "semver",
+   "class": "hard",
+   "prompt": "Bug report: in the semver crate, pre-release versions with numeric identifiers sort wrongly: 1.0.0-alpha.10 sorts before 1.0.0-alpha.2, and 1.0.0-rc.11 before 1.0.0-rc.9. Per SemVer, numeric identifiers compare numerically. Find the cause and fix it, without changing how non-numeric identifiers compare.",
+   "seed": [
+    {
+     "file": "src/impls.rs",
+     "old": "(true, true) => Ord::cmp(&lhs.len(), &rhs.len()).then_with(string_cmp),",
+     "new": "(true, true) => string_cmp(),"
+    }
+   ],
+   "oracle": {
+    "tests/oracle.rs": "oracle/semver-pre-order.rs"
+   },
+   "cmd": [
+    "cargo",
+    "test",
+    "--offline",
+    "-q"
+   ]
+  },
+  {
+   "id": "mi-windowed-step",
+   "repo": "more-itertools",
+   "class": "hard",
+   "prompt": "Bug report: more_itertools.windowed yields an extra window made only of fillvalue when step >= n and the input length is a multiple of step: list(windowed(range(6), 3, step=3)) ends with (None, None, None), but it should be [(0, 1, 2), (3, 4, 5)]. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "more_itertools/more.py",
+     "old": "    padding = (fillvalue,) * (n - 1 if step >= n else step - 1)",
+     "new": "    padding = (fillvalue,) * (n if step >= n else step - 1)"
+    }
+   ],
+   "oracle": {
+    "oracle_test_windowed.py": "oracle/mi-windowed-step_test.py"
+   },
+   "cmd": [
+    "python3",
+    "-I",
+    "-m",
+    "unittest",
+    "discover",
+    "-q",
+    "-s",
+    ".",
+    "-t",
+    ".",
+    "-p",
+    "oracle_test_windowed.py"
+   ]
+  },
+  {
+   "id": "lru-2q-promote",
+   "repo": "golang-lru",
+   "class": "hard",
+   "prompt": "Bug report: in the 2Q cache (TwoQueueCache in the root package), after Get on a key that was added once, Len() counts that key twice, and Keys() lists it twice. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "2q.go",
+     "old": "\tif val, ok := c.recent.Peek(key); ok {\n\t\tc.recent.Remove(key)\n\t\tc.frequent.Add(key, val)\n\t\treturn val, ok\n\t}",
+     "new": "\tif val, ok := c.recent.Peek(key); ok {\n\t\tc.frequent.Add(key, val)\n\t\treturn val, ok\n\t}"
+    }
+   ],
+   "oracle": {
+    "oracle_2q_test.go": "oracle/lru-2q-promote_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "-run",
+    "Oracle|Test2Q",
+    "."
+   ]
+  },
+  {
+   "id": "ternly-finaljson",
+   "repo": "ternly",
+   "class": "hard",
+   "prompt": "Bug report: internal/e2ejudge's FinalJSON is documented to read a reply's final ```json block, but when a reply contains two ```json blocks it decodes the first one. Find the cause and fix it.",
+   "seed": [
+    {
+     "file": "internal/e2ejudge/judge.go",
+     "old": "\td := json.NewDecoder(strings.NewReader(ms[len(ms)-1][1]))",
+     "new": "\td := json.NewDecoder(strings.NewReader(ms[0][1]))"
+    }
+   ],
+   "oracle": {
+    "internal/e2ejudge/oracle_final_test.go": "oracle/ternly-finaljson_test.go.txt"
+   },
+   "cmd": [
+    "go",
+    "test",
+    "-count=1",
+    "./internal/e2ejudge/"
+   ]
+  },
+  {
+   "id": "mitt-emit-async",
+   "repo": "mitt",
+   "class": "hard",
+   "prompt": "Add `emitAsync(type, evt)` to mitt's emitter (src/index.ts, including the Emitter interface). It calls the handlers for that type, then the wildcard ('*') handlers (which get (type, evt)), one at a time in registration order, awaiting each handler's result before calling the next (a handler may return a Promise or a plain value). It returns a Promise of the number of handlers called. If a handler throws or its Promise rejects, emitAsync rejects with that error and calls no further handlers. The existing synchronous emit must keep working unchanged.",
+   "seed": [],
+   "oracle": {
+    "oracle.test.ts": "oracle/mitt-emit-async.test.ts"
+   },
+   "cmd": [
+    "node",
+    "--test",
+    "oracle.test.ts"
+   ],
+   "reference": [
+    {
+     "file": "src/index.ts",
+     "old": "\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;",
+     "new": "\temitAsync<Key extends keyof Events>(type: Key, event?: Events[Key]): Promise<number>;\n\n\temit<Key extends keyof Events>(type: Key, event: Events[Key]): void;"
+    },
+    {
+     "file": "src/index.ts",
+     "old": "\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {",
+     "new": "\t\tasync emitAsync<Key extends keyof Events>(type: Key, evt?: Events[Key]): Promise<number> {\n\t\t\tlet n = 0;\n\t\t\tconst typed = (all!.get(type) || []).slice() as Array<(e: unknown) => unknown>;\n\t\t\tfor (const h of typed) {\n\t\t\t\tn++;\n\t\t\t\tawait h(evt);\n\t\t\t}\n\t\t\tconst wild = (all!.get('*') || []).slice() as Array<(t: unknown, e: unknown) => unknown>;\n\t\t\tfor (const h of wild) {\n\t\t\t\tn++;\n\t\t\t\tawait h(type, evt);\n\t\t\t}\n\t\t\treturn n;\n\t\t},\n\n\t\temit<Key extends keyof Events>(type: Key, evt?: Events[Key]) {"
+    }
+   ]
+  }
+ ]
+}

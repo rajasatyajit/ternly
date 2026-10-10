@@ -1,0 +1,18 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T1 task → est. 33 s, local, GPU 100%, p≥0.45; next granite3.3:8b (est. 33 s, local, GPU 100%)
+
+$0.0000 · 0% cache hits · 2659 tokens in, 48 out
+done in 12.072s
+
+--- answer ---
+```
+{
+  "name": "find_symbol",
+  "parameters": {
+    "include_deps": true,
+    "kind": "const",
+    "limit": 1,
+    "query": "^"
+  }
+}
+```

@@ -1,0 +1,14 @@
+◆ ollama/nemotron-3-ultra:cloud (T3, cloud·quota) — pinned · reasoning low
+  ↻ ollama/nemotron-3-ultra:cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (30s)
+  → callers internal/eval.Counts.Wilson
+  ✗ callers failed: error: invalid arguments for callers:
+  → callers internal/eval.Counts.Wilson
+
+$0.0000 · 42% cache hits · 5550 tokens in, 78 out
+done in 1m14.172s
+
+--- answer ---
+I don't know — let me check.
+grep -r Counts.Wilson *

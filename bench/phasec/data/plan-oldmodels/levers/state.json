@@ -1,0 +1,16 @@
+{
+  "out": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers",
+  "arm": "control",
+  "binary_sha256": "f681cd32e555beb04bb795183040d662ee728cd1547e9759161eae1a3c55c1d3",
+  "commit": "b85cad9ca9e6f381d681fd60931f2f2c46485e35",
+  "total": 40,
+  "skipped_already_done": 0,
+  "done_this_run": 21,
+  "running": [
+    "lru-resize auto run 1"
+  ],
+  "last": "lru-evict-order auto run 1: no-change",
+  "pid": 3882848,
+  "started": "2026-10-08T19:58:58.2853896Z",
+  "updated": "2026-10-08T21:24:45.89680037Z"
+}

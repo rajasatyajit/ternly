@@ -1,0 +1,8 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T1 task → est. 33 s, local, GPU 100%, p≥0.45; next granite3.3:8b (est. 33 s, local, GPU 100%)
+
+$0.0000 · 0% cache hits · 2636 tokens in, 106 out
+done in 14.898s
+
+--- answer ---
+{"name": "grep", "parameters": {"path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/mitt-off-auto-fix-textcall-0-1791485176989587073/ws/mitt/middleware.go", "pattern": "^.*off\\(type \(.*\\), handler.*\\).*\\nremoves\\s+handler\\s+for\\s+type\\s+'(.*?)'\\s*\\."}}

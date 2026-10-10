@@ -1,0 +1,29 @@
+◆ ollama/nemotron-3-ultra:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/expirable/**/*.go
+  → read_file expirable/expirable_lru.go
+  → read_file expirable/expirable_lru.go
+  → grep type Entry struct  internal
+  → glob internal/*.go
+  → read_file internal/list.go
+  → edit_file expirable/expirable_lru.go  (-15 +32 lines)
+  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_nemotron-3-ultra_cloud--0-1791464294331864002/ws && go build ./...
+  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_nemotron-3-ultra_cloud--0-1791464294331864002/ws && go test ./expirable/... -v
+  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_nemotron-3-ultra_cloud--0-1791464294331864002/ws && go vet ./expirable/...
+  → read_file expirable/expirable_lru.go
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 162ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 10% cache hits · 130398 tokens in, 1907 out
+done in 1m58.73s
+
+--- answer ---
+Let me also check the internal Entry structure to confirm the `ExpiresAt` field:
+Now I have a clear understanding. I'll add the `PeekWithExpiry` method after the `Peek` method. The `Entry` struct has an `ExpiresAt` field of type `time.Time`.All tests pass. Let me also run the linter/vet to ensure there are no issues:
+The method is implemented and all tests pass. Let me verify the implementation once more:The implementation is complete. The `PeekWithExpiry` method has been added to the expirable LRU package.
+
+**Summary of changes:**
+- Added `PeekWithExpiry(key K) (value V, expiresAt time.Time, ok bool)` method to `expirable/expirable_lru.go`
+- Returns the value and the expiration time without updating recency (like `Peek`)
+- Returns zero value, zero time, and `false` for missing keys or expired entries
+- Thread-safe with proper mutex locking
+- All existing tests pass and `go vet` shows no issues
