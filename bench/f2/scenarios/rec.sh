@@ -24,7 +24,10 @@ wait) id=$1 idle=$2 max=$3 out=$4; mkdir -p "$out"; t0=$(date +%s.%N); last=""; 
     if [ "$cur" != "$last" ]; then last=$cur; lastchange=$now
       printf '=== t=%.1f\n%s\n' "$(echo "$now - $t0" | bc)" "$cur" >> "$out/timeline.txt"; fi
     el=$(echo "$now - $t0" | bc); quiet=$(echo "$now - $lastchange" | bc)
-    if [ "$(echo "$quiet >= $idle" | bc)" = 1 ]; then printf 'idle after %.1f s (last change at %.1f s)\n' "$el" "$(echo "$lastchange - $t0" | bc)"; break; fi
+    # idle = unchanged for <idle> s AND no busy indicator in the status area (the last 8 non-empty lines):
+    # a harness whose "Thinking…" doesn't animate was taken as idle mid-turn (ternly S3, S5 in the first run)
+    busy=$(printf '%s\n' "$cur" | grep -v '^[[:space:]]*$' | tail -8 | grep -cE "${BUSY_RE:-esc to interrupt|esc interrupt|Thinking…|Working\.\.\.|Working \(}")
+    if [ "$busy" = 0 ] && [ "$(echo "$quiet >= $idle" | bc)" = 1 ]; then printf 'idle after %.1f s (last change at %.1f s)\n' "$el" "$(echo "$lastchange - $t0" | bc)"; break; fi
     if [ "$(echo "$el >= $max" | bc)" = 1 ]; then printf 'TIMEOUT at %.1f s\n' "$el"; break; fi
     sleep 1
   done ;;

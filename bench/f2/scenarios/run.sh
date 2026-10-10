@@ -35,9 +35,11 @@ S5) for i in $(seq 30); do ask "Turn $i: name one Go standard library package an
     $S capture-pane -p -t "$id" > "$out/error-screen.txt"
     proxy_up
     ask "Turn 32: try again: in one line, what does simplelru/lru.go do?" 15 300 "recover"
-    pp=$($S display-message -p -t "$id" '#{pane_pid}'); rss=0
-    for p in $(cat /proc/$pp/task/*/children 2>/dev/null) $pp; do r=$(awk '/VmRSS/{print $2}' /proc/$p/status 2>/dev/null); rss=$((rss + ${r:-0})); done
-    echo "rss_kb $rss" >> "$out/timings.txt" ;;
+    # RSS of the whole process tree under the pane (box.sh, bwrap, the harness and its children)
+    pp=$($S display-message -p -t "$id" '#{pane_pid}'); rss=0; todo=$pp
+    while [ -n "$todo" ]; do set -- $todo; p=$1; shift; todo="$* $(cat /proc/$p/task/*/children 2>/dev/null)"; todo=${todo# }
+      r=$(awk '/VmRSS/{print $2}' /proc/$p/status 2>/dev/null); rss=$((rss + ${r:-0})); done
+    echo "rss_tree_kb $rss" >> "$out/timings.txt" ;;
 esac
 $S capture-pane -p -t "$id" > "$out/final.txt"
 $S capture-pane -p -J -S - -t "$id" > "$out/scrollback.txt"

@@ -29,7 +29,14 @@ cap ready 0.5
 "$D/rec.sh" type "$id" "Bug report: in package simplelru, calling Resize with a capacity at least as large as the number of entries still evicts one entry. Find the cause and fix it."
 "$D/rec.sh" wait "$id" 30 900 "$out/warmup" > "$out/warmup.txt"
 cap mid 2
-# 2. slash commands
+# 2. slash commands. REACH_DIRECT (a list) is for a harness whose input Esc and C-u
+#    don't clear (ternly: Esc interrupts, C-u pages up): each read-only command from
+#    its registry is sent with Enter, captured, then Esc; no menu stage, no "q".
+if [ -n "${REACH_DIRECT:-}" ]; then
+  for c in $REACH_DIRECT; do
+    key -l "/$c"; key Enter; cap "run-$c" 3; echo "$c run (direct)" >> "$out/commands.txt"; key Escape; sleep 0.5
+  done
+else
 for c in cost status context usage stats tokens model models diff changes agents tasks todos plan jobs fleet session sessions resume history permissions approvals mode why errors logs debug checkpoints timeline tree undo rewind review init compact; do
   clear_input; key -l "/$c"; cap "menu-$c" 1.2
   n=$(grep -c -- "/$c" "$out/menu-$c.txt")
@@ -38,9 +45,10 @@ for c in cost status context usage stats tokens model models diff changes agents
     key Enter; cap "run-$c" 3; key Escape; sleep 0.4; key Escape; sleep 0.4; key -l q; sleep 0.3; clear_input; cap "after-$c" 0.5
   else echo "$c not listed" >> "$out/commands.txt"; fi
 done
+fi
 clear_input
 # 3. key chords (each pressed, captured, pressed again to toggle off, then Escape)
-for k in C-o C-t C-g C-b C-] F1 F2 Left; do
+for k in ${REACH_KEYS:-C-o C-t C-g C-b C-] F1 F2 Left}; do
   clear_input; key "$k"; cap "key-$k" 1.5; key "$k"; sleep 0.4; key Escape; sleep 0.4; cap "after-key-$k" 0.5
 done
 clear_input; key -l "?"; cap "key-question" 1.5; key BSpace; clear_input

@@ -75,7 +75,14 @@ func main() {
 			}
 		}
 		{
-			out := output(read(filepath.Join(c, "scrollback.txt")), sc)
+			// the scrollback plus every timeline capture: a harness on the alternate screen
+			// (Crush, OpenCode) keeps its conversation out of tmux's scrollback
+			tl, _ := filepath.Glob(filepath.Join(c, "*", "timeline.txt"))
+			all := read(filepath.Join(c, "scrollback.txt"))
+			for _, f := range tl {
+				all += "\n" + read(f)
+			}
+			out := output(all, sc)
 			fx := filepath.Join(R, "fx", hn+"-"+sc)
 			diff := strings.TrimSpace(read(filepath.Join(c, "diffstat.txt")))
 			var outcome, detail string
@@ -109,11 +116,15 @@ func main() {
 				turns := len(regexp.MustCompile(`(?m)^t\d+ idle`).FindAllString(tm, -1))
 				errShown := reErr.MatchString(output(read(filepath.Join(c, "error-screen.txt")), sc))
 				rec := strings.Contains(tm, "recover idle")
-				rss := regexp.MustCompile(`rss_kb (\d+)`).FindStringSubmatch(tm)
+				// rss_kb (the pane process only: box.sh) was the first, invalid probe; only the
+				// whole-tree measurement counts
+				rss := regexp.MustCompile(`rss_tree_kb (\d+)`).FindStringSubmatch(tm)
 				outcome = fmt.Sprintf("turns=%d/30", turns)
 				detail = fmt.Sprintf("error_shown=%v recovered=%v", errShown, rec)
 				if rss != nil {
 					detail += " rss_kb=" + rss[1]
+				} else {
+					detail += " rss=n/m"
 				}
 			}
 			fmt.Printf("%s\t%s\t%s\t%s\t%s\n", hn, sc, outcome, detail, wall)
