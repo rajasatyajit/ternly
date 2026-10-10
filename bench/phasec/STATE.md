@@ -70,6 +70,10 @@ speculative decoding, and models kept loaded for 30 minutes.
 These records are **not yet merged** into `internal/eval/defaults.json`.
 
 ## What remains for Phase C, in order
+0. **Make evals save per-task results incrementally, so an interrupted model run resumes instead
+   of restarting.** granite4.2's partial run was lost: `ternly --eval` writes a model's record
+   only when the whole model finishes, and `eval-models.sh` buffered its per-trap lines.
+   This comes first, before any more evals run.
 1. **Finish the evals.** Run granite4.2 (3 runs), qwen3.8 (at least 1 run; slow, about 4 t/s) and
    gemma4:31b (after the owner resumes its update; evaluating the old build would be wasted).
 2. **Merge the records into the shipped defaults:**
@@ -96,8 +100,7 @@ These records are **not yet merged** into `internal/eval/defaults.json`.
    - PR #28 out of draft;
    - CHANGELOG.
 
-**Not pushed:** b85cad9, c69a51b, 139a43c, 61b1d8b and this commit are local to the branch.
-`origin/track1/phase-c` is at 165600e. Push them with the PR update.
+**Pushed:** `track1/phase-c` is on GitHub, including this state. PR #28 is unchanged and still a draft.
 
 ## How to resume (each step skips what's already recorded)
 Results are keyed by task × model × arm × run × binary SHA-256. A rerun with the same binary
