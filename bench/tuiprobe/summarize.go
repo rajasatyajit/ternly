@@ -28,7 +28,7 @@ func loadCells(dir string) ([]cell, error) {
 	for _, p := range paths {
 		base := strings.TrimSuffix(filepath.Base(p), ".json")
 		h, tag, ok := strings.Cut(base, ".")
-		if !ok {
+		if !ok || h == "selfcheck" { // selfcheck.<harness>.json is the sandbox check, not a cell
 			continue
 		}
 		b, err := os.ReadFile(p)

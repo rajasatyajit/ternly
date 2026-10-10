@@ -26,7 +26,12 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$home"
 cp -r "$FIXTURE" "$ws"
+SETUP_CMDS=() RO_BINDS=()
 "setup_$name" "$home" "$ws"
+sandbox_prefix "$work" "$ws" || exit 3
+for c in "${SETUP_CMDS[@]}"; do # harness config commands: inside the sandbox, with the cell's HOME
+  env -i PATH="$NODE_DIR/bin:/usr/bin" HOME="$home" "${SBX[@]}" sh -c "$c" >/dev/null 2>&1
+done
 env_spec=$(common_env "$home")
 [ -n "${ENV_EXTRA:-}" ] && env_spec="$env_spec,$ENV_EXTRA"
 case "${tier%%+*}" in
@@ -44,7 +49,7 @@ steps=${steps//@READY@/$READY}
 steps=${steps//@PRE@/$PRE}
 # SIGTERM at the limit: tuiprobe then kills the program's group and reaps its HOME.
 timeout -s TERM -k 30 "$limit" "$P/tuiprobe" -clean-env -cols "$cols" -rows "$rows" -dir "$ws" -env "$env_spec" \
-  -steps "$steps" -out "$out.json" -raw "$out.raw.gz" -- "${CMD[@]}"
+  -steps "$steps" -out "$out.json" -raw "$out.raw.gz" -- "${SBX[@]}" "${CMD[@]}"
 st=$?
 if [ "$st" = 124 ] || [ "$st" = 143 ] || [ "$st" = 137 ]; then
   printf '{"outcome":"timeout","limit_s":%s,"harness":"%s","cols":%s,"rows":%s,"tier":"%s"}\n' "$limit" "$name" "$cols" "$rows" "$tier" >"$out.json"

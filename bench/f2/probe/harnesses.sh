@@ -14,6 +14,27 @@ H=${HARNESSES:-/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/harnesses}
 OLLAMA=http://127.0.0.1:11434
 MODEL=gemma4:latest
 TERNLY_BIN=${TERNLY_BIN:-/home/satyajit/.claude/jobs/f10e4ff6/tmp/f2/probe/ternly}
+NODE_DIR=${NODE_DIR:-/home/satyajit/.nvm/versions/node/v22.22.2}
+CLAUDE_BIN=${CLAUDE_BIN:-$(readlink -f "$(command -v claude)")}
+REAL_HOME=${REAL_HOME:-/home/satyajit}
+
+# sandbox_prefix WORK WS: the bubblewrap command every harness runs under
+# (ternly too, for parity). Only WORK (the cell's workspace and temp HOME) is
+# writable; system dirs, the harness install (RO_BINDS) and Node are read-only;
+# the real home is a tmpfs, so nothing of the owner's is visible; fresh /tmp;
+# network shared (the local Ollama on 127.0.0.1:11434). Fails closed without
+# bwrap. Prints nothing; sets the SBX array.
+sandbox_prefix() { # WORK WS
+  command -v bwrap >/dev/null || { echo "bwrap not found: refusing to run a harness unsandboxed" >&2; return 1; }
+  SBX=(bwrap --die-with-parent --unshare-all --share-net
+    --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --symlink usr/lib /lib64 --symlink usr/bin /sbin
+    --ro-bind /etc /etc --ro-bind-try /opt /opt --ro-bind-try /sys /sys
+    --proc /proc --dev /dev --tmpfs /tmp --tmpfs "$REAL_HOME"
+    --ro-bind "$NODE_DIR" "$NODE_DIR")
+  local b
+  for b in "${RO_BINDS[@]}"; do SBX+=(--ro-bind "$b" "$b"); done
+  SBX+=(--bind "$1" "$1" --chdir "$2" --)
+}
 
 # common_env: the environment every harness gets (besides HOME/XDG).
 common_env() { # HOME
@@ -27,6 +48,7 @@ setup_ternly() { # HOME WS
   ENV_EXTRA="TERNLY_BACKGROUND_EVAL=1"
   READY='Ask ternly to build' PRE=''
   CMD=("$TERNLY_BIN" --model "ollama/$MODEL")
+  RO_BINDS=("$TERNLY_BIN")
 }
 
 setup_claude() { # HOME WS
@@ -36,7 +58,8 @@ setup_claude() { # HOME WS
  "projects": {"$ws": {"hasTrustDialogAccepted": true, "hasCompletedProjectOnboarding": true}}}
 EOF
   ENV_EXTRA="ANTHROPIC_BASE_URL=$OLLAMA,ANTHROPIC_AUTH_TOKEN=ollama,ANTHROPIC_MODEL=$MODEL,ANTHROPIC_DEFAULT_HAIKU_MODEL=$MODEL,ANTHROPIC_DEFAULT_SONNET_MODEL=$MODEL,ANTHROPIC_DEFAULT_OPUS_MODEL=$MODEL,DISABLE_AUTOUPDATER=1,CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1,DISABLE_TELEMETRY=1"
-  CMD=(claude)
+  CMD=("$CLAUDE_BIN")
+  RO_BINDS=("$CLAUDE_BIN")
   READY='❯' PRE=''
 }
 
@@ -60,6 +83,7 @@ enabled = false
 EOF
   ENV_EXTRA="CODEX_HOME=$1/.codex"
   CMD=("$H/codex/node_modules/.bin/codex")
+  RO_BINDS=("$H/codex")
   READY='Ask Codex to do anything' PRE=''
 }
 
@@ -68,6 +92,7 @@ setup_gemini() { # HOME WS (no shared model: Google auth only — UI up to the a
   printf '{"privacy": {"usageStatisticsEnabled": false}, "general": {"disableAutoUpdate": true}}\n' >"$1/.gemini/settings.json"
   ENV_EXTRA=""
   CMD=("$H/gemini/node_modules/.bin/gemini")
+  RO_BINDS=("$H/gemini")
   READY='Do you trust the files in this folder' PRE='' # stops at Google auth after this: no prompt without an account
 }
 
@@ -86,6 +111,7 @@ setup_crush() { # HOME WS
 EOF
   ENV_EXTRA="CRUSH_DISABLE_METRICS=1"
   CMD=("$H/crush/crush")
+  RO_BINDS=("$H/crush")
   READY='Would you like to initialize now' PRE='type \e[C; enter; stable 1500 20000' # "Nope"
 }
 
@@ -102,6 +128,7 @@ setup_opencode() { # HOME WS
 EOF
   ENV_EXTRA="OPENCODE_DISABLE_AUTOUPDATE=1"
   CMD=("$H/opencode/node_modules/.bin/opencode")
+  RO_BINDS=("$H/opencode")
   READY='Ask anything' PRE=''
 }
 
@@ -113,15 +140,15 @@ setup_pi() { # HOME WS
 EOF
   ENV_EXTRA=""
   CMD=("$H/pi/pi/pi" --provider ollama --model "$MODEL")
+  RO_BINDS=("$H/pi")
   READY='Trust project folder' PRE='enter; stable 1500 20000' # "Trust" (isolated HOME)
 }
 
-setup_codewhale() { # HOME WS
+setup_codewhale() { # HOME WS (its config commands run inside the sandbox too: see SETUP_CMDS)
   local cw="$H/codewhale/node_modules/.bin/codewhale"
-  HOME=$1 "$cw" config set telemetry false >/dev/null 2>&1
-  HOME=$1 "$cw" config set provider ollama >/dev/null 2>&1
-  HOME=$1 "$cw" config set model "$MODEL" >/dev/null 2>&1
+  SETUP_CMDS=("$cw config set telemetry false" "$cw config set provider ollama" "$cw config set model $MODEL")
   ENV_EXTRA=""
+  RO_BINDS=("$H/codewhale")
   CMD=("$cw")
   READY='Type a message' PRE=''
 }
