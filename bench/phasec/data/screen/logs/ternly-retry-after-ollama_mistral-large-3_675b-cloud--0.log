@@ -1,0 +1,28 @@
+◆ ollama/mistral-large-3:675b-cloud (T3, cloud·quota) — pinned
+  ↻ ollama/mistral-large-3:675b-cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (31s)
+  … waiting for the model (1m6s)
+  … waiting for the model (1m36s)
+  … waiting for the model (2m11s)
+  … waiting for the model (2m46s)
+  … waiting for the model (3m21s)
+  … waiting for the model (3m56s)
+  … waiting for the model (4m26s)
+  ↻ the model is pinned (/model auto lets ternly escalate)
+  ↻ no text or tool call after 5m0s (reasoning none) — interrupted; retrying once at low
+  … waiting for the model (31s)
+  … waiting for the model (1m6s)
+  … waiting for the model (1m41s)
+  … waiting for the model (2m16s)
+  … waiting for the model (2m51s)
+  … waiting for the model (3m26s)
+  … waiting for the model (4m1s)
+  … waiting for the model (4m31s)
+  … waiting for the model (5m6s)
+
+$0.0000 · 0% cache hits · 4007 tokens in, 54 out
+done in 10m42.538s
+
+--- answer ---
+{"name": "edit_file", "parameters": {"path": "internal/llm/retry_after.go", "old_string": "\"int64\"", "new_string": "\"(int64 \| \\*-time.Duration\")\"", "replace_all": "true"}}

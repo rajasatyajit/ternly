@@ -1,0 +1,13 @@
+◆ ollama/kimi-k2.7-code:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/simplelru/*.go
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-3 +3 lines)
+  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_kimi-k2.7-code_cloud--0-1791464216418701153/ws && go build ./... && go vet ./... && go test ./simplelru/...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 151ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 84% cache hits · 18192 tokens in, 362 out
+done in 16.442s
+
+--- answer ---
+Found it. `Resize` uses `i <= diff` in the loop, so it removes `diff+1` entries instead of `diff`. When `size` equals the current length, `diff` is 0 and it still evicts one entry.Fixed `simplelru.Resize`: changed the eviction loop from `i <= diff` to `i < diff` so it evicts exactly `diff` entries instead of one extra. Build, vet, and tests pass.

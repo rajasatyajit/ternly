@@ -1,0 +1,18 @@
+◆ ollama/nemotron-3-ultra:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/simplelru/**/*.go
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go test ./simplelru/... -v -run TestResize
+  → read_file simplelru/lru_test.go
+  → bash go test ./simplelru/... -v -run TestLRU_Resize
+  → bash go test ./simplelru/... -v
+  → bash go build ./... && go vet ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 148ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 0% cache hits · 67369 tokens in, 866 out
+done in 49.425s
+
+--- answer ---
+Found the bug in the `Resize` function at line 161. The loop uses `i <= diff` instead of `i < diff`, causing an off-by-one error. When `diff` is 0 (capacity >= current entries), it still loops once and evicts an entry.
+Fixed. The bug was in `simplelru/lru.go:161` — the `Resize` function used `i <= diff` instead of `i < diff`, causing an off-by-one error that evicted one entry even when the new capacity was >= current entries (making `diff = 0`). Changed to `<` so zero entries are evicted when capacity is sufficient. All tests pass.

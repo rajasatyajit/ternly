@@ -1,0 +1,27 @@
+prompt ec8e1a226d3b
+◆ ollama/gemma4:e4b (T2, local) — T2 task → est. 6.0 min, local, GPU 52%, p≥0.65; next granite3.3:8b (est. 1.9 min, local, GPU 100%) · reasoning low
+  → glob simplelru
+  → grep simplelru
+  → read_file simplelru/lru.go
+  … generating (668 chunks, 30s)
+  ↻ ollama/gemma4:e4b ended its turn without an answer — asking it once more
+
+$0.0000 · 72% cache hits · 22026 tokens in, 2866 out
+done in 1m42.23s
+
+--- answer ---
+**Plan:**
+1. Locate the `simplelru` package files using `glob`.
+2. Examine the code, specifically the `Resize` method, to understand the eviction logic.
+3. Fix the bug where `Resize` evicts an entry when the new capacity is sufficient.
+4. Test the fix.
+
+Let's start by locating the files.<channel|>The bug report indicates that `Resize` incorrectly evicts an entry when the target capacity (`size`) is equal to or greater than the current number of entries.
+
+In `simplelru/lru.go`, the `Resize` function calculates the difference (`diff`) and then uses a loop `for i := 0; i <= diff; i++` to call `c.removeOldest()`.
+
+If `c.Len()` equals `size`, then `diff` is 0. The loop runs for `i=0` and mistakenly calls `c.removeOldest()` once, causing an unwanted eviction.
+
+The loop condition should be changed from `i <= diff` to `i < diff` to ensure the eviction happens exactly `diff` times (zero times if `diff` is zero or negative).
+
+I will apply the fix now.<channel|>

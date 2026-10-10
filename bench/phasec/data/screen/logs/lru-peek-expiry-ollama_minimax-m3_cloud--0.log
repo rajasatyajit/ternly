@@ -1,0 +1,23 @@
+◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → bash ls -la
+  → bash ls -la expirable/
+  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go
+  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
+  → grep func Test.*Peek|func \(c \*LRU\[K, V\]\) Peek  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable
+  → grep ^func Test  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
+  → bash ls internal/
+  → grep ExpiresAt|Entry\[  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/internal/list.go
+  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go  (-15 +33 lines)
+  → bash go build ./... && go vet ./...
+  → bash go test ./expirable/... -count=1 -run . -timeout 60s
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 179ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 86% cache hits · 112627 tokens in, 1437 out
+done in 24.436s
+
+--- answer ---
+Now I have a clear picture. Let me look at the internal Entry to confirm the `ExpiresAt` field name:Good. Now let me add the `PeekWithExpiry` method to `expirable_lru.go`. It mirrors `Peek` but also returns `ExpiresAt`, and like `Peek` does not update recency and treats already-expired entries as missing:Now build and test to confirm:Build, vet, and the full `expirable` test suite all pass.
+
+Summary of changes:
+- `expirable/expirable_lru.go`: added `PeekWithExpiry(key K) (value V, expiresAt time.Time, ok bool)`. It mirrors `Peek` (no recency update, treats already-expired entries as missing), and additionally returns the entry's `ExpiresAt`. Missing or expired entries return the zero value, `time.Time{}` and `false`.

@@ -1,0 +1,49 @@
+◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep chunked\(  more_itertools
+  → glob more_itertools/**/*.py
+  → read_file more_itertools/more.py
+  → grep 'chunked'  more_itertools
+  → read_file more_itertools/more.pyi
+  → read_file more_itertools/more.py
+  → edit_file more_itertools/more.py  (-4 +50 lines)
+  → edit_file more_itertools/more.py  (-2 +3 lines)
+  → edit_file more_itertools/more.pyi  (-2 +3 lines)
+  → grep ^def chunked|^def first  more_itertools/more.pyi
+  → read_file more_itertools/more.pyi
+  → edit_file more_itertools/more.pyi  (-3 +8 lines)
+  → bash grep -n "Callable" more_itertools/more.pyi | head -3; python3 -c "
+from more_itertools import chunked_by_weight as c
+assert list(c(['aaa','bb','cc','ddd'],4)) == [['aaa','bb'],['cc'],['ddd']]
+assert list(c([1,10,2],3,weight=lambda x:x)) == [[1],[10],[2]]
+assert list(c([],5)) == []
+try: c([],0); assert False
+except ValueError: pass
+assert list(c([],None)) and False or True
+try: c([],None); assert False
+except ValueError: pass
+print('ok')" && python3 -m compileall -q .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -c "
+from more_itertools import chunked_by_weight as c
+assert list(c(['aaa','bb','cc','ddd'],4)) == [['aaa','bb'],['cc'],['ddd']]
+assert list(c([1,10,2],3,weight=lambda x:x)) == [[1],[10],[2]]
+assert list(c([],5)) == []
+for bad in (0, -1, None):
+    try: c([],bad); assert False
+    except ValueError: pass
+print('ok')"
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m compileall -q .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → read_file more_itertools/more.py
+  → edit_file more_itertools/more.py  (-2 +2 lines)
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 178ms: python3 -m compileall -q . · python compile: 2 file(s) · ruff format: not run, formatting unchecked · 2 changed source file(s) covered
+
+$0.0000 · 92% cache hits · 81584 tokens in, 1872 out
+done in 32.539s
+
+--- answer ---
+Now add the function after `chunked` in more.py, plus `__all__` and .pyi entries:The sandbox denied all build/test commands this session, so I couldn't run `python3 -m compileall` or the assertions — the code below is **unverified by execution**. Let me do a final read of the added function to double-check it:One issue: tracing `['aaa','bb','cc','ddd']` with max 4 actually yields `[['aaa'], ['bb','cc'], ['ddd']]` ('bb'+'cc' = 4 fits). Fix the doctest:Added `chunked_by_weight(iterable, max_weight, weight=len)` to `more_itertools/more.py` (after `chunked`), registered in `__all__` in both `more.py` and the stub `more.pyi` (with a typed signature). Semantics: greedily packs consecutive items while the weight sum stays ≤ `max_weight`; an item heavier than `max_weight` is yielded alone; empty input yields nothing; `max_weight <= 0` (or `None`) raises `ValueError`.
+
+Caveat: the sandbox denied every command this session, including `python3 -m compileall`, so I could not run the project check command or doctests — this change is unverified by execution.

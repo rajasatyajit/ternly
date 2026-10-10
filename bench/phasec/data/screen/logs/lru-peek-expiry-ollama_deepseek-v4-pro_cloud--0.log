@@ -1,0 +1,13 @@
+◆ ollama/deepseek-v4-pro:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/expirable/*.go
+  → read_file expirable/expirable_lru.go
+  → edit_file expirable/expirable_lru.go  (-3 +21 lines)
+  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_deepseek-v4-pro_cloud--0-1791464246498834466/ws && go build ./... && go vet ./... && go test ./expirable/ 2>&1 | tail -20
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 154ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 73% cache hits · 30948 tokens in, 657 out
+done in 7.5s
+
+--- answer ---
+Added `PeekWithExpiry` to `expirable/expirable_lru.go`, mirroring `Peek` but returning the entry's `ExpiresAt` alongside the value without updating recency. Build, vet, and tests pass.

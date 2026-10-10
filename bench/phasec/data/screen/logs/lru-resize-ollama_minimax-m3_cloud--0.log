@@ -1,0 +1,64 @@
+◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → bash pwd && ls
+  → bash ls simplelru/
+  → read_file simplelru/lru.go
+  → grepgrep grepgrep
+  ✗ grepgrep failed: error: unknown tool "grepgrep". Did you mean "grep"? Available tools: read_file, edit_file, write_file, delete_file, glob, grep, bash, find_symbol, references, callers, callees, implementations, related_files, impact, remember, recall
+  → grep Resize  .
+  → read_file simplelru/lru_test.go
+  → read_file lru_test.go
+  → read_file 2q.go
+  → read_file expirable/expirable_lru.go
+  → edit_file simplelru/lru.go  (-3 +3 lines)
+  → read_file simplelru/lru_test.go
+  → edit_file simplelru/lru_test.go  (-5 +15 lines)
+  → bash go test ./simplelru/... -run TestLRU_Resize -v
+  ✗ bash failed: error: command exited with status 1
+  → edit_file simplelru/lru_test.go  (-10 +11 lines)
+  → bash go test ./simplelru/... -v 2>&1 | tail -40
+  → bash cd /tmp && cat > /tmp/repro.go <<'EOF'
+package main
+
+import (
+	"fmt"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
+)
+
+func main() {
+	c, _ := simplelru.NewLRU[string, int](10, nil)
+	for i := 0; i < 3; i++ {
+		c.Add(fmt.Sprintf("k%d", i), i)
+	}
+	fmt.Printf("before Resize: len=%d cap=%d\n", c.Len(), c.Cap())
+	evicted := c.Resize(10)
+	fmt.Printf("after Resize(10): len=%d cap=%d evicted=%d\n", c.Len(), c.Cap(), evicted)
+}
+EOF
+cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_minimax-m3_cloud--0-1791464212421681551/ws && go run /tmp/repro.go
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → edit_file simplelru/lru.go  (-3 +3 lines)
+  → bash go test ./simplelru/... -run TestLRU_Resize -v 2>&1 | tail -20
+  → edit_file simplelru/lru.go  (-3 +3 lines)
+  → bash go build ./... && go vet ./... && go test ./... 2>&1 | tail -30
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 151ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered
+
+$0.0000 · 95% cache hits · 176388 tokens in, 3315 out
+done in 49.439s
+
+--- answer ---
+Found the bug. In `Resize` (simplelru/lru.go:161) the loop condition is `i <= diff` instead of `i < diff`, so it always evicts one more entry than required. Let me check whether the same pattern exists in the other LRU variants and what the tests expect.The existing test only covers upsize from 1→2, where `diff=0` and `i <= 0` happens to evict 1. So the test inadvertently relied on the bug. Let me check the outer `lru_test.go` for the same:Confirmed. Both tests are nearly identical, and they exercise the upsize with `Resize(2)` after the cache has 1 entry: `diff = 1 - 2 = -1 → 0`, then `i <= 0` runs `removeOldest` once, evicting element 3. Then `Add(4, 4)` makes 4 the newest and 3 the oldest, but `Contains(3)` is still true since 3 wasn't evicted by Add. The test happens to pass because it only checks `Contains(3)` and `Contains(4)`, never checking that 3 was still there. Wait, let me reread...
+
+Actually, after `Resize(2)` with 1 entry, the bug evicts 1 entry → 0 entries left. Then `Add(4, 4)` → 1 entry, contains 4. The test then checks `!l.Contains(3) || !l.Contains(4)` evaluates to `true || false = true`? No: `!l.Contains(3)` is `!false = true`, so the OR is `true` and the test passes. The bug was hidden.
+
+Now let me check 2q.go and expirable to see if the same off-by-one exists:`2q.go:199` uses `i < diff` — correct. And `2q.go:204-206` calls `c.recent.Resize(size)` etc. but `recent.Resize` is the simplelru's buggy one, so 2Q's sub-LRUs would each wrongly evict one extra. But 2Q's outer `c.size` controls behavior elsewhere. Let me check `expirable`:`expirable/expirable_lru.go:313` uses `i < diff` — correct. The bug is isolated to `simplelru/lru.go:161`. Let me fix it.Now let me add a regression test that exercises an upsize where the cache already has enough entries — this is exactly the scenario the bug report describes (Resize to a capacity ≥ entries still evicted).The onEvictCounter is already 3 from prior steps in the test, not 1 — my assertion was wrong. Let me reread the counter behavior:
+
+After Downsize 2→1: 1 eviction (counter=1). After `l.Add(3, 3)`: triggers another eviction because cache is at cap 1 with 2 entries → counter=2. After `Resize(2)` with bug-fixed code: counter still 2. After `l.Add(4, 4)`: still cap 2, 2 entries, no eviction → counter=2. After my new `l.Add(5, 5)`: triggers eviction (cap 2, 3 entries) → counter=3.
+
+So after my added `Resize(10)` the counter is 3 regardless. The important assertion is `evicted == 0`. Let me drop the counter check and capture the counter value just before Resize instead.Now let me verify the fix without my new test confirms the bug:Let me confirm the fix more directly by reverting it temporarily and running the new test:Interesting — the existing test (`onEvicted should have been called 1 time: 2` and `Cache should have contained 2 elements`) also fails when the bug is present. So my regression test isn't just adding a new check; it also exposes the upstream existing test was broken under the bug all along. The first failure at line 197 means `onEvictCounter` is 2 after the downsize — that's because `Resize(1)` with diff=0 evicts 1, then the `Add(3,3)` adds 3 and evicts 1 (since cap is 1), making counter=2. The test expects 1. Then `Resize(2)` with the bug (diff=0, i<=0) evicts the remaining element, leaving 0 entries; `Add(4, 4)` adds 1, so `Contains(3)` is false, hence "Cache should have contained 2 elements" fails.
+
+Good — the existing test was actually broken under the bug; the only reason CI didn't catch it must be that it never ran with the buggy `i <= diff` condition, or the test was added at a time when the bug was present. Either way, the test now correctly exercises both branches. Restore the fix:All tests pass. Summary:
+
+- **Cause**: `simplelru/lru.go:161` used `for i := 0; i <= diff; i++` in `Resize`, so when `diff == 0` (i.e. upsize or right-sizing with no excess) it still called `removeOldest` once. The correct upper bound is `i < diff` (which is what `2q.go:199` and `expirable/expirable_lru.go:313` already do).
+- **Fix**: Changed the loop bound in `simplelru/lru.go:161` to `i < diff`.
+- **Test**: Extended `TestLRU_Resize` in `simplelru/lru_test.go` to cover upsizing to a capacity ≥ the current entry count. The pre-existing upsize branch of that test was also broken under the bug, and now passes.

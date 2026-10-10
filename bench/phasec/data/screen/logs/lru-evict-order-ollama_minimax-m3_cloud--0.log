@@ -1,0 +1,32 @@
+◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws
+  → bash ls simplelru/
+  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go
+  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/
+  → bash grep -n "func.*LruList" /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
+  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
+  → grep removeOldest|RmvOldest|RemoveOldest  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru
+  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go  (-6 +6 lines)
+  → bash grep -n "removeOldest\b" /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/lru.go
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash go test ./simplelru/... 2>&1 | tail -40
+  → bash go test ./... 2>&1 | tail -20
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 186ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 89% cache hits · 72413 tokens in, 1699 out
+done in 32.76s
+
+--- answer ---
+I found the cause. Let me verify by looking at the internal list semantics and the test file.The list is implemented as container/list (doubly linked list) where `PushFront` puts items at the front, and `Back()` returns the last element. In a standard LRU layout, the **front of the list holds the most recently used** and the **back holds the least recently used**. Let me verify by examining the `insert` and `PushFront` semantics — specifically whether `PushFront` puts the new entry such that `Back()` is the oldest:
+
+- `PushFront` inserts at `root.next` (head).
+- `Back()` returns `root.prev` (tail) — which is the oldest entry since entries are added at the front and only `MoveToFront` reorders on use.
+
+So `RemoveOldest()` (line 107–113) correctly uses `Back()`. But `removeOldest()` (lowercase, line 169–173) is what `Add` calls on eviction, and it uses **`Front()`** — which is the most recently used entry. That's the bug.
+
+Let me confirm by reading the test file to make sure my fix won't break expected behavior:`removeOldest` is only called from `Add` (line 65) and `Resize` (line 162). Both want the *least* recently used entry. `Front()` is the most-recently-used. The fix is `Back()`.Let me look at how the other list-based callers (`RemoveOldest`, `GetOldest`, `Keys`, `Values`) are arranged. They all use `Back()` correctly — so the convention is established: back = oldest. The lowercase helper was inconsistent. Let me also check the upper-layer `lru.go` to see if it uses a parallel helper:That was unrelated reconnaissance — ignoring. Let me run the test suite to verify the fix:All packages green.
+
+**Cause:** In `simplelru/lru.go`, the unexported `removeOldest()` (called from `Add` on eviction and from `Resize`) read from `c.evictList.Front()`. The internal list's convention — used by `RemoveOldest()`, `GetOldest()`, `Keys()`, and `Values()` in the same file — is that `Back()` is the least recently used entry and `Front()` is the most recently used one (items are inserted with `PushFront` and promoted with `MoveToFront`). Reading from `Front()` therefore evicted the most recently used entry.
+
+**Fix:** one-line change in `simplelru/lru.go:170` — `c.evictList.Front()` → `c.evictList.Back()`, making eviction order consistent with the rest of the package.

@@ -1,0 +1,14 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T2 task → est. 1.9 min, local, GPU 100%, p≥0.22; next gemma4:e4b (est. 6.0 min, local, GPU 52%)
+  → find_symbol simplelru.GetByLeastRecentlyUsed
+  ✗ find_symbol failed: error: invalid arguments for find_symbol:
+
+$0.0000 · 27% cache hits · 3893 tokens in, 116 out
+done in 14.218s
+
+--- answer ---
+I will rephrase the arguments to match the type and schema definition.
+
+Let me re-format the find_symbol arguments to match the required type and schema definition.
+
+{"name": "find_symbol", "parameters": {"include_deps": false, "kind": "func", "limit": 1, "query": "simplelru.GetByLeastRecentlyUsed"}}
