@@ -13,6 +13,9 @@ trap cleanup EXIT
 proxy_down() { [ -f "$R/proxy.pid" ] && kill "$(cat "$R/proxy.pid")" 2>/dev/null; sleep 0.5; }
 proxy_up() { setsid nohup "$R/bin/proxy" >/dev/null 2>&1 < /dev/null & echo $! > "$R/proxy.pid"; sleep 0.5; }
 t0=$(date +%s)
+# the boundary's self-check, in this cell's own dirs, before the harness starts; any FAIL refuses the cell
+mkdir -p "$R/homes/$id"; "$D/box.sh" --check "$fx" "$R/homes/$id" > "$out/sandbox-check.txt" 2>&1
+if [ $? -ne 0 ] || grep -q '^FAIL' "$out/sandbox-check.txt"; then echo "$hn $sc outcome=sandbox-check-failed" | tee "$out/result.txt"; exit 1; fi
 "$D/launch.sh" "$hn" "$id" "$fx" > "$out/launch.txt" || { echo "$hn $sc outcome=launch-failed" | tee "$out/result.txt"; exit 1; }
 if ! "$D/onboard.sh" "$hn" "$id" > "$out/onboard.txt" 2>&1; then
   $S capture-pane -p -t "$id" > "$out/final.txt" 2>/dev/null
@@ -40,7 +43,7 @@ $S capture-pane -p -t "$id" > "$out/final.txt"
 $S capture-pane -p -J -S - -t "$id" > "$out/scrollback.txt"
 case $sc in # objective checks only
 S1) grep -qiE "evict" "$out/scrollback.txt" && grep -qiE "least.recently|LRU|oldest" "$out/scrollback.txt" && o=answered || o=no-answer ;;
-S2) (cd "$fx" && GOFLAGS=-mod=mod go test -count=1 ./simplelru/ >/dev/null 2>&1) && o=pass || o=fail ;;
+S2) "$D/box.sh" "$fx" "$R/homes/$id" -- env HOME="$R/homes/$id" GOCACHE="$R/homes/$id/.cache/go-build" GOMODCACHE="$R/homes/$id/go/pkg/mod" GOFLAGS=-mod=mod GOTOOLCHAIN=local go test -count=1 ./simplelru/ >/dev/null 2>&1 && o=pass || o=fail ;; # model-written code: tested inside the boundary
 S3) f=$fx/src/index.ts; grep -qE "once\s*[<(:]" "$f" && a=y || a=n; grep -qE "return\s+\w*(count|called|calls|total|handlers?\w*\.length|n)\b" "$f" && b=y || b=n; o="once=$a count=$b" ;;
 S4) grep -qiE "peek" "$out/scrollback.txt" && grep -qiE "MoveToFront|recency|recent" "$out/scrollback.txt" && a=y || a=n
     grep -qiE "resize" "$out/scrollback.txt" && grep -qE "<=|off.by.one|one too many|extra" "$out/scrollback.txt" && b=y || b=n; o="peek_bug=$a resize_bug=$b" ;;

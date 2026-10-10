@@ -11,11 +11,11 @@ h=$R/homes/$id; rm -rf "${h:?}"; mkdir -p $h/.config $h/.local/share $h/.cache $
 M=gemma4:latest
 base=(env -i HOME=$h XDG_CONFIG_HOME=$h/.config XDG_DATA_HOME=$h/.local/share XDG_CACHE_HOME=$h/.cache XDG_STATE_HOME=$h/.local/state TMPDIR=$h/tmp
   PATH=/home/satyajit/.nvm/versions/node/v22.22.2/bin:/usr/local/bin:/usr/bin:/bin TERM=xterm-256color COLORTERM=truecolor LANG=C.UTF-8
-  GOCACHE=$(go env GOCACHE) GOMODCACHE=$(go env GOMODCACHE) GOPATH=$(go env GOPATH) GOTOOLCHAIN=local GOFLAGS=-mod=mod)
+  GOCACHE=$h/.cache/go-build GOMODCACHE=$h/go/pkg/mod GOPATH=$h/go GOTOOLCHAIN=local GOFLAGS=-mod=mod)
 case $hn in
 ternly)  cmd=("${base[@]}" TERNLY_BACKGROUND_EVAL=1 OLLAMA_HOST=http://127.0.0.1:11435 $R/ternly --model $M --mode yolo --local-only) ;;
-claude)  cmd=("${base[@]}" ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=ollama CLAUDE_CODE_MAX_CONTEXT_TOKENS=131072 ANTHROPIC_MODEL=$M ANTHROPIC_DEFAULT_HAIKU_MODEL=$M ANTHROPIC_DEFAULT_SONNET_MODEL=$M ANTHROPIC_DEFAULT_OPUS_MODEL=$M CLAUDE_CODE_SUBAGENT_MODEL=$M DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_TELEMETRY=1 /home/satyajit/.local/bin/claude --dangerously-skip-permissions) ;;
-codex)   mkdir -p $h/.codex; printf 'model = "%s"\nmodel_provider = "ollama-local"\n[model_providers.ollama-local]\nname = "Ollama (local)"\nbase_url = "http://127.0.0.1:11435/v1"\nwire_api = "responses"\n' "$M" > $h/.codex/config.toml; cmd=("${base[@]}" CODEX_HOME=$h/.codex $H/codex/node_modules/.bin/codex --dangerously-bypass-approvals-and-sandbox) ;;
+claude)  cmd=("${base[@]}" ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=ollama CLAUDE_CODE_MAX_CONTEXT_TOKENS=131072 ANTHROPIC_MODEL=$M ANTHROPIC_DEFAULT_HAIKU_MODEL=$M ANTHROPIC_DEFAULT_SONNET_MODEL=$M ANTHROPIC_DEFAULT_OPUS_MODEL=$M CLAUDE_CODE_SUBAGENT_MODEL=$M DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_TELEMETRY=1 $(readlink -f /home/satyajit/.local/bin/claude) --dangerously-skip-permissions) ;;
+codex)   mkdir -p $h/.codex; printf 'model = "%s"\nmodel_provider = "ollama-local"\n[model_providers.ollama-local]\nname = "Ollama (local)"\nbase_url = "http://127.0.0.1:11435/v1"\nwire_api = "responses"\n' "$M" > $h/.codex/config.toml; cmd=("${base[@]}" CODEX_HOME=$h/.codex $H/codex/node_modules/.bin/codex --sandbox workspace-write --ask-for-approval never) ;;
 crush)   mkdir -p $h/.config/crush; cat > $h/.config/crush/crush.json <<J
 {"providers":{"ollama":{"name":"Ollama (local)","type":"openai","base_url":"http://127.0.0.1:11435/v1","api_key":"ollama","models":[{"id":"$M","name":"gemma4 (local)","context_window":32768,"default_max_tokens":4096}]}},
  "models":{"large":{"provider":"ollama","model":"$M"},"small":{"provider":"ollama","model":"$M"}},"options":{"disable_metrics":true}}
@@ -46,5 +46,6 @@ gemini)  cmd=("${base[@]}" $H/gemini/node_modules/.bin/gemini) ;;
 *) echo "unknown harness $hn"; exit 2 ;;
 esac
 printf '%q ' "${cmd[@]}" > $R/homes/$id.cmd
-"$(dirname "$0")/rec.sh" start "$id" "$cols" "$rows" "$wd" "${cmd[@]}"
+# every harness runs inside the boundary (box.sh: bubblewrap; only $wd and $h writable)
+"$(dirname "$0")/rec.sh" start "$id" "$cols" "$rows" "$wd" "$(dirname "$0")/box.sh" "$wd" "$h" -- "${cmd[@]}"
 echo "started $hn as $id in $wd (home $h)"

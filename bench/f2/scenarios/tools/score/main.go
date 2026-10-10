@@ -1,5 +1,6 @@
 // score computes each F2 scenario cell's outcome from its saved recording and
-// fixture: score <runtime-dir R> → scores.tsv on stdout. Outcomes are judged
+// fixture: score <runtime-dir R> <box.sh> → scores.tsv on stdout. S2's tests
+// run model-written code, so they run inside box.sh's boundary. Outcomes are judged
 // only on the harness's output: lines that contain the scenario's prompt are
 // removed first (the first batch's S1 check matched the prompt itself, which
 // contains "eviction" and "simplelru/lru.go", and passed a Codex run that was
@@ -51,11 +52,11 @@ var (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: score <R>")
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: score <R> <box.sh>")
 		os.Exit(2)
 	}
-	R := os.Args[1]
+	R, box := os.Args[1], os.Args[2]
 	cells, _ := filepath.Glob(filepath.Join(R, "out", "*", "S[1-5]"))
 	sort.Strings(cells)
 	fmt.Println("harness\tscenario\toutcome\tdetail\twall")
@@ -82,8 +83,11 @@ func main() {
 			case "S1":
 				outcome = map[bool]string{true: "answered", false: "no-answer"}[reS1.MatchString(out)]
 			case "S2":
-				t := exec.Command("go", "test", "-count=1", "./simplelru/")
-				t.Dir, t.Env = fx, append(os.Environ(), "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+				home := filepath.Join(R, "homes", hn+"-"+sc)
+				_ = os.MkdirAll(home, 0o755)
+				t := exec.Command(box, fx, home, "--", "env", "HOME="+home, "GOCACHE="+home+"/.cache/go-build",
+					"GOMODCACHE="+home+"/go/pkg/mod", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "go", "test", "-count=1", "./simplelru/")
+				t.Env = append(os.Environ(), "R="+R)
 				err := t.Run()
 				outcome = map[bool]string{true: "pass", false: "fail"}[err == nil]
 				detail = "changed=" + map[bool]string{true: "y", false: "n"}[diff != ""]

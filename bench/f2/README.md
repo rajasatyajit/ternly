@@ -69,6 +69,52 @@ passed a Codex run whose prompt was never submitted: Codex's folder-trust dialog
 Autocomplete could shorten a typed command; the count doesn't assume it. Every matrix cell cites
 the screen that shows the fact.
 
+## The boundary (every harness, ternly included): `scenarios/box.sh`
+The rivals run with their own permission prompts off (`claude --dangerously-skip-permissions`,
+`crush --yolo`, OpenCode's allow-all permissions), so a temporary HOME alone wouldn't stop a
+harness, or the model driving it, from reading or writing the owner's files by absolute path.
+
+Every harness therefore runs under bubblewrap:
+- `--die-with-parent --unshare-all --share-net`;
+- a tmpfs over `/home/satyajit`, so the real home is invisible apart from the binds below;
+- read-only: `/usr`, a minimal `/etc` (passwd, group, hosts, resolv.conf, nsswitch, ssl,
+  ca-certificates, localtime), the harness installs, the Node runtime, Claude Code's version
+  directory and the ternly binary;
+- writable: only the cell's workspace and its temporary HOME;
+- a fresh `/tmp`, `/run`, `/proc` and `/dev`.
+
+`box.sh` fails closed: with no bwrap, nothing runs. Where a harness has its own sandbox it is used
+as well: Codex runs `--sandbox workspace-write --ask-for-approval never` instead of its bypass
+flag, and CodeWhale runs `sandbox_mode = "workspace-write"`. ternly's own shell sandbox nests
+inside the box; nested bwrap was checked to work.
+
+**Network:** the host network stays reachable (`--share-net`), because the harnesses need the local
+model proxy on 127.0.0.1:11435. The harnesses are configured only for that endpoint, with
+telemetry and autoupdate off where they offer it, but the box itself does not block outbound
+traffic.
+
+**Self-check, per cell:** `run.sh` runs `box.sh --check` in the cell's own directories before starting
+the harness, and refuses the cell on any FAIL. The result is saved as `sandbox-check.txt` in the
+cell. It checks:
+- a canary file under the real home (`~/.ternly-f2-canary`), the ternly repo and `~/.ssh` are
+  invisible;
+- the harness install, `/usr` and the ternly binary are read-only;
+- the workspace and temp HOME are writable;
+- the proxy is reachable;
+- a write under the real-home path does not persist outside the sandbox.
+
+Mutation: binding the real home into the box makes the canary, repo and `~/.ssh` lines FAIL
+(checked).
+
+**Tests run in the box too:** S2's tests run model-written code, so `run.sh` and `tools/score` run
+them inside it.
+
+**Before the boundary existed:**
+- Cells run without it were archived outside the results and re-run under it.
+- An audit of the owner's home for that window found no write by an F2 run outside its
+  isolation. No harness config file in the real home mentions an F2 path.
+- The root filesystem is mounted `noatime`, so reads can't be audited and are not ruled out.
+
 ## Isolation and what is not touched
 - Each harness gets a fresh temp `HOME`, so no real config, credentials or folder-trust list is
   read or written.
