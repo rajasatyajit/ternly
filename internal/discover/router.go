@@ -25,6 +25,8 @@ type Router struct {
 	newer     map[*Model]int       // newer models of the same family (familyRanks)
 	// evalStatus reports a model's background evaluation (internal/bgeval)
 	evalStatus func(*Model) string
+	// quotaLog persists quota hits for other processes (background evaluation; ADR 031)
+	quotaLog *QuotaLog
 }
 
 func NewRouter() *Router { return &Router{ready: make(chan struct{})} }

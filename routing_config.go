@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/bgeval"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/idle"
 )
 
 // routingConfig is the "routing" config key (ADR 018). It takes a string
@@ -106,7 +108,10 @@ func (w *watchdogSetting) UnmarshalJSON(b []byte) error {
 // review, decision 3). Each runs this binary's own --eval on one model: the
 // bundled trap workspaces only, never the user's repository, in its own
 // process group, logged to <data>/background-eval/<model>.log.
-func backgroundEvals(c evalCaps, localOnly bool, dataDir string, router *discover.Router, busy func() bool, done func()) *bgeval.Scheduler {
+// It runs only when gate allows (idle, on AC power) and quota has room (ADR
+// 031); leaving idle pauses the evaluation (runPausable), and a quota hit
+// stops it (exit code exitQuota).
+func backgroundEvals(c evalCaps, localOnly bool, dataDir string, router *discover.Router, gate *idle.Gate, quota func(*discover.Model) (bool, string), done func()) *bgeval.Scheduler {
 	caps := bgeval.DefaultCaps
 	if c.Enabled != nil {
 		caps.Enabled = *c.Enabled
@@ -118,13 +123,18 @@ func backgroundEvals(c evalCaps, localOnly bool, dataDir string, router *discove
 		caps.PerWeek = *c.RunsPerWeek
 	}
 	caps.PaidUSD, caps.LocalOnly = c.PaidUSD, localOnly
+	var allowed func() (bool, string) // nil: --models only reads the state
+	if gate != nil {
+		allowed = gate.Allowed
+	}
 	return &bgeval.Scheduler{
+		Idle:   allowed,
 		Caps:   caps,
 		Ledger: bgeval.OpenLedger(filepath.Join(dataDir, "background-eval.json")),
 		Models: router.Models,
-		Busy:   busy,
+		Quota:  quota,
 		Done:   done,
-		Run: func(ctx context.Context, m *discover.Model, budget float64) error {
+		Run: func(ctx context.Context, m *discover.Model, budget float64, pause <-chan bool) error {
 			logDir := filepath.Join(dataDir, "background-eval")
 			if err := os.MkdirAll(logDir, 0o700); err != nil {
 				return err
@@ -139,7 +149,7 @@ func backgroundEvals(c evalCaps, localOnly bool, dataDir string, router *discove
 				return err
 			}
 			cmd.Stdout, cmd.Stderr = log, log
-			return cmd.Run()
+			return runPausable(cmd, pause)
 		},
 	}
 }
@@ -166,4 +176,50 @@ func evalCommand(ctx context.Context, m *discover.Model, budget float64, localOn
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM) }
 	cmd.WaitDelay = 5 * time.Second
 	return cmd, nil
+}
+
+// exitQuota is --eval's exit code when a trap run hit the model's quota
+// (EX_TEMPFAIL): the evaluation stopped and is retried after the reset.
+const exitQuota = 75
+
+// runPausable runs an evaluation's driver with a control pipe (its fd 3,
+// TERNLY_EVAL_CONTROL=3): "p" pauses it — the trap in progress stops and
+// the driver waits — and "r" resumes it, running that trap again and going
+// on (ADR 031). A pipe, not signals: nothing is lost or fatal before the
+// driver is ready, and its end (EOF) tells the driver ternly is gone.
+func runPausable(cmd *exec.Cmd, pause <-chan bool) error {
+	r, w, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	cmd.ExtraFiles = []*os.File{r}
+	cmd.Env = append(cmd.Env, "TERNLY_EVAL_CONTROL=3")
+	err = cmd.Start()
+	r.Close()
+	if err != nil {
+		return err
+	}
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case p := <-pause:
+				b := []byte("r")
+				if p {
+					b = []byte("p")
+				}
+				_, _ = w.Write(b)
+			}
+		}
+	}()
+	err = cmd.Wait()
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() == exitQuota {
+		return bgeval.ErrQuota
+	}
+	return err
 }

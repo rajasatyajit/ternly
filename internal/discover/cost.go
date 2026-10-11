@@ -246,7 +246,9 @@ func (r *Router) SetCostModel(c *CostModel) {
 // V2 reports whether routing v2 is on.
 func (r *Router) V2() bool { r.mu.RLock(); defer r.mu.RUnlock(); return r.cost != nil }
 
-// MarkExhausted takes a model out of routing until t (a quota or rate limit).
+// MarkExhausted takes a model out of routing until t (a quota or rate limit)
+// and, with a quota log set, records the hit for its quota group: background
+// work then leaves that quota alone (ADR 031).
 func (r *Router) MarkExhausted(key string, until time.Time) {
 	r.mu.Lock()
 	if r.exhausted == nil {
@@ -254,6 +256,23 @@ func (r *Router) MarkExhausted(key string, until time.Time) {
 	}
 	r.exhausted[key] = until
 	r.mu.Unlock()
+	r.NoteQuotaHit(key, until)
+}
+
+// NoteQuotaHit records a quota hit in the quota log (if set) without taking
+// the model out of routing: a pay-per-token API's 429 still keeps background
+// work off that API (ADR 031).
+func (r *Router) NoteQuotaHit(key string, until time.Time) {
+	r.mu.RLock()
+	log, group := r.quotaLog, ""
+	for _, m := range r.models {
+		if m.Key() == key {
+			group = QuotaGroup(m)
+			break
+		}
+	}
+	r.mu.RUnlock()
+	_ = log.Mark(group, key, time.Now(), until, "quota or rate limit (HTTP 429 or a usage-limit answer)")
 }
 
 // ExhaustedUntil is when a model rate-limited by its provider comes back
