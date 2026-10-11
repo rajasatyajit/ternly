@@ -108,6 +108,10 @@ func (s *screen) Write(p []byte) (int, error) {
 	return s.buf.Write(p)
 }
 
+// turnEnded matches a turn's receipt, drawn when the turn ends (after its
+// answer, which a test may see first): ↳ turn …, or -> turn … in ASCII.
+var turnEnded = regexp.MustCompile(`(↳|->) turn`)
+
 func (s *screen) waitFor(t *testing.T, want string) {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
@@ -181,6 +185,7 @@ func TestTUIUndoRewindLimits(t *testing.T) {
 	scr.waitFor(t, "fake")
 	send("write v1\r")
 	scr.waitFor(t, "first-turn-done")
+	scr.waitForRe(t, turnEnded) // the answer comes before the turn ends; commands wait for the end
 	fileIs("v1\n")
 
 	send("/limits steps 7\r")
@@ -201,6 +206,7 @@ func TestTUIUndoRewindLimits(t *testing.T) {
 
 	send("\r") // /undo put the prompt back in the input box: resend it
 	scr.waitFor(t, "second-turn-done")
+	scr.waitForRe(t, turnEnded)
 	fileIs("v1 again\n")
 	if _, users := f.seen(); len(users) != 2 || users[1] != "write v1" {
 		t.Fatalf("prompts sent: %q", users)
