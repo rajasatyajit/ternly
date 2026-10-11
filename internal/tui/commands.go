@@ -40,7 +40,7 @@ type command struct {
 	run     func(m *Model, arg string) tea.Cmd // nil: handled by legacyCommand
 }
 
-var sections = []string{"Session", "Models & cost", "Setup", "Changes", "Planning & modes", "Files & shell", "Extensions"}
+var sections = []string{"Session", "Panels", "Models & cost", "Setup", "Changes", "Planning & modes", "Files & shell", "Extensions"}
 
 // builtins is filled in init: the table refers to methods of Model.
 var builtins []*command
@@ -63,6 +63,8 @@ func init() {
 		{name: "pause", section: "Session", desc: "stop at a safe point and save"},
 		{name: "stop", section: "Session", desc: "save as stopped and exit"},
 		{name: "exit", aliases: []string{"quit", "q"}, section: "Session", desc: "exit (the session is saved)"},
+
+		{name: "panel", args: "agents|changes|error|plan|routing", section: "Panels", desc: "open or close a panel (the leader key, then its letter)", run: (*Model).cmdPanel},
 
 		{name: "model", args: "[id|auto]", section: "Models & cost", desc: "pin a model, or return to cost-aware routing"},
 		{name: "models", args: "[filter | why [model]]", section: "Models & cost", desc: "list models: tier, price, context; routing v2: rank and why"},
@@ -254,7 +256,7 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 	}
 	b.WriteString(wrapList(sDim, []string{"@path includes a file", "!cmd runs a command", "Tab completes", "Enter sends",
 		"Shift/Alt+Enter newline", "Esc clears the input, then interrupts", "Ctrl+U deletes to the line start",
-		"PgUp/PgDn scroll", "↑↓ history", "Ctrl+K commands", "Ctrl+O tool output", "Ctrl+B sessions"}, m.cw()))
+		"PgUp/PgDn scroll", "↑↓ history", "Ctrl+K commands", keyName(m.leader()) + " then a letter: panels", "Ctrl+O tool output", "Ctrl+B sessions"}, m.cw()))
 	m.addInfo(b.String())
 	return nil
 }
@@ -623,31 +625,36 @@ func colorDiff(d string, maxLines int) string {
 }
 
 func (m *Model) cmdDiff(string) tea.Cmd {
-	return func() tea.Msg {
-		ctx := context.Background()
-		if !m.isGit(ctx) {
-			p, err := m.App.Agent.PlanRewind(ctx, 1, agent.RewindCode)
-			if err != nil || len(p.Changes) == 0 {
-				return infoMsg(sDim.Render("  not a git repository, and no checkpointed changes in this session"))
-			}
-			return infoMsg("  changed in this session (not a git repository; contents via /rewind):\n  " + checkpoint.Describe(p.Changes, 50))
+	return func() tea.Msg { return infoMsg(m.diffText(200)) }
+}
+
+// diffText is /diff: the working tree's changes (git diff and untracked
+// files), or outside git the files this session's checkpoints changed; at
+// most maxLines diff lines. It runs git: call it off the UI goroutine.
+func (m *Model) diffText(maxLines int) string {
+	ctx := context.Background()
+	if !m.isGit(ctx) {
+		p, err := m.App.Agent.PlanRewind(ctx, 1, agent.RewindCode)
+		if err != nil || len(p.Changes) == 0 {
+			return sDim.Render("  not a git repository, and no checkpointed changes in this session")
 		}
-		stat, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "--stat", "HEAD")
-		d, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "HEAD")
-		un, _ := m.git(ctx, "ls-files", "--others", "--exclude-standard")
-		if strings.TrimSpace(d) == "" && strings.TrimSpace(un) == "" {
-			return infoMsg(sDim.Render("  no changes"))
-		}
-		var b strings.Builder
-		if s := strings.TrimSpace(stat); s != "" {
-			b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
-		}
-		if u := strings.TrimSpace(un); u != "" {
-			b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
-		}
-		b.WriteString(colorDiff(d, 200))
-		return infoMsg(b.String())
+		return "  changed in this session (not a git repository; contents via /rewind):\n  " + checkpoint.Describe(p.Changes, 50)
 	}
+	stat, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "--stat", "HEAD")
+	d, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "HEAD")
+	un, _ := m.git(ctx, "ls-files", "--others", "--exclude-standard")
+	if strings.TrimSpace(d) == "" && strings.TrimSpace(un) == "" {
+		return sDim.Render("  no changes")
+	}
+	var b strings.Builder
+	if s := strings.TrimSpace(stat); s != "" {
+		b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
+	}
+	if u := strings.TrimSpace(un); u != "" {
+		b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
+	}
+	b.WriteString(colorDiff(d, maxLines))
+	return b.String()
 }
 
 func (m *Model) cmdGit(arg string) tea.Cmd {
@@ -1389,6 +1396,16 @@ func (m *Model) updateCompletion() {
 		}
 		if best >= 0 {
 			all = append(all, scored{compItem{name: c.name, hint: c.args, desc: c.desc}, best})
+		}
+	}
+	for i := range keyActions { // every panel, with its keys
+		a := &keyActions[i]
+		if a.panel == "" {
+			continue
+		}
+		name := "panel " + string(a.panel)
+		if s := max(fuzzyScore(q, name), fuzzyScore(q, string(a.panel))-5); s >= 0 {
+			all = append(all, scored{compItem{name: name, desc: panelDescs[a.panel] + " · " + m.actionKeys(a)}, s})
 		}
 	}
 	for _, u := range m.userCmds {

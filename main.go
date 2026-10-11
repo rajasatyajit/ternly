@@ -69,7 +69,10 @@ type fileConfig struct {
 	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
 	Plugins         *bool         `json:"plugins"`        // plugins, skills, agents, rules (default on)
 	Suggestions     *bool         `json:"suggestions"`    // suggest capabilities a task needs (default on)
-	CatalogSources  *struct {
+	Keys            struct {
+		Leader string `json:"leader"` // the key before a panel's letter (default ctrl+x; ADR 030)
+	} `json:"keys"`
+	CatalogSources *struct {
 		Marketplaces []string `json:"marketplaces"` // extra raw marketplace.json URLs
 		MCPRegistry  string   `json:"mcp_registry"` // another MCP registry base URL
 		NPM          *bool    `json:"npm"`          // search npm's mcp-server keyword (default on)
@@ -656,7 +659,11 @@ func run() int {
 		}
 		fc.Routing.BackgroundEval.Enabled = &on
 	}
-	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Discover: func() ([]*discover.Model, []string) {
+	leader, note := tui.ParseLeader(fc.Keys.Leader)
+	if note != "" {
+		notes = append(notes, "config.json: "+note)
+	}
+	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Leader: leader, Discover: func() ([]*discover.Model, []string) {
 		ms, w := discoverFn()
 		if pin != "" {
 			router.SetModels(ms)

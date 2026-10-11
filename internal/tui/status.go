@@ -67,9 +67,14 @@ func quotaLabel(q surface.Quota, now time.Time) string {
 
 // cmdWhy shows how routing ranks every model for the current context.
 func (m *Model) cmdWhy(arg string) tea.Cmd {
+	m.addInfo(m.whyText())
+	return nil
+}
+
+// whyText is /why: how routing ranks every model for the current context.
+func (m *Model) whyText() string {
 	if m.App.Actions == nil {
-		m.addInfo(sDim.Render("  routing explanations need the status interface (ADR 021); /models why works meanwhile"))
-		return nil
+		return sDim.Render("  routing explanations need the status interface (ADR 021); /models why works meanwhile")
 	}
 	e := m.App.Actions.Explain(0, m.snap.Meter.ContextUsed)
 	var b strings.Builder
@@ -90,8 +95,7 @@ func (m *Model) cmdWhy(arg string) tea.Cmd {
 	if len(e.Rows) == 0 {
 		b.WriteString(sDim.Render("  no models") + "\n")
 	}
-	m.addInfo(strings.TrimRight(b.String(), "\n"))
-	return nil
+	return strings.TrimRight(b.String(), "\n")
 }
 
 func usd(v float64) string {

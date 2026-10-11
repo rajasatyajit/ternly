@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### TUI layout, step 4: panels and the leader key (ADR 030 (d))
+- **Ctrl+X, then a letter, opens a panel**, and a popup lists the letters while Ctrl+X waits:
+  a agents, c changes, e last error, p plan, r why (routing), s sessions, o tool output,
+  k commands. The leader is set in config.json (`"keys": {"leader": "f2"}`); ternly refuses
+  Ctrl+D, R, S, Q and Z, and keys the input uses, and says so.
+- **Panels:**
+  - agents: each subagent's model, step, last call, usage and time; after the turn, the last
+    ones, with their turn;
+  - changes: the files ternly changed this session, and the working tree's diff, read again when
+    a turn ends;
+  - last error: ternly's cause, the whole message, the turn's status lines before it, the next
+    step;
+  - routing: why this turn's model, and `/why`'s ranking;
+  - plan: says there's no plan data yet (it comes with Phase C).
+- **At 160 columns or more a panel docks beside the transcript; narrower, it takes the
+  transcript's place.** Esc closes it (after clearing anything typed), PgUp/PgDn scroll it. One
+  panel or the session sidebar, not both.
+- **Alt+letter opens a panel directly where the terminal disambiguates keys** (the kitty keyboard
+  protocol), except b, c, d, f, l and u, which the input uses with Alt.
+- **The Ctrl+K palette lists every panel with its keys** (`/panel agents` …), and `/panel <name>`
+  opens one. In the accessible mode the keys and panels print as text.
+- **`bench/f2/layout`** records the popup and each panel, the panels after all four turns, and a
+  429 without Retry-After (the estimated quota label).
+
 ### Quota times: the provider's, or marked as an estimate
 - **"quota out until HH:MM" only when the provider gave the time**: a Retry-After header, or a
   balance API that reports the quota spent and when it resets. Without one, ternly holds the model

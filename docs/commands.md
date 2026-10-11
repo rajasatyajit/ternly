@@ -42,6 +42,11 @@ agents, hooks), **no** (a reason is given).
 | `/exit` (`/quit`, `/q`) | CC CX GM AI OC | exit (the session is saved as paused) | yes |
 | `/pause`, `/stop` | ternly (requirement 10) | stop at a safe point and save / save as stopped and exit. CC's and CX's `/stop` stop background work, which ternly doesn't run | yes |
 
+## Panels
+| ternly | sources | semantics in ternly | status |
+|---|---|---|---|
+| `/panel agents\|changes\|error\|plan\|routing` | ternly (ADR 030); panels as in OC (leader key) and CX | open or close a panel: agents (each subagent in full), changes (files ternly changed this session, and the working tree's diff), the last error (cause, message, the retries and failover before it), the plan (no plan data until Phase C), routing (why this model, and `/why`'s ranking). The palette lists each with its keys | yes |
+
 ## Models, cost and context
 | ternly | sources | semantics in ternly | status |
 |---|---|---|---|
@@ -138,7 +143,14 @@ Typing `/` opens a list of commands (built-in and user-defined) with description
 fuzzy match as you type; Tab completes and ↑/↓ choose.
 
 ## Keys (ADR 023, ADR 030)
-- **Ctrl+K:** every command, fuzzy-filtered.
+- **Ctrl+X, then a letter:** a panel or an action, with a popup listing the letters while it waits:
+  a agents, c changes, e last error, p plan, r why (routing), s sessions, o tool output, k commands.
+  The leader is set in config.json, `"keys": {"leader": "f2"}` (a Ctrl or Alt letter, or an
+  F-key; not one of the keys below, nor one the input uses). At 160 columns or more a panel docks
+  beside the transcript; narrower, it takes the transcript's place. Esc closes it, PgUp/PgDn
+  scroll it. Where the terminal disambiguates keys (the kitty keyboard protocol), Alt+letter opens
+  the same directly, except for the letters the input uses with Alt (b, c, d, f, l, u).
+- **Ctrl+K:** every command, fuzzy-filtered. Panels are listed too (`/panel …`), with their keys.
 - **Esc:** clears what's typed; with nothing typed, interrupts a running turn. (Before ADR 030 it
   only interrupted.) In a list or a question, Esc closes it, as before.
 - **Ctrl+U:** deletes from the cursor to the start of the line, as in a shell. (Before ADR 030 it

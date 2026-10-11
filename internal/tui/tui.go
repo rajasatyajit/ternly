@@ -191,6 +191,15 @@ type Model struct {
 	gitState      gitMsg            // the workspace's branch and dirty state
 	frameLen      int               // the last frame's length, to size the next one's buffer
 	lanes         []*agent.SubState // this turn's subagents (kept until the next prompt)
+	panel         *panel            // the open panel (panels.go); nil: none
+	leaderKey     string            // the leader (keys.go); "": DefaultLeader
+	leaderWait    bool              // the leader was pressed: the next key picks an action
+	kbdEnhanced   bool              // the terminal disambiguates keys: Alt+letter goes straight to an action
+	sessFiles     map[string]bool   // files ternly's edits and writes changed this session
+	turnTrail     []string          // this turn's status lines (retries, failover), for the error panel
+	lastErr       *errRecord        // the session's last error
+	prevLanes     []*agent.SubState // the last turn's subagents that had any (the agents panel)
+	prevLanesTurn int               // …and that turn's number
 	snapGen       int               // bumped whenever snap is replaced (the status line's cache key)
 	statusCache   struct {
 		key statusKey
@@ -219,6 +228,7 @@ type App struct {
 	Access       Access              // reduced motion, screen reader, mouse (AccessFromEnv)
 	Surface      surface.Status      // status from the core (ADR 021); nil until its adapter exists
 	Actions      surface.Actions     // nil: /why falls back to /models why
+	Leader       string              // the leader key (ParseLeader); "": DefaultLeader
 }
 
 // FPS is the frame rate: 120, the most Bubble Tea allows. Bubble Tea writes a
@@ -242,7 +252,7 @@ func New(app *App, dark bool) *Model {
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
 	ta.KeyMap.DeleteCharacterForward.SetKeys("delete") // not Ctrl+D: ternly binds none of Ctrl+D/R/S/Q/Z (ADR 030)
-	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true}
+	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true, leaderKey: app.Leader, sessFiles: map[string]bool{}}
 	switch app.Theme {
 	case "dark", "light":
 		dark, m.themeSet = app.Theme == "dark", true
@@ -339,6 +349,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.layout()
 		m.refresh(true)
+		m.refreshPanel() // rebuilt for the new width
+
+	case tea.KeyboardEnhancementsMsg:
+		m.kbdEnhanced = msg.SupportsKeyDisambiguation()
+
+	case panelDiffMsg:
+		m.onPanelDiff(msg)
 
 	case tickMsg:
 		m.frame++
@@ -533,6 +550,14 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.review != nil {
 		return m.reviewKey(k), true
 	}
+	if m.perm == nil && m.picker == nil {
+		if c, handled := m.leaderKeyPress(k); handled {
+			return c, true
+		}
+		if m.panel != nil && m.panelKey(k) {
+			return nil, true
+		}
+	}
 	if k.String() == "ctrl+b" && m.perm == nil && m.picker == nil {
 		m.toggleSidebar()
 		return nil, true
@@ -640,20 +665,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.refresh(true)
 		return nil, true
 	case "ctrl+o": // collapsible tool output
-		m.expanded = !m.expanded
-		for _, b := range m.blocks {
-			if b.kind == bTool {
-				b.rendered = ""
-			}
-		}
-		m.refresh(false)
+		m.toggleExpanded()
 		return nil, true
-	case "ctrl+k": // the command palette: every command, fuzzy-filtered as you type
-		if m.ta.Value() == "" {
-			m.ta.SetValue("/")
-			m.ta.CursorEnd()
-			m.updateCompletion()
-		}
+	case "ctrl+k": // the command palette: every command and panel, fuzzy-filtered as you type
+		m.openPalette()
 		return nil, true
 	}
 	return nil, false
@@ -695,7 +710,11 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 	}
 	m.turnCost0, m.turnUsage0, m.turnStart = m.ledger.Cost, m.ledger.Usage, time.Now()
 	m.turnVerify, m.turnFiles = "", map[string]bool{}
+	if len(m.lanes) > 0 {
+		m.prevLanes, m.prevLanesTurn = m.lanes, m.App.Agent.TurnCount()
+	}
 	m.lanes = nil
+	m.turnTrail = nil
 	m.layout()
 	if m.discovering {
 		m.activity = "Discovering models"
@@ -729,6 +748,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		if e.Reason != "pinned" {
 			m.addInfo(m.routeCard(e.Model, e.Reason))
 		}
+		m.refreshPanel(pRouting)
 	case agent.EvToolStart:
 		b := &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text}
 		if b.path, b.diff = editDiff(e.Tool, e.Args); b.path == "" {
@@ -750,6 +770,10 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 					if b.path != "" && m.turnFiles != nil {
 						m.turnFiles[b.path] = true
 					}
+					if b.path != "" {
+						m.sessFiles[b.path] = true
+						m.refreshPanel(pChanges)
+					}
 					b.state = 1
 					b.detail = ""
 					if e.Tool == "bash" || e.Tool == "verify" {
@@ -765,14 +789,21 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.activity = "Thinking"
 	case agent.EvSubagent:
 		m.onSubagent(e.Sub)
+		m.refreshPanel(pAgents)
 	case agent.EvStatus:
 		m.addInfo(sDim.Render("  ↻ " + e.Text))
+		m.turnTrail = append(m.turnTrail, e.Text)
 	case agent.EvUsage:
 		m.ledger = e.Ledger
 	case agent.EvError:
 		m.lastFailed = true
 		m.errors++
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
+		m.lastErr = &errRecord{text: e.Text, at: time.Now(), trail: append([]string(nil), m.turnTrail...)}
+		if m.model != nil {
+			m.lastErr.model = m.model.Key()
+		}
+		m.refreshPanel(pError)
 	case agent.EvDone:
 		m.ledger = e.Ledger
 		if !m.turnStart.IsZero() {
@@ -791,6 +822,11 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			if b.kind == bTool && b.state == 0 {
 				b.state, b.rendered = 2, ""
 			}
+		}
+		m.refreshPanel(pAgents, pRouting)
+		var diff tea.Cmd
+		if m.panel != nil && m.panel.kind == pChanges { // the turn changed files: read the diff again
+			diff = m.fetchDiff()
 		}
 		if sm := m.App.Sessions; sm != nil {
 			go sm.AutoTitle(context.Background())
@@ -821,7 +857,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			}
 			if m.busy { // an after-turn hook started a turn: it runs before the queue
 				m.refresh(true)
-				return tea.Batch(append(out, detect)...)
+				return tea.Batch(append(out, detect, diff)...)
 			}
 		}
 		if len(m.queue) > 0 {
@@ -832,7 +868,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			go func() { cmd() }()
 		}
 		m.refresh(true)
-		return detect
+		return tea.Batch(detect, diff)
 	}
 	m.refresh(true)
 	return nil
@@ -1111,6 +1147,7 @@ func (m *Model) panelHeight() int {
 		permH += 6 // the box: title, what, why, keys, two borders
 	}
 	permH += m.reviewHeight()
+	permH += m.whichKeyRows()
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
@@ -1253,9 +1290,14 @@ func (m *Model) render() (string, int) {
 	var sb strings.Builder
 	sb.Grow(m.frameLen + m.frameLen/8) // the last frame's size: no regrowth (and copy) while it's built
 	sb.WriteString(m.header() + "\n")
-	if m.sideShown() {
+	switch {
+	case m.panelRail():
+		sb.WriteString(m.besidePanel(m.vp.view()) + "\n")
+	case m.panelOverlay(): // the panel in the transcript's place, as many rows
+		sb.WriteString(strings.Join(m.panelView(m.vp.h), "\n") + "\n")
+	case m.sideShown():
 		sb.WriteString(m.besideSidebar(m.vp.view()) + "\n")
-	} else {
+	default:
 		sb.WriteString(m.vp.view() + "\n")
 	}
 	if m.perm != nil {
@@ -1272,6 +1314,9 @@ func (m *Model) render() (string, int) {
 	}
 	if m.suggest != nil {
 		sb.WriteString(m.suggestView() + "\n")
+	}
+	if m.whichKeyRows() > 0 {
+		sb.WriteString(m.whichKeyView() + "\n")
 	}
 	if lanes := m.lanesView(); lanes != "" {
 		sb.WriteString(lanes + "\n")

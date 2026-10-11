@@ -1,0 +1,46 @@
+{
+ "bytes_gzip": 3223,
+ "bytes_total": 29384,
+ "cols": 120,
+ "elapsed_s": 42.862329316,
+ "exited": "\u003cnil\u003e",
+ "rows": 40,
+ "steps": [
+  {
+   "bytes": 1623,
+   "first_byte_ms": 50.854,
+   "ms": 52.216,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "type summarise the cache\\r"
+  },
+  {
+   "ms": 12819.038,
+   "ok": true,
+   "step": "until 90000 SCRIPTED-FAILURE"
+  },
+  {
+   "ok": false,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap quota-estimated"
+  }
+ ],
+ "technique": {
+  "alt_screen": true,
+  "bracketed_paste": true,
+  "full_clears": 1,
+  "kitty_keyboard": true,
+  "mouse_reporting": false,
+  "non_ascii_bytes": 1804,
+  "sgr_16": 751,
+  "sgr_256": 0,
+  "sgr_truecolor": 1029,
+  "sync_updates": 159
+ }
+}

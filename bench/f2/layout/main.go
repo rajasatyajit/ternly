@@ -65,6 +65,9 @@ var probes = []probe{
 	{"ctrl-b", `\x02`, 1}, {"ctrl-o", `\x0f`, 1}, {"ctrl-g", `\x07`, 1}, {"ctrl-e", `\x05`, 1},
 	{"why", `/why\r`, 5}, {"diff", `/diff\r`, 6}, {"cost", `/cost\r`, 6},
 	{"status", `/status\r`, 8}, {"rewind", `/rewind\r`, 8}, {"verify", `/verify\r`, 8}, {"agents", `/agents\r`, 8},
+	// the leader alone (the which-key popup), then the leader and each panel's letter
+	{"leader", `\x18`, 1},
+	{"x-a", `\x18a`, 2}, {"x-c", `\x18c`, 2}, {"x-e", `\x18e`, 2}, {"x-p", `\x18p`, 2}, {"x-r", `\x18r`, 2},
 }
 
 // fact is one of the 20 facts and how its value is recognised on a screen.
@@ -166,6 +169,15 @@ func main() {
 				fmt.Fprintf(&report, "- `%s`: %s\n", name, asciiCheck(res))
 			}
 		}
+	}
+	if strings.Contains(","+*sizes+",", ",120x40,") {
+		fmt.Fprintln(os.Stderr, "run 120x40-quota-estimated")
+		_, ok := quotaEstimated(*ternly, *probeBin, *fake, filepath.Join(*out, "120x40-quota-estimated"), tiers[0])
+		verdict := "the status line says `quota out, retry in about …h (estimated)`, with no clock time"
+		if !ok {
+			verdict = "**FAILED**: no estimate on the status line, or a clock time"
+		}
+		fmt.Fprintf(&report, "- a 429 without Retry-After (`120x40-quota-estimated`): %s\n", verdict)
 	}
 	report.WriteString("\n## Information reach (keys to see each fact; 0 = on the idle screen)\n\n| # | Fact |")
 	for _, r := range runs {
@@ -284,6 +296,11 @@ func script(dir string) string {
 // afterwards: screens show ~/proj-lru and /var/tmp/ternly-layout-…, nothing
 // personal. dir (the output) gets the script.
 func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
+	return fixtureWith(fake, dir, script)
+}
+
+// fixtureWith is fixture with another script for the fake provider.
+func fixtureWith(fake, dir string, script func(string) string) (home, ws string, env []string, stop func()) {
 	must(os.MkdirAll(dir, 0o755)) // the script goes here
 	root, err := os.MkdirTemp("/var/tmp", "ternly-layout-")
 	must(err)
@@ -405,6 +422,10 @@ func session(ternly, probeBin, fake, dir string, s size, t tier) result {
 		`type /mode yolo\r`, "stable 700 10000")
 	// turn 4: the provider's rate limit (429, Retry-After an hour): the error and the quota
 	steps = append(steps, `type summarise what changed\r`, "until 90000 SCRIPTED-FAILURE", "stable 1500 30000", "snap error")
+	// the panels after all four turns (ADR 030 step 4): the leader, then a letter; Esc closes
+	for _, l := range []string{"a", "c", "e", "r"} {
+		steps = append(steps, `type \x18`+l, "stable 700 15000", "snap panel-"+l, `type \e`, "sleep 400")
+	}
 	return runProbe(probeBin, ternly, ws, append(env, t.env...), s, steps, dir)
 }
 
@@ -582,4 +603,27 @@ func privacyFindings(dir string) ([]string, error) {
 		return name == "REPORT.md" || name == "metrics.json" || strings.HasPrefix(name, "screen-")
 		// probe.json, raw.gz and the fake provider's files stay local
 	})
+}
+
+// quotaEstimated runs a one-turn session whose provider answers 429 with no
+// Retry-After: ternly holds the model for its own cooldown, and the status
+// line must say that time is an estimate, not show it as a clock time.
+func quotaEstimated(ternly, probeBin, fake, dir string, t tier) (string, bool) {
+	scr := func(dir string) string {
+		quota := map[string]any{"status": 429,
+			"body": `{"error":{"message":"SCRIPTED-FAILURE: rate limit reached for m1"}}`}
+		b, _ := json.Marshal(map[string]any{"steps": []any{quota, quota, quota, quota}})
+		p := filepath.Join(dir, "script.json")
+		must(os.WriteFile(p, b, 0o644))
+		return p
+	}
+	home, ws, env, stop := fixtureWith(fake, dir, scr)
+	defer stop()
+	defer reap(probeBin, home)
+	r := runProbe(probeBin, ternly, ws, append(env, t.env...), size{120, 40},
+		[]string{"stable 1500 30000", `type summarise the cache\r`, "until 90000 SCRIPTED-FAILURE", "stable 1500 30000", "snap quota-estimated"}, dir)
+	s := r.Snaps["quota-estimated"] // saved as screen-quota-estimated.txt by runProbe
+	ok := regexp.MustCompile(`quota out, retry in about \d+[hm] \(estimated\)`).MatchString(s) &&
+		!regexp.MustCompile(`quota out until \d\d:\d\d`).MatchString(s)
+	return s, ok
 }

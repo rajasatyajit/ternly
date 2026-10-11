@@ -37,6 +37,9 @@ func (m *Model) sideShown() bool {
 
 // cw is the transcript's width: the window, less the sidebar when shown.
 func (m *Model) cw() int {
+	if m.panelRail() {
+		return m.w - panelRailW - 1
+	}
 	if m.sideShown() {
 		return m.w - sidebarW - 1
 	}
@@ -66,6 +69,9 @@ func (m *Model) toggleSidebar() {
 		m.addInfo("  the session list: /resume")
 		return
 	case m.side == nil:
+		if m.panel != nil { // one beside the transcript at a time
+			m.panel = nil
+		}
 		m.side = &sidebar{focused: true}
 		m.reloadSidebar()
 		if cur := m.App.Sessions.Current(); cur != nil {
