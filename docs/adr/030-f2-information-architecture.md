@@ -1,4 +1,4 @@
-# ADR 030 — Phase F2: an extended rubric, the information architecture, and the layout (proposed)
+# ADR 030 — Phase F2: an extended rubric, the information architecture, and the layout (accepted)
 
 Status: **accepted with the owner's decisions (2026-10-11), recorded at the end.** It was first proposed for review before
 any implementation. The owner's instruction: "Start with

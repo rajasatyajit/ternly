@@ -35,7 +35,7 @@ here (49 tokens/s warm, 4.7 s for a turn with a 3.8k-token prompt). Record the m
 digest (dc35e8d9c606) with every result.
 
 **Timing:** every run whose numbers are reported takes the shared lock:
-`flock /home/satyajit/.claude/jobs/f10e4ff6/tmp/heavy.lock …`.
+`flock -o "$LOCK" …` (one shared lock file per machine; `-o` so started daemons don't inherit it).
 
 **No Python anywhere.** Tools are Go (or C/Rust); shell only as glue. This is the owner's rule.
 
