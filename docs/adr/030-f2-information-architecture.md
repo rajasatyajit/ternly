@@ -423,3 +423,15 @@ produce them, and a fact the harness never sees can't count:
 
 Step 3 adds the first three scenarios to the harness and re-measures. Until plan data exists, the best reachable count is 18 of 20,
 and the report will name the two facts it can't yet show.
+
+**After step 3 (agent lanes, 2026-10-11):** the harness gained the agent, approval and quota scenarios. It now measures
+**18 of 20 facts at 0 keys and none missing from the UI**, at every size and tier:
+- running agents: the lanes;
+- pending approval: the box or the review, with its why;
+- quota: "quota out until …" after Ollama Cloud's 429.
+
+The two left are the plan facts (9 and 10), which wait for plan data from the core (deferred with Phase C). The
+≥ 16 target is met, with 18 at 0 keys. "None unavailable" holds for every fact a session can produce today.
+- **Quota "remaining":** shown as a percentage only where the provider reports it (Ollama Cloud's balance API, with
+  `OLLAMA_API_KEY`). A pay-per-token API's 429 is a rate limit: routing keeps the model (ADR 031), so the status line
+  doesn't call it a quota.

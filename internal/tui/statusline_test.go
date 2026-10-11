@@ -12,6 +12,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/llm"
+	"github.com/rajasatyajit/ternly/internal/surface"
 )
 
 // The layout rule itself (ADR 030): fields in priority order; a line that
@@ -256,5 +257,25 @@ func TestStatusCacheFollowsInputs(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 70, Height: 30})
 	if got := m.statusBar(); lipgloss.Width(strings.Split(got, "\n")[0]) > 70 {
 		t.Errorf("after a resize the status is still %d columns", lipgloss.Width(got))
+	}
+}
+
+// A quota that ran out reads "quota out until …" in full, quota✗ short, and
+// quota:x short in ASCII (not "quotax").
+func TestStatusQuotaOut(t *testing.T) {
+	for _, c := range []struct {
+		w     int
+		ascii bool
+		want  string
+	}{{200, false, "quota out until"}, {76, false, "quota✗"}, {76, true, "quota:x"}} {
+		m := statusModel(t, c.w, 30)
+		m.App.Access.ASCII = c.ascii
+		key := m.model.Key()
+		m.snap = surface.Snapshot{Models: []surface.Model{{Key: key, Connection: "cloud"}},
+			Connections: []surface.Connection{{ID: "cloud", Quota: &surface.Quota{ExhaustedUntil: time.Now().Add(time.Hour)}}}}
+		m.snapGen++
+		if bar := stripANSI(m.statusBar()); !strings.Contains(bar, c.want) {
+			t.Errorf("w=%d ascii=%v: %q lacks %q", c.w, c.ascii, bar, c.want)
+		}
 	}
 }

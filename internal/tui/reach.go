@@ -199,3 +199,16 @@ func gitInfo(root string) tea.Cmd {
 		return msg
 	}
 }
+
+// askWhy is why a tool waits for a yes, from the permission mode, for an
+// approval that gives no reason of its own.
+func (m *Model) askWhy(tool string) string {
+	switch mode := m.App.Reg.Policy.Mode(); mode {
+	case "ask":
+		return "why: the permission mode is ask, so edits and commands wait for your yes (/mode to change)"
+	case "edits":
+		return "why: the permission mode is edits, so commands wait for your yes (/mode to change)"
+	default:
+		return fmt.Sprintf("why: %s needs a yes in %s mode (/mode to change)", prettyTool(tool), mode)
+	}
+}

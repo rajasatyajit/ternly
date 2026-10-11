@@ -1,0 +1,49 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                                                                                                   Scripted Title · bwrap · yolo
+  ● Verify go build ./... && go vet ./...  169ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+  -> turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)
+  routing for ~3.5k tokens of context
+  model                                   p     time     money     quota  score
+  ollama/m1                            0.15      15s        $0   $0.0200  0.6893
+  lru.go | 2 +-
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  untracked: NOTES.md
+  diff --git a/lru.go b/lru.go
+  index 1ff30a4..7c40271 100644
+  --- a/lru.go
+  +++ b/lru.go
+  @@ -7,7 +7,7 @@ type Cache struct {
+   }
+
+   // Resize changes the capacity, evicting the oldest items that no longer fit.
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+   func (c *Cache) evictOne() {
+   if len(c.items) > c.cap {
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                                                                                                      …
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) · 1 checkpoints · 0 failovers · 0 empty answers asked again
+  ternly 0.1.0
+  session    20261011-192322-148441 “Scripted Title”
+  workspace  /var/tmp/ternly-layout-1275672253/home/proj-lru
+  model      auto-routing · last used ollama/m1
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ Ollama (local) — the Ollama daemon at 127.0.0.1:36265 · 0 models · free (this machine)
+    ✓ Ollama Cloud — the signed-in Ollama daemon (`ollama signin`) · 1 model · usage unknown (Ollama reports it only to OLLAMA_API_KEY: set one to see it)
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 19:23 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  agent   lexer                            Reads the code and reports on lexer. (~13 tok)
+  agent   tests                            Reads the code and reports on tests. (~13 tok)
+  listings cost ~26 tokens per request; bodies load only when used (use_skill, task)
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                                                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000 | turn 4.2k^ 123v | 0.4s | verify ok | undo 1
