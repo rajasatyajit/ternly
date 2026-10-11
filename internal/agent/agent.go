@@ -357,11 +357,14 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				return
 			}
 			hit, wait := llm.QuotaHit(err)
-			if hit && model.Cloud { // a subscription's quota or rate limit
-				if wait <= 0 {
-					wait = quotaCooldown
-				}
+			if wait <= 0 {
+				wait = quotaCooldown
+			}
+			switch {
+			case hit && model.Cloud: // a subscription's quota or rate limit
 				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait))
+			case hit: // a pay-per-token API's: routing keeps it; background work doesn't (ADR 031)
+				a.Router.NoteQuotaHit(model.Key(), time.Now().Add(wait))
 			}
 			// a quota hit fails over whatever its status (402/403 "out of credits" aren't retryable)
 			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && (llm.IsRetryable(err) || hit) {

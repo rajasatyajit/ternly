@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Background work: idle-only, quota-aware, conditional (ADR 031)
+- **Background evaluations never run on a spent quota.** Before scheduling, ternly checks Ollama's
+  documented balance (with `OLLAMA_API_KEY`) and every quota hit any ternly process recorded
+  (`<data>/quota.json`). A hit with no known reset keeps background work off that quota for a
+  day. A 429 during an evaluation stops it after that trap: nothing is saved, it doesn't count
+  against the caps, and it's retried after the reset.
+- **Background work runs only when idle and on AC power:** no turn running, no key pressed for
+  5 minutes, and mains or USB power (Linux sysfs, macOS `pmset`; unknown counts as AC). Typing or
+  a turn starting pauses an evaluation (the trap in progress runs again on resume) and the
+  catalog refresh (after the request in flight); both go on from where they were.
+- **Evaluations are opt-in.** On the first interactive start with no
+  `routing.background_eval.enabled`, ternly asks once ("Run background capability evaluations
+  when idle? [y/N]") and saves the answer. Headless, CI and harness runs never ask and stay off.
+  An explicit value is never asked about or changed.
+- **The catalog refresh is conditional and idle-only.** Requests carry `If-None-Match` /
+  `If-Modified-Since`; a 304 or an identical body (SHA-256, for sources without validators) isn't
+  indexed again. Progress is saved per source and per registry page, so an interrupted refresh
+  resumes instead of starting over. npm's search (no validators) runs weekly. Headless runs never
+  refresh.
+- **Measured** (ADR 031): a daily refresh 1.19 MB → 26 KB; an interrupted first refresh resumes
+  instead of re-downloading 39 MB; idle CPU 10–40 s after a second start 9.1% → 0.4–0.9%. The UI's
+  own idle cost (0.4–0.9%) still misses the 0.5% target.
+
 ### Toolchain: Go 1.27.2 and x/net v0.60.0 (security)
 - **Go 1.27.2 and golang.org/x/net v0.60.0** fix GO-2026-6612, GO-2026-6613 and GO-2026-6617
   (net/http and x/net http2, published 2026-10-11). govulncheck found them reachable through

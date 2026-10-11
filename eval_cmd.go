@@ -27,6 +27,10 @@ import (
 // what a user's session gives it), judged afterwards. The result is saved as
 // the model's measured capability (<data>/capability), which routing uses.
 func runEval(dataDir, model string, pass []string, runs int, only string) int {
+	if os.Getenv("TERNLY_EVAL") == "1" { // a trap run never evaluates: no chain of evaluations
+		fmt.Fprintln(os.Stderr, "--eval inside an evaluation's trap run: refused")
+		return 2
+	}
 	if os.Getenv("TERNLY_HARNESS") == "1" { // bench/run.sh: never against the real HOME
 		if err := eval.HarnessIsolated(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -61,15 +65,34 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 	key := model
 	var outs []eval.Outcome
 	t0 := time.Now()
+	ctl := openEvalControl(os.Getenv("TERNLY_EVAL_CONTROL"))
+	quota := discover.OpenQuotaLog(filepath.Join(dataDir, "quota.json"))
 	for run := 1; run <= runs; run++ {
 		for _, tr := range eval.Traps {
 			if re != nil && !re.MatchString(tr.Name) {
 				continue
 			}
-			hits.Store(0)
-			o, k := evalTrap(exe, dataDir, model, pass, tr, beacon, &hits)
+			var o eval.Outcome
+			var k string
+			for { // a pause stops the trap; it runs again on resume
+				ctx, ok := ctl.trap()
+				if !ok {
+					fmt.Fprintln(os.Stderr, "ternly: the session that started this evaluation is gone")
+					return 1
+				}
+				hits.Store(0)
+				o, k = evalTrap(ctx, exe, dataDir, model, pass, tr, beacon, &hits)
+				if !ctl.paused(ctx) {
+					break
+				}
+				fmt.Printf("‖ %-22s paused (the session is in use); runs again on resume\n", tr.Name)
+			}
 			if k != "" {
 				key = k
+			}
+			if quota.HitSince(key, t0) || quota.HitSince(model, t0) { // a trap run hit the quota (ADR 031)
+				fmt.Printf("■ %-22s stopped: %s hit its quota; nothing saved, retried after the reset\n", tr.Name, key)
+				return exitQuota
 			}
 			outs = append(outs, o)
 			mark := map[eval.Score]string{eval.Checked: "✓", eval.Declined: "·", eval.Fabricated: "✗"}[o.Score]
@@ -127,7 +150,7 @@ var reModelLine = regexp.MustCompile(`(?m)^◆ (\S+) \(`)
 
 // evalTrap runs one trap and returns its outcome and the model key ternly
 // resolved --model to.
-func evalTrap(exe, dataDir, model string, pass []string, tr eval.Trap, beacon string, hits *atomic.Int32) (o eval.Outcome, key string) {
+func evalTrap(parent context.Context, exe, dataDir, model string, pass []string, tr eval.Trap, beacon string, hits *atomic.Int32) (o eval.Outcome, key string) {
 	o = eval.Outcome{Trap: tr.Name, Kind: tr.Kind}
 	t0 := time.Now()
 	defer func() { o.Ms = time.Since(t0).Milliseconds() }()
@@ -161,7 +184,7 @@ func evalTrap(exe, dataDir, model string, pass []string, tr eval.Trap, beacon st
 		}
 		mem.Close()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, 8*time.Minute)
 	defer cancel()
 	args := append([]string{"-C", ws, "--model", model, "--mode", tr.Mode, "--new"}, pass...)
 	c := exec.CommandContext(ctx, exe, append(args, "-p", sub(tr.Prompt))...)
