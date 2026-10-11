@@ -86,6 +86,18 @@ func (m *Model) statusFields() []statusField {
 		cost, short = "cost unknown", "$"+g.unknown
 	}
 	add(0, sAccent.Render(cost), sAccent.Render(short))
+	// errors this session
+	if m.errors > 0 {
+		warn := "⚠"
+		if m.App.Access.ASCII {
+			warn = "!"
+		}
+		word := "errors"
+		if m.errors == 1 {
+			word = "error"
+		}
+		add(0, sErr.Render(fmt.Sprintf("%s %d %s", warn, m.errors, word)), sErr.Render(fmt.Sprintf("%s%d", warn, m.errors)))
+	}
 	// quota (only when the provider reports one) and lost trust (ADR 020)
 	if md, c := m.currentSurfaceModel(); md != nil {
 		if c != nil && c.Quota != nil {

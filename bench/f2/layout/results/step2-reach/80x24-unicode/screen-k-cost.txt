@@ -1,0 +1,24 @@
+◆ ternly  /home/…code/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  untracked: NOTES.md
+  diff --git a/lru.go b/lru.go
+  index 1ff30a4..7c40271 100644
+  --- a/lru.go
+  +++ b/lru.go
+  @@ -7,7 +7,7 @@ type Cache struct {
+   }
+
+   // Resize changes the capacity, evicting the oldest items that no longer fit.
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+   func (c *Cache) evictOne() {
+   if len(c.items) > c.cap {
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 tur…
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops sto…
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1 ▸ cheapest · ctx 3.4k/131.1k · $0.0000
+ turn 4.2k↑ 123↓ · 0.4s · verify ✓ · undo 1

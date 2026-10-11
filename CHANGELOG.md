@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### TUI layout, step 2: information reach (ADR 030 (d))
+- **An edit shows its change** under its tool line: up to 6 `-`/`+` lines, the rest with Ctrl+O.
+  What the model wrote is shown as text.
+- **A routing card per turn** says why that model ("chosen as the cheapest capable model: T1 task →
+  est. 28 s, free, p≥0.30"; failover and escalation say so).
+- **A receipt after every turn:** its tokens in and out, cost ("cost unknown" for an unpriced
+  model), time, the verification's verdict, and the files it changed.
+- **Errors are framed** with ternly's one-line cause (rate limit or quota, credentials, context
+  too long, timeout, unreachable, provider failure) and the next step. The status line counts
+  them (⚠ 1 error). ASCII mode frames them in ASCII.
+- **The header shows the git branch,** with `*` when tracked files changed. It's read off the UI
+  thread at start and after every turn. It gives way after the session title and before the path.
+  A branch name is shown as text.
+
 ### TUI layout, step 1: the status line (ADR 030 (d))
 - **The status line carries the facts checked between turns:**
   - the model and why it was chosen (▸ cheapest, ◆ pinned, ↑ escalated, ⇄ failover);

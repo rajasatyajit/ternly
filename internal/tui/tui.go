@@ -126,6 +126,8 @@ type block struct {
 	full     string   // a tool's whole output (Ctrl+O shows it)
 	lines    []string // rendered, split (the virtualised transcript)
 	linesFor string   // the rendering lines was split from
+	path     string   // an edit or write: the file
+	diff     []string // an edit: its change, as '-'/'+' lines
 }
 
 // ─────────────────────────── model ───────────────────────────
@@ -179,10 +181,14 @@ type Model struct {
 	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
 	surfaceCh     <-chan struct{}
-	turnStart     time.Time     // when the current (or last) turn started; zero before the first
-	turnTook      time.Duration // the last finished turn's time
-	turnUsage0    llm.Usage     // the session's usage when the current turn started
-	verify        string        // the last verification's verdict (agent.Verdict*); "" before any
+	turnStart     time.Time       // when the current (or last) turn started; zero before the first
+	turnTook      time.Duration   // the last finished turn's time
+	turnUsage0    llm.Usage       // the session's usage when the current turn started
+	verify        string          // the last verification's verdict (agent.Verdict*); "" before any
+	turnVerify    string          // this turn's verdict, for its receipt
+	turnFiles     map[string]bool // files this turn's edits and writes changed
+	errors        int             // errors this session (the status line counts them)
+	gitState      gitMsg          // the workspace's branch and dirty state
 }
 
 // App bundles the long-lived services the UI drives.
@@ -291,6 +297,7 @@ func (m *Model) Init() tea.Cmd {
 	if c := m.startSurface(); c != nil {
 		cmds = append(cmds, c)
 	}
+	cmds = append(cmds, gitInfo(m.App.Reg.Root))
 	return tea.Batch(cmds...)
 }
 
@@ -365,6 +372,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentMsg:
 		cmds = append(cmds, m.onAgent(cleanEvent(agent.Event(msg))))
+		if msg.Kind == agent.EvDone { // the turn may have switched or dirtied the branch
+			cmds = append(cmds, gitInfo(m.App.Reg.Root))
+		}
+
+	case gitMsg:
+		m.gitState = msg
 
 	case startMsg:
 		if m.busy {
@@ -674,6 +687,7 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 		m.paused = false
 	}
 	m.turnCost0, m.turnUsage0, m.turnStart = m.ledger.Cost, m.ledger.Usage, time.Now()
+	m.turnVerify, m.turnFiles = "", map[string]bool{}
 	if m.discovering {
 		m.activity = "Discovering models"
 	}
@@ -704,22 +718,29 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.model, m.reason = e.Model, e.Reason
 		m.activity = "Thinking"
 		if e.Reason != "pinned" {
-			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", untrusted(e.Model.Key()), tierBadge(e.Model.Tier), discover.Price(e.Model), untrusted(e.Reason))))
+			m.addInfo(m.routeCard(e.Model, e.Reason))
 		}
 	case agent.EvToolStart:
-		m.blocks = append(m.blocks, &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text})
+		b := &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text}
+		if b.path, b.diff = editDiff(e.Tool, e.Args); b.path == "" {
+			b.path = writePath(e.Tool, e.Args)
+		}
+		m.blocks = append(m.blocks, b)
 		m.activity = "Running " + prettyTool(e.Tool)
 	case agent.EvVerify:
 		m.blocks = append(m.blocks, &block{kind: bTool, tool: "verify", id: "verify", text: e.Text})
 		m.activity = "Verifying"
 	case agent.EvToolEnd:
 		if e.Tool == "verify" {
-			m.verify = e.Verdict
+			m.verify, m.turnVerify = e.Verdict, e.Verdict
 		}
 		for i := len(m.blocks) - 1; i >= 0; i-- {
 			if b := m.blocks[i]; b.kind == bTool && b.id == e.ToolID && b.state == 0 {
 				b.state, b.elapsed, b.detail, b.rendered, b.full = 2, e.Elapsed, firstLines(e.Text, 3), "", e.Text
 				if e.OK {
+					if b.path != "" && m.turnFiles != nil {
+						m.turnFiles[b.path] = true
+					}
 					b.state = 1
 					b.detail = ""
 					if e.Tool == "bash" || e.Tool == "verify" {
@@ -739,6 +760,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.ledger = e.Ledger
 	case agent.EvError:
 		m.lastFailed = true
+		m.errors++
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
@@ -749,6 +771,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
 			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
 				sDim.Render(" — ask again, or /model to pick another (/why shows the ranking)")})
+		}
+		if m.busy && !m.turnStart.IsZero() {
+			m.blocks = append(m.blocks, &block{kind: bInfo, text: m.receipt()})
 		}
 		m.busy, m.cancel = false, nil
 		for _, b := range m.blocks {
@@ -1144,6 +1169,7 @@ func (m *Model) renderBlock(b *block) string {
 		if b.elapsed > 0 {
 			line += sDim.Render("  " + dur(b.elapsed))
 		}
+		line += m.renderDiff(b.diff)
 		detail := b.detail
 		if m.expanded && b.full != "" {
 			detail = firstLines(untrusted(b.full), maxExpanded)
@@ -1162,7 +1188,7 @@ func (m *Model) renderBlock(b *block) string {
 		}
 		return line
 	case bError:
-		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.cw()-6).Render(b.text)
+		return m.errorBox(b)
 	case bWelcome:
 		return m.welcome()
 	}
@@ -1251,15 +1277,28 @@ func (m *Model) header() string {
 		cwd = strings.Replace(cwd, home, "~", 1)
 	}
 	// What gives way, in order: the session title shrinks (from 32 columns
-	// to 8, then goes), so the path keeps at least 16; then the path elides
-	// in its middle; the sandbox and permission mode never truncate.
+	// to 8, then goes); then the branch (from 24 to 4, then goes); then the
+	// path elides in its middle, keeping at least 16; the sandbox and
+	// permission mode never truncate. So the branch is budgeted first.
 	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode())
 	if lipgloss.Width(logo)+1+lipgloss.Width(right) > m.w {
 		return strings.Repeat(" ", max(0, m.w-lipgloss.Width(right))) + right
 	}
 	avail := m.w - lipgloss.Width(logo) - 2 - 1 - lipgloss.Width(right) // "  " before the path, a space before the right
+	branch := untrusted(m.gitState.branch)
+	if branch != "" && m.gitState.dirty {
+		branch += "*"
+	}
+	pathMin := min(ansi.StringWidth(cwd), 16)
+	br := ""
+	if branch != "" {
+		if bw := min(ansi.StringWidth(branch), 24, avail-pathMin-2); bw >= 4 { // 2: "  " before it
+			br = sAccent.Render(ansi.Truncate(branch, bw, "…"))
+			avail -= lipgloss.Width(br) + 2
+		}
+	}
 	title := m.App.Agent.Title()
-	tw := min(ansi.StringWidth(title), 32, avail-min(ansi.StringWidth(cwd), 16)-3) // 3: " · " after the title
+	tw := min(ansi.StringWidth(title), 32, avail-pathMin-3) // 3: " · " after the title
 	if tw >= 8 {
 		title = truncate(title, tw)
 		tw = ansi.StringWidth(title) // a wide character can leave one column over
@@ -1269,6 +1308,9 @@ func (m *Model) header() string {
 	mid := ""
 	if p := elideMiddle(cwd, avail); p != "" {
 		mid = sDim.Render("  " + p)
+	}
+	if br != "" {
+		mid += "  " + br
 	}
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right

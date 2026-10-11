@@ -328,9 +328,11 @@ func session(ternly, probeBin, fake, dir string, s size, t tier) result {
 	for _, p := range probes {
 		steps = append(steps, "type "+p.seq, "stable 700 15000", "snap k-"+p.name)
 		if p.keys == 1 { // a panel key toggles: press it again to close what it opened
-			steps = append(steps, "type "+p.seq, "stable 500 5000")
+			steps = append(steps, "type "+p.seq, "sleep 400")
 		}
-		steps = append(steps, `type \e`, "stable 500 5000")
+		// Esc on an empty, idle prompt writes nothing, so "stable" would wait out
+		// its limit (no output to settle): a short sleep is enough.
+		steps = append(steps, `type \e`, "sleep 400")
 	}
 	steps = append(steps, `type summarise what changed\r`, "until 90000 SCRIPTED-FAILURE", "stable 1500 30000", "snap error")
 	return runProbe(probeBin, ternly, ws, append(env, t.env...), s, steps, dir)

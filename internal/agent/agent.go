@@ -54,6 +54,7 @@ type Event struct {
 	Ledger  Ledger
 	N       int
 	Verdict string // verify's EvToolEnd: verified, failed or unverified
+	Args    string // EvToolStart: the call's arguments (JSON, the model's text), so a UI can show an edit
 }
 
 type Ledger struct {
@@ -734,7 +735,7 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 			blocked[i] = true
 			return
 		}
-		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary})
+		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary, Args: tc.Args})
 		t0 := time.Now()
 		if !blocked[i] {
 			manifest, before := a.manifestBefore(tc)
