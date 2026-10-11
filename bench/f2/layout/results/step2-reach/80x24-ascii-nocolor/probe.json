@@ -1,0 +1,376 @@
+{
+  "cmd": [
+    "/home/satyajit/.claude/jobs/f10e4ff6/tmp/ternly-s2f",
+    "--mode",
+    "yolo"
+  ],
+  "env": [
+    "HOME=/home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-nocolor/home",
+    "XDG_CONFIG_HOME=/home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-nocolor/home/.config",
+    "XDG_CACHE_HOME=/home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-nocolor/home/.cache",
+    "XDG_DATA_HOME=/home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-nocolor/home/.local/share",
+    "XDG_STATE_HOME=/home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-nocolor/home/.local/state",
+    "FAKE_KEY=x",
+    "TERNLY_HARNESS=1",
+    "GOFLAGS=-mod=mod",
+    "GOTOOLCHAIN=local",
+    "TERM=xterm",
+    "COLORTERM=",
+    "LANG=C",
+    "LC_ALL=C",
+    "NO_COLOR=1"
+  ],
+  "cols": 80,
+  "rows": 24,
+  "steps": [
+    {
+      "step": "stable 1500 30000",
+      "ok": true,
+      "ms": 47.083,
+      "first_byte_ms": 46.068,
+      "bytes": 1001
+    },
+    {
+      "step": "snap start",
+      "ok": true
+    },
+    {
+      "step": "type Resize evicts one entry. find the cause and fix it\\r",
+      "ok": true
+    },
+    {
+      "step": "until 60000 evicts\\suntil\\sthe\\scache\\sfits",
+      "ok": true,
+      "ms": 1713.38
+    },
+    {
+      "step": "stable 1500 30000",
+      "ok": true,
+      "ms": 249.784,
+      "bytes": 855
+    },
+    {
+      "step": "snap mid",
+      "ok": true
+    },
+    {
+      "step": "type \\x02",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 7.228,
+      "bytes": 128
+    },
+    {
+      "step": "snap k-ctrl-b",
+      "ok": true
+    },
+    {
+      "step": "type \\x02",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\x0f",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 6.868,
+      "bytes": 356
+    },
+    {
+      "step": "snap k-ctrl-o",
+      "ok": true
+    },
+    {
+      "step": "type \\x0f",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\x07",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": false
+    },
+    {
+      "step": "snap k-ctrl-g",
+      "ok": true
+    },
+    {
+      "step": "type \\x07",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\x05",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": false
+    },
+    {
+      "step": "snap k-ctrl-e",
+      "ok": true
+    },
+    {
+      "step": "type \\x05",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /why\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 3.774,
+      "bytes": 224
+    },
+    {
+      "step": "snap k-why",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /diff\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 22.962,
+      "bytes": 641
+    },
+    {
+      "step": "snap k-diff",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /cost\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 6.713,
+      "bytes": 233
+    },
+    {
+      "step": "snap k-cost",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /status\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 6.406,
+      "bytes": 1073
+    },
+    {
+      "step": "snap k-status",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /rewind\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 5.05,
+      "bytes": 201
+    },
+    {
+      "step": "snap k-rewind",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /verify\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 5.969,
+      "bytes": 125
+    },
+    {
+      "step": "snap k-verify",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type /agents\\r",
+      "ok": true
+    },
+    {
+      "step": "stable 700 15000",
+      "ok": true,
+      "ms": 5.743,
+      "bytes": 137
+    },
+    {
+      "step": "snap k-agents",
+      "ok": true
+    },
+    {
+      "step": "type \\e",
+      "ok": true
+    },
+    {
+      "step": "sleep 400",
+      "ok": true
+    },
+    {
+      "step": "type summarise what changed\\r",
+      "ok": true
+    },
+    {
+      "step": "until 90000 SCRIPTED-FAILURE",
+      "ok": true,
+      "ms": 57196.612
+    },
+    {
+      "step": "stable 1500 30000",
+      "ok": false
+    },
+    {
+      "step": "snap error",
+      "ok": true
+    }
+  ],
+  "snaps": {
+    "error": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…\n    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…\n  /rewind \u003cn\u003e [both|code|chat] restores to before turn n (● = changed files)\n   1 16:18 ●  Resize evicts one entry. find the cause and fix it\n  verify: go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agen…\n\n❯ summarise what changed\n  ↻ memory: 1 note recalled (/memory to review)\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 6…\n  +--------------------------------------------------------------------------+\n  | x the provider failed on its side                                        |\n  | HTTP 500: {\"error\":{\"message\":\"SCRIPTED-FAILURE: the upstream model is   |\n  | overloaded\"}}                                                            |\n  | next: ask again; /model to pick another                                  |\n  +--------------------------------------------------------------------------+\n  -\u003e turn 0^ 0v | $0.0000 | 11s\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.5k/131.1k | $0.0000 | ! 1 error\n turn 0^ 0v | 11s | verify ok | undo 2",
+    "k-agents": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  session    20261011-161812-89f25a “Scripted Title”\n  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-no…\n  model      auto-routing · last used fake/m1\n  mode       yolo · sandbox bwrap\n  verify     go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00\n  checkpoints on\n  memory     1 project · 0 user items · lexical · 600 tokens/turn\n  code graph on (Go): find_symbol, references, callers, … for the model\n  connections:\n    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)\n    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…\n    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…\n  /rewind \u003cn\u003e [both|code|chat] restores to before turn n (● = changed files)\n   1 16:18 ●  Resize evicts one entry. find the cause and fix it\n  verify: go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agen…\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-cost": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n   1 file changed, 1 insertion(+), 1 deletion(-)\n  untracked: NOTES.md\n  diff --git a/lru.go b/lru.go\n  index 1ff30a4..7c40271 100644\n  --- a/lru.go\n  +++ b/lru.go\n  @@ -7,7 +7,7 @@ type Cache struct {\n   }\n\n   // Resize changes the capacity, evicting the oldest items that no longer fit.\n  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }\n  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }\n\n   func (c *Cache) evictOne() {\n   if len(c.items) \u003e c.cap {\n  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 tur…\n  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops sto…\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-ctrl-b": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  ◆ ternly  0.1.0 · Code, ternly.\n  ● fake        1 models, 1 with tools · api\n  /help or Ctrl+K for commands · @ for files\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n❯ Resize evicts one entry. find the cause and fix it\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 2…\n  ● Read lru.go  0ms\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n  the sidebar needs 100 columns (this window has 80); /resume lists sessions\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-ctrl-e": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  ◆ ternly  0.1.0 · Code, ternly.\n  ● fake        1 models, 1 with tools · api\n  /help or Ctrl+K for commands · @ for files\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n❯ Resize evicts one entry. find the cause and fix it\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 2…\n  ● Read lru.go  0ms\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n  the sidebar needs 100 columns (this window has 80); /resume lists sessions\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-ctrl-g": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  ◆ ternly  0.1.0 · Code, ternly.\n  ● fake        1 models, 1 with tools · api\n  /help or Ctrl+K for commands · @ for files\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n❯ Resize evicts one entry. find the cause and fix it\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 2…\n  ● Read lru.go  0ms\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n  the sidebar needs 100 columns (this window has 80); /resume lists sessions\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-ctrl-o": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n    ⎿     19        for len(c.items) \u003e c.cap {\n    ⎿     20            c.items = c.items[1:]\n    ⎿     21        }\n    ⎿     22    }\n    ⎿ ctrl+o collapses\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n    ⎿ edited lru.go (1 replacement(s))\n    ⎿ ctrl+o collapses\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n    ⎿ ctrl+o collapses\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n  the sidebar needs 100 columns (this window has 80); /resume lists sessions\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-diff": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  fake/m1                              0.15      15s        $0        $0  0.5558\n  lru.go | 2 +-\n   1 file changed, 1 insertion(+), 1 deletion(-)\n  untracked: NOTES.md\n  diff --git a/lru.go b/lru.go\n  index 1ff30a4..7c40271 100644\n  --- a/lru.go\n  +++ b/lru.go\n  @@ -7,7 +7,7 @@ type Cache struct {\n   }\n\n   // Resize changes the capacity, evicting the oldest items that no longer fit.\n  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }\n  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }\n\n   func (c *Cache) evictOne() {\n   if len(c.items) \u003e c.cap {\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-rewind": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops sto…\n  ternly 0.1.0\n  session    20261011-161812-89f25a “Scripted Title”\n  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-no…\n  model      auto-routing · last used fake/m1\n  mode       yolo · sandbox bwrap\n  verify     go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00\n  checkpoints on\n  memory     1 project · 0 user items · lexical · 600 tokens/turn\n  code graph on (Go): find_symbol, references, callers, … for the model\n  connections:\n    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)\n    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…\n    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…\n  /rewind \u003cn\u003e [both|code|chat] restores to before turn n (● = changed files)\n   1 16:18 ●  Resize evicts one entry. find the cause and fix it\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-status": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n   if len(c.items) \u003e c.cap {\n  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 tur…\n  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops sto…\n  ternly 0.1.0\n  session    20261011-161812-89f25a “Scripted Title”\n  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-no…\n  model      auto-routing · last used fake/m1\n  mode       yolo · sandbox bwrap\n  verify     go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00\n  checkpoints on\n  memory     1 project · 0 user items · lexical · 600 tokens/turn\n  code graph on (Go): find_symbol, references, callers, … for the model\n  connections:\n    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)\n    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…\n    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-verify": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  ternly 0.1.0\n  session    20261011-161812-89f25a “Scripted Title”\n  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-ascii-no…\n  model      auto-routing · last used fake/m1\n  mode       yolo · sandbox bwrap\n  verify     go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00\n  checkpoints on\n  memory     1 project · 0 user items · lexical · 600 tokens/turn\n  code graph on (Go): find_symbol, references, callers, … for the model\n  connections:\n    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)\n    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…\n    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…\n  /rewind \u003cn\u003e [both|code|chat] restores to before turn n (● = changed files)\n   1 16:18 ●  Resize evicts one entry. find the cause and fix it\n  verify: go build ./... \u0026\u0026 go vet ./... + coverage checks of changed files\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "k-why": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n❯ Resize evicts one entry. find the cause and fix it\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 2…\n  ● Read lru.go  0ms\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n  the sidebar needs 100 columns (this window has 80); /resume lists sessions\n  routing for ~3.4k tokens of context\n  model                                   p     time     money     quota  score\n  fake/m1                              0.15      15s        $0        $0  0.5558\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "mid": "◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo\n\n  ◆ ternly  0.1.0 · Code, ternly.\n  ● fake        1 models, 1 with tools · api\n  /help or Ctrl+K for commands · @ for files\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n❯ Resize evicts one entry. find the cause and fix it\n  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 2…\n  ● Read lru.go  0ms\n  ● Edit lru.go  (-1 +1 lines)  0ms\n    - c.cap = n; c.evictOne()\n    + c.cap = n; c.evictUntilFits()\n\n  Fixed: Resize now evicts until the cache fits, not just one entry.\n  ● Verify go build ./... \u0026\u0026 go vet ./...  153ms\n    ⎿ go build ./... \u0026\u0026 go vet ./... · go build+vet: 1 package(s) · gofmt: …\n  -\u003e turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n * fake/m1 T1 \u003e cheapest | ctx 3.4k/131.1k | $0.0000\n turn 4.2k^ 123v | 0.4s | verify ok | undo 1",
+    "start": "◆ ternly  /home/satyaj…24-ascii-nocolor/proj-lru  fix-resize-branch bwrap · yolo\n\n  ◆ ternly  0.1.0 · Code, ternly.\n  ● fake        1 models, 1 with tools · api\n  /help or Ctrl+K for commands · @ for files\n  tasks are routed to the cheapest capable model and escalated only on failure\n\n\n\n\n\n\n\n\n\n\n\n\n\n╭────────────────────────────────────────────────────────────────────────────╮\n│ Ask ternly to build, fix or explain…  (/help)                              │\n╰────────────────────────────────────────────────────────────────────────────╯\n auto-routing | $0.0000\n"
+  },
+  "bytes_total": 13624,
+  "bytes_gzip": 3149,
+  "technique": {
+    "alt_screen": true,
+    "sync_updates": 184,
+    "full_clears": 1,
+    "sgr_truecolor": 0,
+    "sgr_256": 0,
+    "sgr_16": 0,
+    "non_ascii_bytes": 1004,
+    "kitty_keyboard": true,
+    "mouse_reporting": false,
+    "bracketed_paste": true
+  },
+  "exited": "signal: killed",
+  "elapsed_s": 90.221711914
+}

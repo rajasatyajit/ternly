@@ -68,7 +68,7 @@ func TestWhyAndConnections(t *testing.T) {
 // Without a surface nothing changes (the adapter lands in Phase B).
 func TestNoSurface(t *testing.T) {
 	m := testModel(t)
-	if m.meter() != "" || m.connectionLines() != nil || m.startSurface() != nil {
+	if bar := stripANSI(m.statusBar()); strings.Contains(bar, "ctx ") || strings.Contains(bar, "quota") || m.connectionLines() != nil || m.startSurface() != nil {
 		t.Fatal("no surface: nothing should show")
 	}
 	m.cmdWhy("")

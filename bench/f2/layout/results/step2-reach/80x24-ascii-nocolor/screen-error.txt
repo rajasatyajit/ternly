@@ -1,0 +1,24 @@
+◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…
+    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 16:18 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agen…
+
+❯ summarise what changed
+  ↻ memory: 1 note recalled (/memory to review)
+  * fake/m1  T1 · free · chosen as the cheapest capable model: T1 task → est. 6…
+  +--------------------------------------------------------------------------+
+  | x the provider failed on its side                                        |
+  | HTTP 500: {"error":{"message":"SCRIPTED-FAILURE: the upstream model is   |
+  | overloaded"}}                                                            |
+  | next: ask again; /model to pick another                                  |
+  +--------------------------------------------------------------------------+
+  -> turn 0^ 0v | $0.0000 | 11s
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ * fake/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000 | ! 1 error
+ turn 0^ 0v | 11s | verify ok | undo 2

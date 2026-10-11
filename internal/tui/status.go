@@ -33,54 +33,14 @@ func (m *Model) startSurface() tea.Cmd {
 	if m.App.Surface == nil {
 		return nil
 	}
-	m.snap = m.App.Surface.Snapshot()
+	m.snap, m.snapGen = m.App.Surface.Snapshot(), m.snapGen+1
 	m.surfaceCh = m.App.Surface.Changes(context.Background())
 	return m.watchSurface(m.surfaceCh)
 }
 
 func (m *Model) onSurface() tea.Cmd {
-	m.snap = m.App.Surface.Snapshot()
+	m.snap, m.snapGen = m.App.Surface.Snapshot(), m.snapGen+1
 	return m.watchSurface(m.surfaceCh)
-}
-
-// meter is the status bar's surface part: context fill, the current
-// model's quota and trust. Empty without a surface.
-func (m *Model) meter() string {
-	if m.App.Surface == nil {
-		return ""
-	}
-	var parts []string
-	if mt := m.snap.Meter; mt.ContextMax > 0 {
-		pct := 100 * mt.ContextUsed / mt.ContextMax
-		s := fmt.Sprintf("ctx %s/%s", kfmt(mt.ContextUsed), kfmt(mt.ContextMax))
-		switch {
-		case pct >= 90:
-			s = sErr.Render(s)
-		case pct >= 70:
-			s = sWarn.Render(s)
-		default:
-			s = sDim.Render(s)
-		}
-		parts = append(parts, s)
-	}
-	cur := m.snap.Routing.Current
-	if cur == "" && m.model != nil {
-		cur = m.model.Key()
-	}
-	for _, md := range m.snap.Models {
-		if md.Key != cur {
-			continue
-		}
-		if md.Trust.Lost {
-			parts = append(parts, sWarn.Render("trust lost"))
-		}
-		for _, c := range m.snap.Connections {
-			if c.ID == md.Connection && c.Quota != nil {
-				parts = append(parts, quotaLabel(*c.Quota, time.Now()))
-			}
-		}
-	}
-	return strings.Join(parts, sDim.Render(" · "))
 }
 
 func quotaLabel(q surface.Quota, now time.Time) string {

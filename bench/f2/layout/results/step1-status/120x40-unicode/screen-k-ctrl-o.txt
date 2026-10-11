@@ -1,0 +1,39 @@
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/120x40-unicode/proj-lru       Scripted Title · bwrap · yolo
+  ◆ fake/m1  T1 · free · T1 task → est. 28 s, free, p≥0.30
+  ● Read lru.go  0ms
+    ⎿ 1    package lru
+    ⎿      2
+    ⎿      3    // Cache keeps at most cap items, oldest first.
+    ⎿      4    type Cache struct {
+    ⎿      5        items []int
+    ⎿      6        cap   int
+    ⎿      7    }
+    ⎿      8
+    ⎿      9    // Resize changes the capacity, evicting the oldest items that no longer fit.
+    ⎿     10    func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+    ⎿     11
+    ⎿     12    func (c *Cache) evictOne() {
+    ⎿     13        if len(c.items) > c.cap {
+    ⎿     14            c.items = c.items[1:]
+    ⎿     15        }
+    ⎿     16    }
+    ⎿     17
+    ⎿     18    func (c *Cache) evictUntilFits() {
+    ⎿     19        for len(c.items) > c.cap {
+    ⎿     20            c.items = c.items[1:]
+    ⎿     21        }
+    ⎿     22    }
+    ⎿ ctrl+o collapses
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    ⎿ edited lru.go (1 replacement(s))
+    ⎿ ctrl+o collapses
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  153ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
+    ⎿ ctrl+o collapses
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1 ▸ cheapest · ctx 3.4k/131.1k · $0.0000 · turn 4.2k↑ 123↓ · 0.4s · verify ✓ · undo 1

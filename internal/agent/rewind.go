@@ -18,6 +18,10 @@ type TurnInfo struct {
 	Changed bool // this turn checkpointed before mutating the workspace
 }
 
+// TurnCount is how many turns the session has (what Turns lists), without
+// copying them: the status line asks every frame.
+func (a *Agent) TurnCount() int { a.mu.Lock(); defer a.mu.Unlock(); return len(a.state.Turns) }
+
 func (a *Agent) Turns() []TurnInfo {
 	a.mu.Lock()
 	defer a.mu.Unlock()
