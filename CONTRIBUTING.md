@@ -20,7 +20,7 @@ gofmt -l .                                   # prints nothing
 go vet ./... && GOOS=darwin go vet ./...
 go vet -tags e2e . && go vet -tags ternly_all_grammars ./internal/graph
 go test -race ./...                          # Linux: install bubblewrap and ripgrep
-go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...   # and with GOOS=darwin, and -tags e2e .
+go run honnef.co/go/tools/cmd/staticcheck@452d5bb86b45 ./...   # and with GOOS=darwin, and -tags e2e . (master until a release reads go1.27.2)
 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 CGO_ENABLED=0 go build -trimpath -o ternly . # static
 ```
