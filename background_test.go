@@ -232,10 +232,16 @@ func TestRunPausable(t *testing.T) {
 	go func() { done <- runPausable(cmd, pause) }()
 	pause <- true
 	pause <- false
-	time.Sleep(50 * time.Millisecond)
-	_ = cmd.Process.Kill() // cat would wait for more
+	// cat would wait for more: kill it once both bytes are through (a fixed
+	// 50 ms wasn't always enough on a macOS runner under -race)
+	var got string
+	for deadline := time.Now().Add(10 * time.Second); got != "pr" && time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		b, _ := os.ReadFile(out)
+		got = string(b)
+	}
+	_ = cmd.Process.Kill()
 	<-done
-	if got := string(must(os.ReadFile(out))); got != "pr" {
+	if got != "pr" {
 		t.Fatalf("control bytes %q", got)
 	}
 	if err := runPausable(exec.Command("sh", "-c", "exit 75"), nil); !errors.Is(err, bgeval.ErrQuota) {
