@@ -62,7 +62,16 @@ func BenchmarkGraphBuild(b *testing.B) {
 		if _, _, err := s.Graph(bg, time.Minute); err != nil {
 			b.Fatal(err)
 		}
+		// The build leaves the dependency type-check running (depsAfterBuild).
+		// Cancelled mid-way, it went on allocating during later timed
+		// iterations, as much as the scheduler let it: B/op varied ±22% on
+		// identical code (issue #35). It finishes here, with the timer stopped
+		// (allocations aren't counted then), so the benchmark measures the
+		// build to its first answer, and only that.
+		b.StopTimer()
+		settled(b, s)
 		cancel()
+		b.StartTimer()
 	}
 }
 
