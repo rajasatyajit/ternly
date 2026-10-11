@@ -396,3 +396,13 @@ at all (CodeWhale).
    - run them only when idle, with quota available, and on AC power;
    - the owner's config stays as it is;
    - new installs: evals are opt-in through a first-run question; the catalog refresh is idle-only and conditional.
+
+## Implementation status (owner's review of (a)–(c), 2026-10-11)
+- **(a) Echo: the < 2 ms target is NOT met yet.** ternly echoes in 6.5 ms median (p95 7.0–7.4) at 120 fps, down from
+  14.6 ms. A Bubble Tea fork measured 1.3 ms, but it needed a `go.mod` `replace`, which breaks `go install`, so it was
+  withdrawn. The fix is proposed upstream (charmbracelet/bubbletea#1857, draft PRs #1858 and #1859), and ternly issue
+  #37 tracks adopting it. **The target stays < 2 ms and isn't loosened.** Bubble Tea has no runtime frame-rate control,
+  so dropping to a low rate when idle isn't possible; the 120 fps idle cost (0.45–0.55% for the TUI) is accepted until
+  #1858 lands. See ADR 032.
+- **(b) Background work:** done (ADR 031).
+- **(c) The four bugs:** fixed, and widths now count display columns (CJK and emoji).
