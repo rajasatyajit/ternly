@@ -435,3 +435,63 @@ The two left are the plan facts (9 and 10), which wait for plan data from the co
 - **Quota "remaining":** shown as a percentage only where the provider reports it (Ollama Cloud's balance API, with
   `OLLAMA_API_KEY`). A pay-per-token API's 429 is a rate limit: routing keeps the model (ADR 031), so the status line
   doesn't call it a quota.
+
+## Step 4: panels and the leader key (2026-10-11)
+Decision 2 is implemented as follows.
+- **The leader is Ctrl+X by default**, with a which-key popup listing the letters while it waits:
+  - a agents, c changes, e last error, p plan, r why (routing);
+  - s sessions, o tool output, k commands.
+- **The leader is configurable** (`"keys": {"leader": …}`): a Ctrl or Alt letter, or F1–F12. ternly refuses, with a note at
+  startup, these keys:
+  - Ctrl+D/R/S/Q/Z;
+  - keys that type or edit in the input (including Ctrl+G, select all, and Alt+b/c/d/f/l/u, word editing);
+  - its own direct keys (Ctrl+K/O/B/L).
+- **Direct shortcuts:** Alt+letter, only once the terminal reports key disambiguation (the kitty protocol); on other
+  terminals Alt+x is Esc then x. Letters the input uses with Alt have no direct key (only c, changes, among the panels).
+- **Placement:** at ≥ 160 columns a panel docks as a 64-column rail beside the transcript; narrower, it takes the
+  transcript's place. One panel or the session sidebar at a time. Esc closes it (after clearing typed text); PgUp/PgDn
+  scroll it.
+- **Panels are rebuilt on the events they show** (subagent, error, routing, edit, turn end, resize), never per frame.
+  The changes panel reads `git diff` off the UI goroutine when it opens and when a turn ends.
+- **The palette lists every panel with its keys** (`/panel <name>`). The accessible mode prints the keys and the panels
+  as text.
+- **The plan panel exists but says there is no plan data:** facts 9 and 10 still wait for Phase C.
+
+**Measured** (`bench/f2/layout/results/step4-panels`, the step-4 binary):
+- **Reach:** 18 of 20 facts at 0 keys and none missing, at 200×50, 120×40 and 80×24, Unicode and ASCII/no colour. That's
+  unchanged: the panels add depth (a fact in full), not new facts. The two left are the plan facts.
+- **The estimated quota:** a 429 without Retry-After shows "quota out, retry in about 1h (estimated)" and no clock time
+  (`120x40-quota-estimated`).
+- **Desktop perf:** the owner's desktop, which was busy (a test suite ran during the recording), so these are not budget
+  checks:
+  - startup 48 / 54 ms (Unicode / ASCII);
+  - echo p50 4.9 / 5.2 ms;
+  - 19 B/key;
+  - RSS 48 MiB.
+- **Idle CPU against the budget:** measured on a CI runner instead (below).
+
+**Idle CPU on a quiet CI runner** (`.github/workflows/tui-idle.yml`; Intel Xeon Platinum 8573C, 4 vCPUs, load ≈ 0;
+7 interleaved rounds × 20 s, 120×40, start screen). [Run 38149601460](https://github.com/rajasatyajit/ternly/actions/runs/38149601460)
+compared step 3, step 3 again (an A/A pair), step 2 and pre-layout main:
+- every build measures a median of 0.65–0.70 %. **The ≤ 0.5 % budget is not met**, and wasn't before the layout work
+  either;
+- the paired differences from step 3 lie within −0.10…+0.10 points, the same as the A/A pair's. The layout steps add
+  nothing measurable.
+
+The cost is the 120 fps frame ticker accepted in ADR 032 until charmbracelet/bubbletea#1858 lands.
+
+**Step 4 against step 3, on a CI runner:** [run 38151578966](https://github.com/rajasatyajit/ternly/actions/runs/38151578966),
+the same method, step 4 listed twice.
+
+| | Intel Xeon 8573C ([38149601460](https://github.com/rajasatyajit/ternly/actions/runs/38149601460)) | AMD EPYC 9V74 ([38151578966](https://github.com/rajasatyajit/ternly/actions/runs/38151578966)) |
+|---|---|---|
+| step 3, idle median, Unicode / ASCII | 0.70 / 0.70 % | 1.15 / 1.10 % |
+| step 4, idle median, Unicode / ASCII | — | 1.10 / 1.15 % |
+| step 4 − step 3, paired median Δ | — | +0.05 / −0.05 points (range −0.15…+0.20) |
+| A/A pair's range of paired Δ | −0.10…+0.10 points | −0.15…+0.20 points |
+
+- **Step 4 adds nothing measurable.** Its paired differences lie inside the A/A pair's range.
+- **The runner's CPU decides the level:** the same step-3 build measures 0.70 % on Intel and about 1.1 % on AMD. That
+  explains why `TestTUIIdleCPU`'s single samples in CI fall in two clusters (0.35–0.85 % and 1.15–1.60 %).
+- **On neither runner does ternly meet ≤ 0.5 %.** Paired comparisons are only valid within one run, and the workflow
+  records which CPU it ran on.

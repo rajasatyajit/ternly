@@ -41,8 +41,14 @@ func typeText(m *Model, s string) {
 func TestPalette(t *testing.T) {
 	m := testModel(t)
 	key(m, "ctrl+k")
-	if m.comp == nil || len(m.comp.items) != len(builtins) {
-		t.Fatalf("palette: %v items, want all %d commands", m.comp, len(builtins))
+	panels := 0
+	for _, a := range keyActions {
+		if a.panel != "" {
+			panels++
+		}
+	}
+	if m.comp == nil || len(m.comp.items) != len(builtins)+panels {
+		t.Fatalf("palette: %v items, want all %d commands and %d panels", m.comp, len(builtins), panels)
 	}
 	for range 10 {
 		key(m, "down")
