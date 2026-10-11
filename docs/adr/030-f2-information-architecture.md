@@ -246,7 +246,93 @@ with the survey results, before review.
 - The plan and pending-approval facts: no session reached those states.
 
 ## Survey, part 2: performance and adaptation per tier (track2/f2-probe, PR #29)
-*Pending: the 137-cell sandboxed matrix is still running.*
+**Method:**
+- `bench/tuiprobe` (Go) drives each harness in a pty with a VT emulator; 137 cells, all under bubblewrap.
+- All 8 self-checks passed; the wrapper adds ~5.6 ms to startup.
+- Medians of 3 runs for the 120×40 interaction and the streaming cells.
+- **A first full run (v1) was discarded** for probe errors:
+  - DECSET 2026 was misread;
+  - streams were cut off while the model was still thinking;
+  - prompts were not submitted.
+
+  It's kept in `results-v1/`.
+- 9 invalid v2 cells were found by reading screens and re-run.
+- Detail: `bench/f2/probe/SUMMARY.md` and `README.md`.
+
+**120×40, truecolor:**
+
+| Harness | Ready ms | Echo p50 / p95 ms | Bytes per key | Idle CPU % | RSS MiB | S1 fps | Bytes per frame | S1 gzip bytes | RSS over 10 turns | DECSET 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ternly | 72 | 12.4 / 14.1 | **19** | 3.2 † | **96** | 13.5 | 151 | **8 555** | 211 → 239 | yes |
+| Claude Code | 369 | 4.1 / 20.0 | 38 | 0.97 | 271 | 6.9 | **58** | 8 973 | 260 → 330 | no |
+| Codex | **61** | 0.9 / 7.7 | 119 | 4.3 | 843 | **28.1** | 82 | 37 738 | 610 → 909 | yes |
+| Crush | 85 | 10.2 / 13.7 | 41 | 0.97 | 112 | 22.6 ‡ | 318 ‡ | 10 252 ‡ | 110 → 115 | yes |
+| OpenCode | 3 744 | 6.1 / — | 88 | 23.4 | 728 | 25.4 ‡ | 107 ‡ | — ‡ | 938 → 912 | yes |
+| Pi | 485 | 2.1 / — | 178 | **0.77** | 121 | 25.0 | 486 | — | 130 → 145 | yes |
+| CodeWhale | 218 | **0.4 / 0.6** | 161 | 1.2 | 201 | 23.7 | 395 | 69 753 | 202 → 233 | yes |
+| Gemini CLI | 1 864 | n/a (no account) | n/a | 0.50 | 434 | n/a | n/a | n/a | n/a | no |
+
+† **ternly's idle CPU isn't the UI.** In a fresh home with default config, ternly starts a background eval
+(`glm-5.3:cloud`, while the cloud quota is exhausted) and a 9.9 MB catalog download during "idle". Measured
+10–40 s after start: 2.2 % (fresh home) and 3.5 % (second start). Phase F measured the UI alone at 0.3–1.0 %.
+
+‡ **No answer was produced:** gemma4's tool calls were printed as text. These describe painting only.
+
+**Measured facts that shape the proposal:**
+- **Echo is ternly's worst number:** 12.4 ms against the best, 0.4 ms (CodeWhale). The two Bubble Tea harnesses
+  are the two slowest (ternly 12.4, Crush 10.2); everyone else is under 5 ms.
+  - **Hypothesis, to verify first in implementation:** the renderer paints on a frame tick, not on input.
+  - It's within the 16 ms budget, so "best" needs ≤ 0.4 ms.
+- **ternly's streaming is the cheapest over a link:** the smallest compressed total for S1 (8.6 KB).
+  - Its 13.5 fps is coalescing, not cost.
+  - Codex pairs 28 fps with 82 B per frame, the best smoothness at a low frame cost.
+- **Adaptation:**
+  - ternly's colour degrades correctly at every tier (24-bit, 256, 16, none);
+  - OpenCode emits 24-bit or 256 colours under 16 colours, NO_COLOR and TERM=dumb, and Pi emits 256;
+  - Codex never becomes ready under TERM=dumb, and didn't redraw when grown to 250×70;
+  - **no harness falls back to ASCII glyphs under LANG=C, ternly included.**
+- **Resize:** ternly reflows in 7 ms / 1.3 KB (to 80×24) and 14 ms / 2.4 KB (to 250×70).
+
+**Not measured:**
+- Gemini CLI's interaction (it stops at its trust dialog without an account);
+- a real GPU terminal's paint time;
+- a real SSH link (gzip of the pty stream stands in for ssh -C);
+- network isolation (the sandbox shares the network).
+
+## Rubric scores (the extended lines; Phase F's eight lines are in ADR 023)
+| Line | ternly | Claude Code | Codex | Crush | OpenCode | Pi | CodeWhale |
+|---|---|---|---|---|---|---|---|
+| Information reach (facts at ≤ 1 key: 0 at ≤ 5, 4 at ≥ 16, linear) | 8 → **1** | 5 → 0 | 7 → **1** | 10 → **2** | 5 → 0 | 5 → 0 | 6 → 0 |
+| Parallel-agent visibility (S3 and the reach sessions) | **0** (none shown) | 2 (0-key cue, 7-key list) | **3** (1-key command center with status filters) | 0 | 0 | 0 (no sub-agents) | 2 (8-key `/agents` with model and elapsed) |
+
+**Render cost and adaptivity aren't given single scores.**
+- **Render cost:** as written ("within 10 % of the best on every tier, 0 at ≥ 4× on any"), the line gives
+  every harness 0, because each is ≥ 4× behind the best on some metric. Tiers of metrics are listed above
+  instead; the line needs a revised formula (decision 5).
+- **Adaptivity:** scored per family from SUMMARY.md:
+
+  | Family | ternly | Notes on rivals |
+  |---|---|---|
+  | colour | ✓ | OpenCode ✗, Pi ✗ |
+  | ASCII glyphs | ✗ | every harness ✗ |
+  | size and reflow | ✓ | Codex ✗ |
+  | slow link and memory | ✓ | |
+
+  That gives ternly 3; the other harnesses' full scores need their dumb-terminal and ASCII cells read by
+  hand, which is listed as remaining.
+
+## Budgets per tier, from the measured best (replacing the placeholders above)
+| Budget | Measured best | ternly now | Target |
+|---|---|---|---|
+| Keystroke echo, p50 / p95 | 0.4 / 0.6 ms (CodeWhale) | 12.4 / 14.1 ms | ≤ 1 / ≤ 4 ms; "best" only if ≤ 0.4 ms is measured |
+| Bytes per keystroke frame | 19 B (ternly) | 19 B | ≤ 19 B at every colour tier |
+| Startup to ready | 61 ms (Codex) | 72 ms (sandboxed) | ≤ 60 ms |
+| Streaming smoothness / frame cost | 28 fps at 82 B (Codex) | 13.5 fps at 151 B | ≥ 25 fps at ≤ 82 B per frame (local) |
+| Compressed S1 total (link proxy) | 8.6 KB (ternly) | 8.6 KB | ≤ 8.6 KB; on slow links ≤ 10 fps coalesced |
+| Idle CPU, UI only | 0.5–0.97 % (Gemini, Pi, Claude, Crush; default configs) | 0.3–1.0 % UI; 2–3.5 % with background work | ≤ 0.5 % UI; background work separated, deferred while the user is active, and budgeted |
+| RSS at start / growth per turn | 96 MiB (ternly) / 0.5 MiB per turn (Crush) | 96 / 2.8 MiB per turn | ≤ 96 MiB / ≤ 1 MiB per turn |
+| 10k-line redraw, p95 | — (ternly in-process) | 1.35–1.48 ms in CI | < 16 ms (met; keep) |
+| ASCII glyphs under LANG=C | none | none | correct ASCII set (no harness does this today) |
 
 ## What the proposal takes from the survey (targets for ternly)
 | Fact | Today | Target | Source of the idea |
@@ -272,8 +358,16 @@ at all (CodeWhale).
 - the palette misaligned at 80 columns.
 
 ## Decisions needed (for the owner's review)
+0. Start the implementation with the echo latency (verify the frame-tick hypothesis, then fix), the
+   separation of background work from the UI's idle budget, and the four bugs above; then the information
+   architecture.
 1. The key map for the Level-2 panels (the Ctrl+D and Ctrl+R conflicts).
 2. Whether the always-on status may take 2 lines at 80×24, or must stay 1.
 3. The bytes-per-frame budgets, once the survey numbers are in.
 4. Gemini CLI and the Cursor agent can only be scored from docs without a Google or Cursor
-   sign-in. Do you want a sign-in for a first-hand measurement?
+   sign-in. Do you want a sign-in for a first-hand measurement? (A Gemini sign-in now exists in your
+   real home; the survey's isolated runs don't use it.)
+5. The render-cost line's formula: as written it scores every harness 0. Proposed instead: per metric,
+   4 if within 10 % of the best, 3 within 2×, 2 within 4×, 1 within 10×, 0 beyond, averaged across metrics.
+6. ternly's default background evals and catalog refresh: keep them on by default but pause them while
+   a session is in the foreground, or turn them off by default.
