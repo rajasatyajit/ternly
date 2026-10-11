@@ -15,12 +15,17 @@ type Access struct {
 	ReducedMotion bool // TERNLY_REDUCED_MOTION=1
 	ScreenReader  bool // TERNLY_SCREEN_READER=1 (implies ReducedMotion)
 	Mouse         bool // TERNLY_MOUSE=1: wheel scrolls the transcript
+	ASCII         bool // the locale isn't UTF-8 (LC_ALL, LC_CTYPE, LANG), or TERNLY_ASCII=1: ASCII glyphs
 }
 
 // AccessFromEnv reads the settings from the environment.
 func AccessFromEnv() Access {
 	on := func(k string) bool { v := os.Getenv(k); return v != "" && v != "0" && v != "false" }
 	a := Access{ReducedMotion: on("TERNLY_REDUCED_MOTION"), ScreenReader: on("TERNLY_SCREEN_READER"), Mouse: on("TERNLY_MOUSE")}
+	a.ASCII = !utf8Locale()
+	if _, ok := os.LookupEnv("TERNLY_ASCII"); ok { // an explicit choice wins over the locale
+		a.ASCII = on("TERNLY_ASCII")
+	}
 	if a.ScreenReader {
 		a.ReducedMotion = true
 	}
@@ -139,4 +144,16 @@ func (m *Model) renderLinear() (string, int) {
 	sb.WriteString("> " + m.ta.View() + "\n")
 	sb.WriteString(m.statusBar())
 	return sb.String(), row
+}
+
+// utf8Locale reports whether the locale's character set is UTF-8: the first
+// of LC_ALL, LC_CTYPE and LANG that is set decides, as in C.
+func utf8Locale() bool {
+	for _, k := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
+		if v := os.Getenv(k); v != "" {
+			v = strings.ToLower(v)
+			return strings.Contains(v, "utf-8") || strings.Contains(v, "utf8")
+		}
+	}
+	return false
 }

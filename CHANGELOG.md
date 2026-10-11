@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### TUI layout, step 1: the status line (ADR 030 (d))
+- **The status line carries the facts checked between turns:**
+  - the model and why it was chosen (▸ cheapest, ◆ pinned, ↑ escalated, ⇄ failover);
+  - context used/window and the session's cost. A model with no price shows "cost unknown",
+    not $0.0000;
+  - the provider's quota (only where it reports one) and lost trust;
+  - this turn's tokens in and out, the turn's time (live while it runs), the last
+    verification's verdict, the plan step and the undo depth.
+- **It fits any width.** Fields are in priority order. A line that's too long shortens its least
+  important fields first, then drops them; the model is last to go. It uses one line when
+  everything fits in full and two otherwise (two at 80×24). It collapses to one line below 24
+  rows, when the input grows, or when two would leave the transcript fewer than 16 rows.
+- **ASCII glyphs where the locale isn't UTF-8** (LC_ALL, LC_CTYPE, LANG, as in C), or with
+  `TERNLY_ASCII=1`. This covers the status line so far; the rest comes with the adaptive tiers.
+- **Transcript info lines no longer spill past the screen.** At 60 columns the routing line was 79
+  columns wide.
+- **`bench/f2/layout`** records every step: screens at 200×50, 120×40 and 80×24, Unicode and
+  ASCII/no-colour; the 20-fact information reach; and startup, echo, bytes per key, idle CPU and RSS
+  against ADR 030's budgets. It drives a scripted `bench/fakeprovider` session, so runs are
+  repeatable.
+
 ### TUI: four fixes from the F2 survey (ADR 030)
 - **The welcome hint fits the screen.** It was one 118-column line, cut off at 80 columns; it now
   wraps at " · " and between words, and re-wraps on resize. The no-providers hint and /help's key

@@ -22,6 +22,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
@@ -178,6 +179,10 @@ type Model struct {
 	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
 	surfaceCh     <-chan struct{}
+	turnStart     time.Time     // when the current (or last) turn started; zero before the first
+	turnTook      time.Duration // the last finished turn's time
+	turnUsage0    llm.Usage     // the session's usage when the current turn started
+	verify        string        // the last verification's verdict (agent.Verdict*); "" before any
 }
 
 // App bundles the long-lived services the UI drives.
@@ -668,7 +673,7 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 		m.App.Agent.Commit(agent.Record{T: "status", Text: "active"})
 		m.paused = false
 	}
-	m.turnCost0 = m.ledger.Cost
+	m.turnCost0, m.turnUsage0, m.turnStart = m.ledger.Cost, m.ledger.Usage, time.Now()
 	if m.discovering {
 		m.activity = "Discovering models"
 	}
@@ -708,6 +713,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.blocks = append(m.blocks, &block{kind: bTool, tool: "verify", id: "verify", text: e.Text})
 		m.activity = "Verifying"
 	case agent.EvToolEnd:
+		if e.Tool == "verify" {
+			m.verify = e.Verdict
+		}
 		for i := len(m.blocks) - 1; i >= 0; i-- {
 			if b := m.blocks[i]; b.kind == bTool && b.id == e.ToolID && b.state == 0 {
 				b.state, b.elapsed, b.detail, b.rendered, b.full = 2, e.Elapsed, firstLines(e.Text, 3), "", e.Text
@@ -734,6 +742,9 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
 	case agent.EvDone:
 		m.ledger = e.Ledger
+		if !m.turnStart.IsZero() {
+			m.turnTook = time.Since(m.turnStart)
+		}
 		m.reloadSidebar()                           // turns and titles changed
 		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
 			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
@@ -1056,8 +1067,8 @@ func (m *Model) modelsTable(filter string) string {
 
 // ─────────────────────────── rendering ───────────────────────────
 
-func (m *Model) layout() {
-	inputH := m.ta.Height() + 2
+// panelHeight is the rows the open panels take above the input box.
+func (m *Model) panelHeight() int {
 	permH := 0
 	if m.perm != nil {
 		permH = 5
@@ -1075,7 +1086,12 @@ func (m *Model) layout() {
 	if m.suggest != nil {
 		permH += 2*len(m.suggest.s.Candidates) + 4
 	}
-	m.vp.h = max(3, m.h-1-inputH-1-permH)
+	return permH
+}
+
+func (m *Model) layout() {
+	inputH := m.ta.Height() + 2
+	m.vp.h = max(3, m.h-1-inputH-m.statusLines()-m.panelHeight())
 	m.vp.clamp()
 }
 
@@ -1150,7 +1166,21 @@ func (m *Model) renderBlock(b *block) string {
 	case bWelcome:
 		return m.welcome()
 	}
-	return b.text
+	return fitLines(b.text, m.cw()) // an info line never spills past the transcript
+}
+
+// fitLines cuts each line of s to w display columns, ending a cut line in "…".
+func fitLines(s string, w int) string {
+	if w <= 0 {
+		return s
+	}
+	ls := strings.Split(s, "\n")
+	for i, l := range ls {
+		if ansi.StringWidth(l) > w {
+			ls[i] = ansi.Truncate(l, w, "…")
+		}
+	}
+	return strings.Join(ls, "\n")
 }
 
 func (m *Model) View() tea.View {
@@ -1268,31 +1298,6 @@ func (m *Model) permView() string {
 		truncate(p.summary, m.w-8) + "\n" +
 		sOK.Render("[y]") + " yes   " + sAccent.Render("[a]") + " always   " + sErr.Render("[n]") + " no"
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(border).Padding(0, 1).Width(m.w - 2).Render(body)
-}
-
-func (m *Model) statusBar() string {
-	left := sDim.Render("auto-routing")
-	if m.discovering {
-		left = m.moving("discovering models")
-	} else if m.model != nil {
-		left = sAccent.Render("◆ "+untrusted(m.model.Key())) + " " + tierBadge(m.model.Tier)
-	}
-	l := m.ledger
-	right := sDim.Render(fmt.Sprintf("↑%s ↓%s", kfmt(l.Usage.In+l.Usage.CacheRead+l.Usage.CacheWrite), kfmt(l.Usage.Out)))
-	if l.Usage.CacheRead > 0 {
-		right += sDim.Render(fmt.Sprintf(" ⚡%.0f%%", l.CacheRate()*100))
-	}
-	right += "  " + sAccent.Render(fmt.Sprintf("$%.4f", l.Cost))
-	if mt := m.meter(); mt != "" {
-		right = mt + "  " + right
-	}
-	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
-		if spent := l.Cost - m.turnCost0; spent >= 0.75*lim.TurnUSD { // warn before the turn limit stops work
-			right = sWarn.Render(fmt.Sprintf("turn $%.2f/$%.2f", spent, lim.TurnUSD)) + "  " + right
-		}
-	}
-	gap := max(1, m.w-lipgloss.Width(left)-lipgloss.Width(right)-1)
-	return " " + left + strings.Repeat(" ", gap) + right
 }
 
 func (m *Model) welcome() string {

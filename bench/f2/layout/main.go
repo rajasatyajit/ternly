@@ -26,6 +26,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -36,6 +37,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
 type size struct{ cols, rows int }
@@ -76,10 +79,10 @@ func rx(s string) *regexp.Regexp { return regexp.MustCompile(s) }
 var facts = []fact{
 	{1, "current model", rx(`fake/m1`), ""},
 	{2, "why this model", rx(`(?m)fake/m1[^\n]*(cheapest|only capable|only model|pinned|escalat|failover|because|chosen)|p +time +money +quota +score`), ""},
-	{3, "cost so far", rx(`\$\d+\.\d+|cost:? ?unknown`), ""},
+	{3, "cost so far", rx(`\$\d+\.\d+|cost:? ?unknown|\$\?`), ""},
 	{4, "quota remaining", nil, "n/a"},
 	{5, "context used / window", rx(`ctx ?\d+(\.\d+)?[kM]?/\d+(\.\d+)?[kM]?|ctx ?\d+%`), ""},
-	{6, "tokens this turn", rx(`(↳|turn|this turn)[^\n]*\d+(\.\d+)?k?\s*(↑|tok|in)|\d+(\.\d+)?k?(↑|\^) ?\d+(\.\d+)?k?(↓|v)[^\n]*(·|\|)[^\n]*\d+(\.\d+)?s`), ""},
+	{6, "tokens this turn", rx(`(↳|turn|this turn)[^\n]*\d+(\.\d+)?k?\s*(↑|\^|tok|in)|\d+(\.\d+)?k?(↑|\^) ?\d+(\.\d+)?k?(↓|v)[^\n]*(·|\|)[^\n]*\d+(\.\d+)?s`), ""},
 	{7, "files changed", rx(`\d+ files? changed`), ""},
 	{8, "the diff of a change", rx(`(?m)^\s*(\d+\s+)?\+.*c\.evictUntilFits\(\)`), ""},
 	{9, "current plan step", nil, "n/o"},
@@ -255,8 +258,8 @@ func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
 	must(os.WriteFile(filepath.Join(ws, "go.mod"), []byte("module example.com/lru\n\ngo 1.26\n"), 0o644))
 	must(os.WriteFile(filepath.Join(ws, "lru.go"), []byte(lruGo), 0o644))
 	git := func(args ...string) {
-		c := exec.Command("git", append([]string{"-c", "user.name=f2", "-c", "user.email=f2@example.invalid", "-c", "init.defaultBranch=main"}, args...)...)
-		c.Dir, c.Env = ws, cleanGitEnv()
+		c := gitenv.Command(context.Background(), append([]string{"-c", "user.name=f2", "-c", "user.email=f2@example.invalid", "-c", "init.defaultBranch=main"}, args...)...)
+		c.Dir = ws
 		out, err := c.CombinedOutput()
 		if err != nil {
 			fail(fmt.Sprintf("git %v: %v\n%s", args, err, out))
@@ -271,16 +274,6 @@ func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
 		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
 		"FAKE_KEY=x", "TERNLY_HARNESS=1", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local"}
 	return home, ws, env, func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }
-}
-
-func cleanGitEnv() []string {
-	var env []string
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "GIT_") {
-			env = append(env, kv)
-		}
-	}
-	return env
 }
 
 type result struct {
