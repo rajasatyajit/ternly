@@ -677,7 +677,7 @@ func run() int {
 	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
 	// background work runs while idle (no turn, no input for idle.After) and on AC power (ADR 031)
 	gate := idle.New(ag.Running)
-	p := tea.NewProgram(activity{Model: m, touch: gate.Touch}, tea.WithContext(ctx))
+	p := tea.NewProgram(activity{Model: m, touch: gate.Touch}, append(tui.ProgramOptions(), tea.WithContext(ctx))...)
 	emit = func(e agent.Event) { stc.Observe(e); p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
 	pol.Review = tui.Reviewer(p) // edits that ask are reviewed per hunk (ADR 021 amendment 1)
