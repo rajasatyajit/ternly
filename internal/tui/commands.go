@@ -18,6 +18,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
@@ -250,7 +252,9 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 			b.WriteString(fmt.Sprintf("    %-34s %s\n", "/"+u.Name+" "+u.ArgHint, sDim.Render(u.Description)))
 		}
 	}
-	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output · Ctrl+B sessions"))
+	b.WriteString(wrapList(sDim, []string{"@path includes a file", "!cmd runs a command", "Tab completes", "Enter sends",
+		"Shift/Alt+Enter newline", "Esc clears the input, then interrupts", "Ctrl+U deletes to the line start",
+		"PgUp/PgDn scroll", "↑↓ history", "Ctrl+K commands", "Ctrl+O tool output", "Ctrl+B sessions"}, m.cw()))
 	m.addInfo(b.String())
 	return nil
 }
@@ -1463,22 +1467,36 @@ func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 func (m *Model) compView() string {
 	var b strings.Builder
 	first := min(max(0, m.comp.sel-compRows/2), max(0, len(m.comp.items)-compRows))
+	sigil := "/"
+	if m.comp.file {
+		sigil = "@"
+	}
+	// one name column for the whole list (it scrolls), as wide as the widest
+	// name and hint, at most 40 columns and 2/5 of the screen; padded and cut
+	// by what shows, not by bytes (a hint's styling has none)
+	col := 0
+	for _, it := range m.comp.items {
+		w := ansi.StringWidth(sigil + it.name)
+		if it.hint != "" {
+			w += 1 + ansi.StringWidth(it.hint)
+		}
+		col = max(col, w)
+	}
+	col = min(col, 40, max(12, m.w*2/5))
 	for i, it := range m.comp.items {
 		if i < first || i >= first+compRows {
 			continue
 		}
-		name := "/" + it.name
-		if m.comp.file {
-			name = "@" + it.name
+		text := ansi.Truncate(sigil+it.name, col, "…")
+		if room := col - ansi.StringWidth(text) - 1; it.hint != "" && room >= 4 {
+			text += " " + sDim.Render(ansi.Truncate(it.hint, room, "…"))
 		}
-		if it.hint != "" {
-			name += " " + sDim.Render(it.hint)
-		}
+		text += strings.Repeat(" ", max(0, col-lipgloss.Width(text)))
 		desc := it.desc
 		if it.project {
 			desc += " (project)"
 		}
-		line := fmt.Sprintf(" %-40s %s", name, sDim.Render(truncate(desc, max(10, m.w-48))))
+		line := " " + text + " " + sDim.Render(truncate(desc, max(8, m.w-col-3)))
 		if i == m.comp.sel {
 			line = sAccent.Render("›") + line
 		} else {

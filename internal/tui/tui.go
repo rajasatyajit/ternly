@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/capability"
@@ -110,6 +111,7 @@ const (
 	bTool
 	bInfo
 	bError
+	bWelcome // the welcome: rendered for the current width
 )
 
 type block struct {
@@ -221,6 +223,7 @@ func New(app *App, dark bool) *Model {
 	ta.CharLimit = 0
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
+	ta.KeyMap.DeleteCharacterForward.SetKeys("delete") // not Ctrl+D: ternly binds none of Ctrl+D/R/S/Q/Z (ADR 030)
 	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true}
 	switch app.Theme {
 	case "dark", "light":
@@ -229,7 +232,7 @@ func New(app *App, dark bool) *Model {
 	m.setTheme(dark)
 	m.ta.SetVirtualCursor(false) // the terminal draws (and blinks) the cursor: no redraws while idle
 	m.ta.Focus()
-	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
+	m.blocks = append(m.blocks, &block{kind: bWelcome})
 	if app.Sessions != nil {
 		if st := app.Agent.Export(); len(st.History) > 0 {
 			m.loadTranscript(st)
@@ -328,7 +331,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case discoveredMsg:
 		m.discovering = false
 		m.App.Router.SetModels(msg.models)
-		m.blocks[0].text, m.blocks[0].rendered = m.welcome(), ""
+		m.blocks[0].rendered = ""
 		for _, w := range msg.warn {
 			m.addInfo(sWarn.Render("! ") + untrusted(w))
 		}
@@ -560,7 +563,12 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.quitAt = time.Now()
 		m.addInfo(sDim.Render("  press Ctrl+C again to exit"))
 		return nil, true
-	case "esc":
+	case "esc": // clear what's typed; with nothing typed, interrupt the turn
+		if m.ta.Value() != "" {
+			m.ta.Reset()
+			m.histIx = len(m.hist)
+			return nil, true
+		}
 		if m.busy {
 			m.interrupt()
 		}
@@ -596,10 +604,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 			}
 			return nil, true
 		}
-	case "pgup", "ctrl+u":
+	case "pgup":
 		m.vp.scroll(-max(1, m.vp.h/2))
 		return nil, true
-	case "pgdown", "ctrl+d":
+	case "pgdown":
 		m.vp.scroll(max(1, m.vp.h/2))
 		return nil, true
 	case "ctrl+l":
@@ -1099,7 +1107,7 @@ func (m *Model) refresh(force bool) {
 }
 
 func (m *Model) renderBlock(b *block) string {
-	if b.kind != bInfo { // ternly styles only info lines; every other block holds outside text
+	if b.kind != bInfo && b.kind != bWelcome { // ternly styles only info lines; every other block holds outside text
 		b.text, b.detail, b.tool = untrusted(b.text), untrusted(b.detail), untrusted(b.tool)
 	}
 	switch b.kind {
@@ -1139,6 +1147,8 @@ func (m *Model) renderBlock(b *block) string {
 		return line
 	case bError:
 		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.cw()-6).Render(b.text)
+	case bWelcome:
+		return m.welcome()
 	}
 	return b.text
 }
@@ -1210,11 +1220,26 @@ func (m *Model) header() string {
 	if home, _ := os.UserHomeDir(); home != "" {
 		cwd = strings.Replace(cwd, home, "~", 1)
 	}
+	// What gives way, in order: the session title shrinks (from 32 columns
+	// to 8, then goes), so the path keeps at least 16; then the path elides
+	// in its middle; the sandbox and permission mode never truncate.
 	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode())
-	if t := m.App.Agent.Title(); t != "" {
-		right = sAccent.Render(truncate(t, 32)) + sDim.Render(" · ") + right
+	if lipgloss.Width(logo)+1+lipgloss.Width(right) > m.w {
+		return strings.Repeat(" ", max(0, m.w-lipgloss.Width(right))) + right
 	}
-	mid := sDim.Render("  " + cwd)
+	avail := m.w - lipgloss.Width(logo) - 2 - 1 - lipgloss.Width(right) // "  " before the path, a space before the right
+	title := m.App.Agent.Title()
+	tw := min(ansi.StringWidth(title), 32, avail-min(ansi.StringWidth(cwd), 16)-3) // 3: " · " after the title
+	if tw >= 8 {
+		title = truncate(title, tw)
+		tw = ansi.StringWidth(title) // a wide character can leave one column over
+		right = sAccent.Render(title) + sDim.Render(" · ") + right
+		avail -= tw + 3
+	}
+	mid := ""
+	if p := elideMiddle(cwd, avail); p != "" {
+		mid = sDim.Render("  " + p)
+	}
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right
 }
@@ -1296,7 +1321,9 @@ func (m *Model) welcome() string {
 	}
 	sort.Strings(names)
 	if len(names) == 0 {
-		sb.WriteString(sErr.Render("  no providers found") + sDim.Render(" — export a key (ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…)\n  or start Ollama / LM Studio, then /refresh"))
+		sb.WriteString(sErr.Render("  no providers found") + "\n" + wrapList(sDim, []string{
+			"export a key (ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…) or start Ollama / LM Studio, then /refresh",
+		}, m.cw()))
 		return sb.String()
 	}
 	for _, p := range names {
@@ -1307,11 +1334,52 @@ func (m *Model) welcome() string {
 		}
 		sb.WriteString(fmt.Sprintf("  %s %-11s %s\n", sOK.Render("●"), p, sDim.Render(fmt.Sprintf("%d models, %d with tools · %s", c[0], c[1], kind))))
 	}
-	sb.WriteString(sDim.Render("  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure"))
+	sb.WriteString(wrapList(sDim, []string{"/help or Ctrl+K for commands", "@ for files",
+		"tasks are routed to the cheapest capable model and escalated only on failure"}, m.cw()))
 	return sb.String()
 }
 
 // ─────────────────────────── helpers ───────────────────────────
+
+// wrapList joins items with " · " into lines of at most w columns, each
+// indented by two spaces and styled with st; an item too long for a line
+// wraps between words. w ≤ 0 (the width isn't known yet): one line.
+func wrapList(st lipgloss.Style, items []string, w int) string {
+	avail := w - 2
+	if w <= 0 {
+		avail = math.MaxInt
+	}
+	var lines []string
+	cur := ""
+	for _, it := range items {
+		if cur != "" && lipgloss.Width(cur+" · "+it) <= avail {
+			cur += " · " + it
+			continue
+		}
+		if cur != "" {
+			lines = append(lines, cur)
+			cur = ""
+		}
+		for _, word := range strings.Fields(it) {
+			switch {
+			case cur == "":
+				cur = word
+			case lipgloss.Width(cur+" "+word) <= avail:
+				cur += " " + word
+			default:
+				lines = append(lines, cur)
+				cur = word
+			}
+		}
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	for i, l := range lines {
+		lines[i] = st.Render("  " + l) // per line: a multi-line Render pads every line to the widest
+	}
+	return strings.Join(lines, "\n")
+}
 
 func tierBadge(t int) string {
 	c := []string{"#6B7280", "#22D3EE", "#A78BFA", "#F472B6"}[min(max(t, 0), 3)]
@@ -1361,15 +1429,25 @@ func firstLines(s string, n int) string {
 	return strings.Join(ls, "\n")
 }
 
+// truncate shortens s to n display columns (at least 8), ending in "…"; a
+// wide character takes two. Newlines show as " ⏎ ".
 func truncate(s string, n int) string {
 	s = strings.ReplaceAll(s, "\n", " ⏎ ")
-	if n < 8 {
-		n = 8
+	return ansi.Truncate(s, max(n, 8), "…")
+}
+
+// elideMiddle shortens s to n display columns by replacing its middle with
+// "…", keeping more of the end (a path's last directories); "" if n < 5.
+func elideMiddle(s string, n int) string {
+	w := ansi.StringWidth(s)
+	if w <= n {
+		return s
 	}
-	if r := []rune(s); len(r) > n {
-		return string(r[:n-1]) + "…"
+	if n < 5 {
+		return ""
 	}
-	return s
+	head := (n - 1) / 3
+	return ansi.Truncate(s, head, "") + "…" + ansi.TruncateLeft(s, w-(n-1-head), "")
 }
 
 func dur(d time.Duration) string {
