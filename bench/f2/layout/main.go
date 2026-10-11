@@ -38,6 +38,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rajasatyajit/ternly/bench/leakguard"
 	"github.com/rajasatyajit/ternly/internal/gitenv"
 )
 
@@ -546,34 +547,29 @@ func writeMetrics(probeJSON, out string) {
 	_ = os.WriteFile(out, b, 0o644)
 }
 
-// privacyCheck fails the run if a file meant for git names this machine:
-// the home directory, the user or the host name.
+// privacyCheck fails the run if a file meant for git names this machine or
+// the tools under test (see bench/leakguard): the home directory, the user,
+// the host name, the kernel release, the OS/distro, a tool's session ID.
 func privacyCheck(dir string) {
-	home, _ := os.UserHomeDir()
-	host, _ := os.Hostname()
-	needles := []string{home, os.Getenv("USER"), host}
-	var bad []string
-	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() && (d.Name() == "home" || d.Name() == "proj-lru") {
-				return filepath.SkipDir // the fixture: local only
-			}
-			return nil
-		}
-		name := d.Name()
-		if name != "REPORT.md" && name != "metrics.json" && !strings.HasPrefix(name, "screen-") {
-			return nil // local only (probe.json, raw.gz, the fake provider)
-		}
-		b, _ := os.ReadFile(p)
-		for _, n := range needles {
-			if len(n) >= 3 && strings.Contains(string(b), n) {
-				bad = append(bad, fmt.Sprintf("%s contains %q", p, n))
-			}
-		}
-		return nil
-	})
-	if len(bad) > 0 {
-		fail("privacy: files meant for git name this machine:\n  " + strings.Join(bad, "\n  "))
+	bad, err := privacyFindings(dir)
+	if err != nil {
+		fail("privacy: " + err.Error())
 	}
-	fmt.Fprintln(os.Stderr, "privacy: clean (no home path, user or host name in REPORT.md, metrics.json, screen-*.txt)")
+	if len(bad) > 0 {
+		fail("privacy: files meant for git name this machine or a tool session:\n  " + strings.Join(bad, "\n  "))
+	}
+	fmt.Fprintln(os.Stderr, "privacy: clean (no home path, user, host, kernel, OS/distro or session ID in REPORT.md, metrics.json, screen-*.txt)")
+}
+
+// privacyFindings scans the files of a run that are meant for git.
+func privacyFindings(dir string) ([]string, error) {
+	return leakguard.ForThisMachine().ScanDir(dir, func(p string) bool {
+		rel, _ := filepath.Rel(dir, p)
+		if r := "/" + filepath.ToSlash(rel); strings.Contains(r, "/home/") || strings.Contains(r, "/proj-lru/") {
+			return false // the fixture: local only
+		}
+		name := filepath.Base(p)
+		return name == "REPORT.md" || name == "metrics.json" || strings.HasPrefix(name, "screen-")
+		// probe.json, raw.gz and the fake provider's files stay local
+	})
 }
