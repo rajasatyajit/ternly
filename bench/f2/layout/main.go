@@ -109,6 +109,9 @@ func main() {
 	sizes := flag.String("sizes", "200x50,120x40,80x24", "terminal sizes")
 	only := flag.String("tiers", "unicode,ascii-nocolor", "render tiers")
 	perf := flag.Bool("perf", true, "also run the performance probe at 120x40")
+	ab := flag.String("idle-ab", "", "only measure idle CPU of these binaries, interleaved: name=binary,name=binary")
+	rounds := flag.Int("rounds", 7, "-idle-ab: rounds")
+	secs := flag.Int("idle-secs", 20, "-idle-ab: seconds of idle per sample")
 	flag.Parse()
 	if *out == "" {
 		fail("-out is required")
@@ -130,6 +133,13 @@ func main() {
 		must(build.Run())
 	}
 	*fake = abs(*fake)
+	if *ab != "" {
+		rep := fmt.Sprintf("# Idle CPU A/B (%s)\n\n", time.Now().Format("2006-01-02 15:04")) + idleAB(*ab, *rounds, *secs, *probeBin, *fake, *out, abs)
+		must(os.WriteFile(filepath.Join(*out, "REPORT.md"), []byte(rep), 0o644))
+		privacyCheck(*out)
+		fmt.Print(rep)
+		return
+	}
 
 	var report strings.Builder
 	fmt.Fprintf(&report, "# Layout recordings (%s)\n\nternly: `%s`\n\n", time.Now().Format("2006-01-02 15:04"), version(*ternly))

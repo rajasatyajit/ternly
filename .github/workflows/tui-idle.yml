@@ -1,0 +1,73 @@
+name: TUI idle CPU A/B
+
+# Idle CPU against ADR 030's budget (≤ 0.5 % for the UI), measured on a CI
+# runner rather than a busy desktop, with binaries interleaved round by round
+# so they share the runner's conditions (bench/f2/layout -idle-ab). One of the
+# binaries is listed twice: their paired difference is the noise floor, the
+# least a real difference must exceed.
+on:
+  workflow_dispatch:
+    inputs:
+      binaries:
+        description: "name=ref pairs, comma-separated (the first is the reference)"
+        default: "step3=5cbe1e3,step3-again=5cbe1e3,step2=0a123af,pre-layout=c903a5b"
+      rounds:
+        description: "rounds"
+        default: "7"
+  pull_request:
+    paths: [".github/workflows/tui-idle.yml", "bench/f2/layout/**", "bench/tuiprobe/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tui-idle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  idle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BINARIES: ${{ inputs.binaries || 'step3=5cbe1e3,step3-again=5cbe1e3,step2=0a123af,pre-layout=c903a5b' }}
+      ROUNDS: ${{ inputs.rounds || '7' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the refs to build
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Runner
+        run: |
+          grep -m1 'model name' /proc/cpuinfo | sed 's/.*: //'
+          echo "vCPUs: $(nproc)"
+          echo "load: $(cut -d' ' -f1-3 /proc/loadavg)"
+      - name: Build the harness and the binaries
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          (cd bench/tuiprobe && go build -o "$RUNNER_TEMP/bin/tuiprobe" .)
+          go build -o "$RUNNER_TEMP/bin/fakeprovider" ./bench/fakeprovider
+          go build -o "$RUNNER_TEMP/bin/layout" ./bench/f2/layout
+          spec=""
+          IFS=',' read -ra pairs <<< "$BINARIES"
+          for p in "${pairs[@]}"; do
+            name="${p%%=*}"; ref="${p#*=}"
+            case "$name$ref" in *[!A-Za-z0-9._-]*) echo "bad pair: $p"; exit 1;; esac
+            git worktree add -q "$RUNNER_TEMP/src-$name" "$ref"
+            (cd "$RUNNER_TEMP/src-$name" && CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/bin/ternly-$name" .)
+            echo "$name: $(git rev-parse --short "$ref")"
+            spec="$spec${spec:+,}$name=$RUNNER_TEMP/bin/ternly-$name"
+          done
+          echo "SPEC=$spec" >> "$GITHUB_ENV"
+      - name: Measure (interleaved)
+        run: |
+          "$RUNNER_TEMP/bin/layout" -idle-ab "$SPEC" -rounds "$ROUNDS" -idle-secs 20 \
+            -probe "$RUNNER_TEMP/bin/tuiprobe" -fake "$RUNNER_TEMP/bin/fakeprovider" -out "$RUNNER_TEMP/idle"
+          cat "$RUNNER_TEMP/idle/REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "load after: $(cut -d' ' -f1-3 /proc/loadavg)"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tui-idle
+          path: ${{ runner.temp }}/idle/REPORT.md
