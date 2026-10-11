@@ -1,6 +1,7 @@
 # ADR 030 — Phase F2: an extended rubric, the information architecture, and the layout (proposed)
 
-Status: **proposed, for review before any implementation.** The owner's instruction: "Start with
+Status: **accepted with the owner's decisions (2026-10-11), recorded at the end.** It was first proposed for review before
+any implementation. The owner's instruction: "Start with
 the competitor survey, the extended rubric and a layout proposal … Stop for my review before
 implementing."
 
@@ -371,3 +372,27 @@ at all (CodeWhale).
    4 if within 10 % of the best, 3 within 2×, 2 within 4×, 1 within 10×, 0 beyond, averaged across metrics.
 6. ternly's default background evals and catalog refresh: keep them on by default but pause them while
    a session is in the foreground, or turn them off by default.
+
+## Decisions (owner's review, 2026-10-11)
+1. **Order: (a) echo, (b) background work, (c) the four bugs, (d) the layout.** Stop for review after (a)–(c).
+   - (b) is a bug: never schedule an eval when the quota is exhausted (check the balance first); fetch the catalog
+     conditionally (ETag/If-Modified-Since), with no unchanged re-download.
+   - Echo: verify the frame-tick hypothesis, then target < 2 ms.
+2. **Keys:**
+   - a configurable leader key plus a letter per panel, with a which-key popup;
+   - the Ctrl+K palette for everything;
+   - no Ctrl+D/R/S/Q/Z bindings;
+   - direct shortcuts only as extras where enhanced keyboard support exists.
+3. **2-line status at 80×24:** yes. Fields are priority-ordered and truncate by importance. The status collapses to 1
+   line below 24 rows, or when the input grows. The transcript keeps ≥ 16 rows.
+4. **Bytes per frame:** where ternly is best, the budget is the current value (no regression beyond the gate's noise
+   threshold); elsewhere the target is the best measured, with the gap recorded.
+5. **Gemini CLI and the Cursor agent:** docs only, for now.
+6. **Render-cost scoring:** one neutral formula applied identically to every harness (e.g. best/value), plus rankings
+   under two alternative formulas. Record that it was revised after seeing the data. It was: the first formula scored
+   every harness 0.
+7. **Background work:**
+   - pause evals and the catalog refresh during active sessions;
+   - run them only when idle, with quota available, and on AC power;
+   - the owner's config stays as it is;
+   - new installs: evals are opt-in through a first-run question; the catalog refresh is idle-only and conditional.
