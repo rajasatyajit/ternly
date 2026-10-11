@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Toolchain: Go 1.27.2 and x/net v0.60.0 (security)
+- **Go 1.27.2 and golang.org/x/net v0.60.0** fix GO-2026-6612, GO-2026-6613 and GO-2026-6617
+  (net/http and x/net http2, published 2026-10-11). govulncheck found them reachable through
+  netguard's transport and failed CI on every branch.
+- **staticcheck runs from master (452d5bb86b45, 2026-10-09)** until a release ships: v0.8.1 can't
+  read go1.27.2's export data (version 5).
+
 ### Catalog refresh, empty answers, e2e failure kinds (ADR 028)
 - **The capability catalog's index rebuilds once per refresh, at its end,** and is exact
   afterwards. Before, document frequencies could count replaced entries and push common words'
