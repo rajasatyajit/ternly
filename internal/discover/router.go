@@ -20,6 +20,7 @@ type Router struct {
 	// routing v2 (ADR 018); cost nil = v1
 	cost      *CostModel
 	exhausted map[string]time.Time // model key → out of routing until
+	estimated map[string]bool      // model key → that time is ternly's estimate, not the provider's
 	place     map[string]float64   // model key → GPU fraction measured since discovery
 	placed    map[string]time.Time // model key → when its placement was last read
 	newer     map[*Model]int       // newer models of the same family (familyRanks)

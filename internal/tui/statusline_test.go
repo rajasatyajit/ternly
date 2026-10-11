@@ -2,6 +2,7 @@ package tui
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -277,5 +278,30 @@ func TestStatusQuotaOut(t *testing.T) {
 		if bar := stripANSI(m.statusBar()); !strings.Contains(bar, c.want) {
 			t.Errorf("w=%d ascii=%v: %q lacks %q", c.w, c.ascii, bar, c.want)
 		}
+	}
+}
+
+// ternly's own estimate (no Retry-After) never reads as a clock time; it
+// counts down, and the status line re-renders as it does.
+func TestStatusQuotaEstimated(t *testing.T) {
+	m := statusModel(t, 200, 30)
+	key := m.model.Key()
+	set := func(left time.Duration, estimated bool) string {
+		m.snap = surface.Snapshot{Models: []surface.Model{{Key: key, Connection: "cloud"}},
+			Connections: []surface.Connection{{ID: "cloud", Quota: &surface.Quota{ExhaustedUntil: time.Now().Add(left), UntilEstimated: estimated}}}}
+		m.snapGen++
+		return stripANSI(m.statusBar())
+	}
+	clock := regexp.MustCompile(`quota out until \d\d:\d\d`)
+	if bar := set(time.Hour, true); !strings.Contains(bar, "quota out, retry in about 1h (estimated)") || clock.MatchString(bar) {
+		t.Errorf("estimated hold: %q", bar)
+	}
+	if bar := set(time.Hour, false); !clock.MatchString(bar) || strings.Contains(bar, "estimated") {
+		t.Errorf("the provider's time: %q", bar)
+	}
+	k1 := func() statusKey { set(time.Hour, true); return m.statusKey() }()
+	k2 := func() statusKey { set(20*time.Minute, true); return m.statusKey() }()
+	if k1.quotaOut == k2.quotaOut {
+		t.Errorf("the countdown doesn't change the status key: %q", k1.quotaOut)
 	}
 }

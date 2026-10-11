@@ -41,7 +41,9 @@ func quotaGate(log *discover.QuotaLog, router *discover.Router, balance func(con
 			return true, ""
 		}
 		now := time.Now()
-		if t := router.ExhaustedUntil(m.Key()); !t.IsZero() {
+		if t, est := router.Exhausted(m.Key()); est && !t.IsZero() {
+			return false, "quota exhausted (rate limited; retried in " + discover.About(time.Until(t)) + ", estimated)"
+		} else if !t.IsZero() {
 			return false, "quota exhausted (rate limited until " + t.Format("15:04") + ")"
 		}
 		if ex, q := log.Exhausted(g, now); ex {

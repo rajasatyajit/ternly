@@ -135,7 +135,7 @@ func TestRoutingReplayQuotaExhausted(t *testing.T) {
 	r, by := replayRouter(t, `{"models":[]}`, &discover.CostModel{TimeValue: discover.DefaultTimeValue})
 	for _, m := range r.Models() {
 		if m.Cloud {
-			r.MarkExhausted(m.Key(), time.Now().Add(time.Hour))
+			r.MarkExhausted(m.Key(), time.Now().Add(time.Hour), false)
 		}
 	}
 	m, why := r.PickFor(3, ctx20k, ctx20k+16000, nil)

@@ -248,13 +248,15 @@ func (r *Router) V2() bool { r.mu.RLock(); defer r.mu.RUnlock(); return r.cost !
 
 // MarkExhausted takes a model out of routing until t (a quota or rate limit)
 // and, with a quota log set, records the hit for its quota group: background
-// work then leaves that quota alone (ADR 031).
-func (r *Router) MarkExhausted(key string, until time.Time) {
+// work then leaves that quota alone (ADR 031). estimated says until is
+// ternly's guess (the provider gave no Retry-After): it is then shown as
+// approximate, never as a clock time.
+func (r *Router) MarkExhausted(key string, until time.Time, estimated bool) {
 	r.mu.Lock()
 	if r.exhausted == nil {
-		r.exhausted = map[string]time.Time{}
+		r.exhausted, r.estimated = map[string]time.Time{}, map[string]bool{}
 	}
-	r.exhausted[key] = until
+	r.exhausted[key], r.estimated[key] = until, estimated
 	r.mu.Unlock()
 	r.NoteQuotaHit(key, until)
 }
@@ -278,12 +280,31 @@ func (r *Router) NoteQuotaHit(key string, until time.Time) {
 // ExhaustedUntil is when a model rate-limited by its provider comes back
 // into routing (zero: it isn't out).
 func (r *Router) ExhaustedUntil(key string) time.Time {
+	t, _ := r.Exhausted(key)
+	return t
+}
+
+// Exhausted is ExhaustedUntil and whether that time is ternly's estimate
+// (no Retry-After) rather than the provider's.
+func (r *Router) Exhausted(key string) (until time.Time, estimated bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if t := r.exhausted[key]; time.Now().Before(t) {
-		return t
+		return t, r.estimated[key]
 	}
-	return time.Time{}
+	return time.Time{}, false
+}
+
+// About says how long d is in round words for a time ternly estimated:
+// "about 1h", "about 25m", "a few minutes".
+func About(d time.Duration) string {
+	switch {
+	case d >= 45*time.Minute:
+		return fmt.Sprintf("about %dh", int(d.Round(time.Hour)/time.Hour))
+	case d >= 5*time.Minute:
+		return fmt.Sprintf("about %dm", int(d.Round(5*time.Minute)/time.Minute))
+	}
+	return "a few minutes"
 }
 
 // Observe records a streamed request's timings (routing v2 measures speed
@@ -525,9 +546,10 @@ func (r *Router) nowhere(left []Estimate) string {
 	var hints []string
 	r.mu.RLock()
 	var until time.Time
-	for _, t := range r.exhausted {
+	estimated := false
+	for k, t := range r.exhausted {
 		if t.After(until) {
-			until = t
+			until, estimated = t, r.estimated[k]
 		}
 	}
 	paid := false
@@ -537,8 +559,11 @@ func (r *Router) nowhere(left []Estimate) string {
 		}
 	}
 	r.mu.RUnlock()
-	if time.Now().Before(until) {
-		hints = append(hints, "a cloud quota resets around "+until.Format("15:04"))
+	switch {
+	case time.Now().Before(until) && estimated:
+		hints = append(hints, "a cloud quota may be back in "+About(time.Until(until))+" (estimated)")
+	case time.Now().Before(until):
+		hints = append(hints, "a cloud quota resets at "+until.Format("15:04"))
 	}
 	for _, e := range left {
 		if e.Model.NoFit {

@@ -252,7 +252,9 @@ func (m *Model) statusKey() statusKey {
 		k.elapsed = durShort(d)
 	}
 	if _, c := m.currentSurfaceModel(); c != nil && c.Quota != nil { // a quota runs out, or comes back, as time passes
-		k.quotaOut = time.Now().Before(c.Quota.ExhaustedUntil)
+		if now := time.Now(); now.Before(c.Quota.ExhaustedUntil) {
+			k.quotaOut = quotaOut(*c.Quota, now) // an estimate counts down ("about 1h", "about 40m")
+		}
 	}
 	if m.discovering {
 		k.frame = m.frame // the "discovering" shimmer moves
@@ -266,7 +268,7 @@ func (m *Model) statusKey() statusKey {
 type statusKey struct {
 	w, lines, errors, turns, frame, snapGen int
 	discovering, ascii, started             bool
-	quotaOut                                bool
+	quotaOut                                string
 	model                                   *discover.Model
 	reason, verify, elapsed                 string
 	ledger                                  agent.Ledger

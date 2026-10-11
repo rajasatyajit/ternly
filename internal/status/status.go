@@ -23,7 +23,7 @@ type Router interface {
 	Pinned() *discover.Model
 	V2() bool
 	Explain(d, ctx, need int) []discover.Estimate
-	ExhaustedUntil(key string) time.Time
+	Exhausted(key string) (until time.Time, estimated bool)
 }
 
 // Agent is what the core reads from the agent (an *agent.Agent).
@@ -124,14 +124,15 @@ func (c *Core) Snapshot() surface.Snapshot {
 	models := c.router.Models()
 	pinned := c.router.Pinned()
 	exhausted := map[string]time.Time{} // by connection, the latest failover hold
+	estimated := map[string]bool{}      // …and whether its time is ternly's estimate
 	s := surface.Snapshot{At: c.now(), Models: make([]surface.Model, 0, len(models))}
 	for _, m := range models {
 		conn := m.ProvID
 		if m.ProvID == "ollama" && m.Cloud {
 			conn = "ollama-cloud"
 		}
-		if t := c.router.ExhaustedUntil(m.Key()); t.After(exhausted[conn]) {
-			exhausted[conn] = t
+		if t, est := c.router.Exhausted(m.Key()); t.After(exhausted[conn]) {
+			exhausted[conn], estimated[conn] = t, est
 		}
 		row := surface.Model{Key: m.Key(), Connection: conn, Local: m.Local(), Tier: m.Tier, TierBasis: m.Basis,
 			Price: discover.Price(m), GPU: m.GPU, Pinned: m == pinned}
@@ -150,7 +151,11 @@ func (c *Core) Snapshot() surface.Snapshot {
 			if sc.Quota == nil {
 				sc.Quota = &surface.Quota{Source: "the provider said its limit was reached (ternly fails over until then)"}
 			}
-			sc.Quota.ExhaustedUntil = t
+			sc.Quota.ExhaustedUntil, sc.Quota.UntilEstimated = t, estimated[k.ID]
+			if q := sc.Quota; estimated[k.ID] && q.Limit > 0 && q.Used >= q.Limit && q.ResetsAt.After(s.At) {
+				// the provider's balance API says it is spent and when it resets: its time, not ours
+				sc.Quota.ExhaustedUntil, sc.Quota.UntilEstimated = sc.Quota.ResetsAt, false
+			}
 		}
 		s.Connections = append(s.Connections, sc)
 	}
@@ -293,7 +298,10 @@ func usage(c surface.Connection, now time.Time) string {
 	if q != nil && !q.ResetsAt.IsZero() && q.Limit > 0 {
 		s += ", resets " + q.ResetsAt.Local().Format("Jan 2 15:04")
 	}
-	if q != nil && q.ExhaustedUntil.After(now) {
+	switch {
+	case q != nil && q.ExhaustedUntil.After(now) && q.UntilEstimated:
+		s += fmt.Sprintf("; limit reached: skipped, retried in %s (estimated)", discover.About(q.ExhaustedUntil.Sub(now)))
+	case q != nil && q.ExhaustedUntil.After(now):
 		s += fmt.Sprintf("; limit reached: skipped until %s", q.ExhaustedUntil.Local().Format("15:04"))
 	}
 	return s
