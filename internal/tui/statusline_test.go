@@ -230,3 +230,31 @@ func TestStatusFromEvents(t *testing.T) {
 		t.Errorf("the finished turn's time: %v, %q", m.turnTook, bar)
 	}
 }
+
+// The status line is cached between frames; every input it shows must
+// refresh it.
+func TestStatusCacheFollowsInputs(t *testing.T) {
+	m := statusModel(t, 200, 50)
+	bar := func() string { return stripANSI(m.statusBar()) }
+	_ = bar()
+	for _, c := range []struct {
+		name   string
+		change func()
+		want   string
+	}{
+		{"an error", func() { m.onAgent(agent.Event{Kind: agent.EvError, Text: "HTTP 500"}) }, "1 error"},
+		{"a turn", func() { m.App.Agent.Commit(agent.Record{T: "turn", Prompt: "three"}) }, "undo 3"},
+		{"spending", func() { m.ledger.Cost = 1.5 }, "$1.5000"},
+		{"time passing", func() { m.busy, m.turnStart = true, time.Now().Add(-47*time.Second) }, "47s"},
+		{"ASCII", func() { m.App.Access.ASCII = true }, "turn 4.2k^"},
+	} {
+		c.change()
+		if got := bar(); !strings.Contains(got, c.want) {
+			t.Errorf("after %s the status shows %q, want %q", c.name, got, c.want)
+		}
+	}
+	m.Update(tea.WindowSizeMsg{Width: 70, Height: 30})
+	if got := m.statusBar(); lipgloss.Width(strings.Split(got, "\n")[0]) > 70 {
+		t.Errorf("after a resize the status is still %d columns", lipgloss.Width(got))
+	}
+}
