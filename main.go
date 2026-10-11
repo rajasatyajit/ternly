@@ -496,7 +496,7 @@ func run() int {
 		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
 			notes = append(notes, "plugins off: "+err.Error())
 		} else {
-			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.Subagent, NoCode: noCodeReason(pol),
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, NoCode: noCodeReason(pol),
 				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
 				SessionID: func() string {
 					if s := mgr.Current(); s != nil {

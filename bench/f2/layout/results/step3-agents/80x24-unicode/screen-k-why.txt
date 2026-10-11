@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+  tasks are routed to the cheapest capable model and escalated only on failure
+
+❯ Resize evicts one entry. find the cause and fix it
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task…
+  ● Read lru.go  0ms
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    - c.cap = n; c.evictOne()
+    + c.cap = n; c.evictUntilFits()
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  166ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
+  ↳ turn 4.2k↑ 123↓ · $0.0000 · 0.4s · verified ✓ · 1 file changed (lru.go)
+  the sidebar needs 100 columns (this window has 80); /resume lists sessions
+  routing for ~3.5k tokens of context
+  model                                   p     time     money     quota  score
+  ollama/m1                            0.15      15s        $0   $0.0200  0.6892
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.5k/131.1k · $0.0000
+ turn 4.2k↑ 123↓ · 0.4s · verify ✓ · undo 1

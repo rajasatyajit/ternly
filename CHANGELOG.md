@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### TUI layout, step 3: agent lanes (ADR 030 (d))
+- **Running subagents have lanes above the input.** Each lane shows the agent's name, model, step,
+  current tool call, tokens, cost and time; done and failed agents stay until the next prompt.
+  - At 100 columns or more there's a row per agent, three at most, with the rest summed up.
+  - Narrower, there's one row for all of them ("2 agents: ● lexer 1 · ✓ tests").
+  - ASCII glyphs where the locale isn't UTF-8.
+- **The core reports subagents as they go** (`EvSubagent`): queued, running, the model chosen,
+  each tool call, usage, then done or failed, under the agent definition's name.
+- **A pending approval says why it asks** ("why: the permission mode is ask, so edits and commands
+  wait for your yes"), in the permission box and in the per-hunk review, unless the core gave its
+  own reason.
+- **`bench/f2/layout` runs three more scenarios:** two subagents at once, an edit waiting for a yes
+  in ask mode, and Ollama Cloud's rate limit (429 with Retry-After). `bench/fakeprovider` gained
+  per-agent script queues, several tool calls per answer, response headers, and Ollama's discovery
+  API for a cloud model.
+
 ### TUI layout, step 2: information reach (ADR 030 (d))
 - **An edit shows its change** under its tool line: up to 6 `-`/`+` lines, the rest with Ctrl+O.
   What the model wrote is shown as text.

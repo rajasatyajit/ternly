@@ -1124,3 +1124,56 @@ func TestReasoningWatchdog(t *testing.T) {
 		t.Fatalf("second runaway: %q %+v", rec2.text(EvText), b.Stats())
 	}
 }
+
+// A subagent's lane: EvSubagent carries a copy of its state as it goes from
+// queued to running (with its model and each tool call) to done, under the
+// agent definition's name.
+func TestSubagentLaneEvents(t *testing.T) {
+	f := newFake(t, reply{calls: [][2]string{call("task", `{"agent":"lexer"}`), call("task", `{"agent":"tests"}`)}},
+		reply{calls: [][2]string{call("read_file", `{"path":"a.go"}`)}}, reply{text: "lexed"}, reply{text: "tested"}, reply{text: "both done"})
+	a, rec := newAgent(t, "yolo", model(f.URL, "m", 3, 1, 5))
+	a.Reg.Add(&tools.Tool{Kind: tools.ReadOnly, Spec: llm.ToolSpec{Name: "task", Schema: json.RawMessage(`{"type":"object"}`)},
+		Summary: func(json.RawMessage) string { return "task" },
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			var x struct{ Agent string }
+			_ = json.Unmarshal(raw, &x)
+			return a.SubagentNamed(ctx, x.Agent, "You help.", "go", func(string) bool { return true })
+		}})
+	a.Run(bg, "split this")
+	rec.mu.Lock()
+	byName := map[string][]SubState{}
+	for _, e := range rec.events {
+		if e.Kind == EvSubagent {
+			if e.Sub == nil {
+				t.Fatal("EvSubagent without a state")
+			}
+			byName[e.Sub.Name] = append(byName[e.Sub.Name], *e.Sub)
+		}
+	}
+	rec.mu.Unlock()
+	if len(byName) != 2 {
+		t.Fatalf("lanes for %d agents, want lexer and tests: %v", len(byName), byName)
+	}
+	steps := 0
+	for name, ss := range byName {
+		if ss[0].State != "queued" || ss[len(ss)-1].State != "done" {
+			t.Errorf("%s: states %v, want queued … done", name, ss)
+		}
+		last := ss[len(ss)-1]
+		if last.Model == "" || last.Took <= 0 || last.Started.IsZero() || last.In == 0 {
+			t.Errorf("%s: final state %+v: want its model, time and tokens", name, last)
+		}
+		if ss[0].ID == 0 || ss[0].ID != last.ID {
+			t.Errorf("%s: ids %d … %d", name, ss[0].ID, last.ID)
+		}
+		steps += last.Step
+		for _, s := range ss {
+			if s.Step == 1 && !strings.HasPrefix(s.Doing, "read_file") {
+				t.Errorf("%s: step 1 doing %q, want the read_file call", name, s.Doing)
+			}
+		}
+	}
+	if steps != 1 {
+		t.Errorf("tool calls across the subagents: %d, want 1", steps)
+	}
+}

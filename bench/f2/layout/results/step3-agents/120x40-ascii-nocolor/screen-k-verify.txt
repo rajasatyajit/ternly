@@ -1,0 +1,39 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  untracked: NOTES.md
+  diff --git a/lru.go b/lru.go
+  index 1ff30a4..7c40271 100644
+  --- a/lru.go
+  +++ b/lru.go
+  @@ -7,7 +7,7 @@ type Cache struct {
+   }
+
+   // Resize changes the capacity, evicting the oldest items that no longer fit.
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+   func (c *Cache) evictOne() {
+   if len(c.items) > c.cap {
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                      …
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) …
+  ternly 0.1.0
+  session    20261011-192613-7e8742 “Scripted Title”
+  workspace  /var/tmp/ternly-layout-1221585723/home/proj-lru
+  model      auto-routing · last used ollama/m1
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ Ollama (local) — the Ollama daemon at 127.0.0.1:40999 · 0 models · free (this machine)
+    ✓ Ollama Cloud — the signed-in Ollama daemon (`ollama signin`) · 1 model · usage unknown (Ollama reports it only to…
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 19:26 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000 | turn 4.2k^ 123v | 0.4s | verify ok | undo 1

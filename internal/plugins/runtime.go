@@ -30,8 +30,8 @@ type Runtime struct {
 	Store      *Store
 	Reg        *tools.Registry
 	Root, Home string
-	// Subagent runs an agent's task (agent.Agent.Subagent).
-	Subagent func(ctx context.Context, system, prompt string, allow func(string) bool) (string, error)
+	// Subagent runs an agent's task, named for its lane (agent.Agent.SubagentNamed).
+	Subagent func(ctx context.Context, name, system, prompt string, allow func(string) bool) (string, error)
 	// Notify shows a status line; Note queues a line for the model's next turn.
 	Notify, Note func(string)
 	// SessionID and Mode describe the session to hooks.
@@ -389,7 +389,7 @@ func (r *Runtime) stageAgents(agents []Component) {
 				}
 				allow = func(n string) bool { return names[n] }
 			}
-			return r.Subagent(ctx, r.body(c, ""), x.Prompt, allow)
+			return r.Subagent(ctx, x.Agent, r.body(c, ""), x.Prompt, allow)
 		}})
 }
 

@@ -1,5 +1,6 @@
 // Command fakeprovider is an OpenAI-compatible server for tests and
-// recordings. It prints its base URL on stdout.
+// recordings. It prints its base URL on stdout. It also answers Ollama's
+// /api/tags, /api/show and /api/ps, as an Ollama with one cloud model, m1.
 //
 //	fakeprovider [reply]          every chat completion streams reply (default
 //	                              "SMOKE-OK"); release smoke tests (bench/smoke.sh)
@@ -9,10 +10,15 @@
 // A script is {"steps":[…]}; each step is one of
 //
 //	{"text":"…", "chunks":8, "delay_ms":30, "usage":[in,out]}  streamed text
-//	{"call":["edit_file","{…json args…}"], "usage":[in,out]}    one tool call
+//	{"call":["edit_file","{…json args…}"], "delay_ms":500}       one tool call (after delay_ms)
 //	{"status":429, "body":"{…}"}                                 an HTTP error
 //
-// Steps play in order; after the last, every completion answers "done.".
+// Any step may add "headers" (e.g. {"Retry-After":"3600"}). Steps play in
+// order; after the last, every completion answers "done.". "agents" gives
+// subagents their own queues, {"MARKER": [steps…]}: a request whose body
+// contains MARKER (put it in the agent definition, which becomes the
+// subagent's system prompt) takes its next step from that queue, so
+// subagents running at once don't take each other's steps.
 // The auto-title request ("Title this coding-session") is answered aside.
 package main
 
@@ -30,13 +36,15 @@ import (
 )
 
 type step struct {
-	Text    string    `json:"text"`
-	Chunks  int       `json:"chunks"`
-	DelayMS int       `json:"delay_ms"`
-	Call    [2]string `json:"call"`
-	Status  int       `json:"status"`
-	Body    string    `json:"body"`
-	Usage   [2]int    `json:"usage"`
+	Text    string            `json:"text"`
+	Chunks  int               `json:"chunks"`
+	DelayMS int               `json:"delay_ms"`
+	Call    [2]string         `json:"call"`
+	Calls   [][2]string       `json:"calls"` // several tool calls in one answer (they may run in parallel)
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
+	Usage   [2]int            `json:"usage"`
 }
 
 func main() {
@@ -47,9 +55,13 @@ func main() {
 		steps[0].Text = flag.Arg(0)
 	}
 	repeat := true // the fixed reply answers every completion
+	var agents map[string][]step
 	if *script != "" {
 		b, err := os.ReadFile(*script)
-		var s struct{ Steps []step }
+		var s struct {
+			Steps  []step
+			Agents map[string][]step
+		}
 		if err == nil {
 			err = json.Unmarshal(b, &s)
 		}
@@ -57,7 +69,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "fakeprovider:", err)
 			os.Exit(1)
 		}
-		steps, repeat = s.Steps, false
+		steps, repeat, agents = s.Steps, false, s.Agents
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -67,9 +79,23 @@ func main() {
 	fmt.Printf("http://%s/v1\n", ln.Addr())
 	var mu sync.Mutex
 	n := 0
+	agentN := map[string]int{}
 	_ = http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/models") {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/models"):
 			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+			return
+		// Ollama's own API, for a run that points OLLAMA_HOST here: m1 is an
+		// Ollama Cloud model (remote_host), with tools and a 128k context, so a
+		// 429 exhausts its quota as Ollama Cloud's would.
+		case strings.HasSuffix(r.URL.Path, "/api/tags"):
+			fmt.Fprint(w, `{"models":[{"name":"m1","remote_model":"m1","remote_host":"https://ollama.com:443","details":{"parameter_size":"7B"}}]}`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/api/show"):
+			fmt.Fprint(w, `{"capabilities":["completion","tools"],"model_info":{"general.architecture":"llama","llama.context_length":131072}}`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/api/ps"):
+			fmt.Fprint(w, `{"models":[]}`)
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
@@ -78,13 +104,26 @@ func main() {
 			s = step{Text: "Scripted Title"}
 		} else {
 			mu.Lock()
+			queue := ""
+			for marker := range agents {
+				if strings.Contains(string(body), marker) {
+					queue = marker
+				}
+			}
 			switch {
+			case queue != "":
+				if q, i := agents[queue], agentN[queue]; i < len(q) {
+					s = q[i]
+				}
+				agentN[queue]++
 			case repeat:
 				s = steps[0]
 			case n < len(steps):
 				s = steps[n]
 			}
-			n++
+			if queue == "" {
+				n++
+			}
 			mu.Unlock()
 		}
 		serve(w, s)
@@ -92,6 +131,9 @@ func main() {
 }
 
 func serve(w http.ResponseWriter, s step) {
+	for k, v := range s.Headers {
+		w.Header().Set(k, v)
+	}
 	if s.Status != 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(s.Status)
@@ -109,8 +151,15 @@ func serve(w http.ResponseWriter, s step) {
 	}
 	fin := "stop"
 	if s.Call[0] != "" {
-		send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"tool_calls": []any{map[string]any{
-			"index": 0, "id": "call1", "function": map[string]any{"name": s.Call[0], "arguments": s.Call[1]}}}}}}})
+		s.Calls = append([][2]string{s.Call}, s.Calls...)
+	}
+	if len(s.Calls) > 0 {
+		time.Sleep(time.Duration(s.DelayMS) * time.Millisecond) // a slow model: a running subagent stays on screen
+		var calls []any
+		for i, c := range s.Calls {
+			calls = append(calls, map[string]any{"index": i, "id": fmt.Sprintf("call%d", i+1), "function": map[string]any{"name": c[0], "arguments": c[1]}})
+		}
+		send(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"tool_calls": calls}}}})
 		fin = "tool_calls"
 	} else {
 		for _, c := range split(s.Text, max(1, s.Chunks)) {

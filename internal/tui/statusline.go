@@ -105,13 +105,13 @@ func (m *Model) statusFields() []statusField {
 			if q := quotaLabel(*c.Quota, time.Now()); q != "" {
 				short := sDim.Render(fmt.Sprintf("q%.0f%%", 100*c.Quota.Used/max(c.Quota.Limit, 1)))
 				if c.Quota.ExhaustedUntil.After(time.Now()) {
-					short = sErr.Render("quota" + g.fail)
+					short = sErr.Render(m.shortFlag("quota"))
 				}
 				add(0, q, short)
 			}
 		}
 		if md.Trust.Lost {
-			add(0, sWarn.Render("trust lost"), sWarn.Render("trust"+g.fail))
+			add(0, sWarn.Render("trust lost"), sWarn.Render(m.shortFlag("trust")))
 		}
 	}
 	// this turn: tokens, time, the last change's verification, plan, undo
@@ -338,4 +338,13 @@ func joinFull(fs []statusField, sep string) string {
 		parts[i] = f.full
 	}
 	return strings.Join(parts, sDim.Render(sep))
+}
+
+// shortFlag is a field's short form when something is wrong: quota✗, or
+// quota:x in ASCII (a bare "quotax" doesn't read as a word and a mark).
+func (m *Model) shortFlag(word string) string {
+	if m.App.Access.ASCII {
+		return word + ":" + asciiGlyphs.fail
+	}
+	return word + unicodeGlyphs.fail
 }

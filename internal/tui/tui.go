@@ -181,16 +181,17 @@ type Model struct {
 	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
 	surfaceCh     <-chan struct{}
-	turnStart     time.Time       // when the current (or last) turn started; zero before the first
-	turnTook      time.Duration   // the last finished turn's time
-	turnUsage0    llm.Usage       // the session's usage when the current turn started
-	verify        string          // the last verification's verdict (agent.Verdict*); "" before any
-	turnVerify    string          // this turn's verdict, for its receipt
-	turnFiles     map[string]bool // files this turn's edits and writes changed
-	errors        int             // errors this session (the status line counts them)
-	gitState      gitMsg          // the workspace's branch and dirty state
-	frameLen      int             // the last frame's length, to size the next one's buffer
-	snapGen       int             // bumped whenever snap is replaced (the status line's cache key)
+	turnStart     time.Time         // when the current (or last) turn started; zero before the first
+	turnTook      time.Duration     // the last finished turn's time
+	turnUsage0    llm.Usage         // the session's usage when the current turn started
+	verify        string            // the last verification's verdict (agent.Verdict*); "" before any
+	turnVerify    string            // this turn's verdict, for its receipt
+	turnFiles     map[string]bool   // files this turn's edits and writes changed
+	errors        int               // errors this session (the status line counts them)
+	gitState      gitMsg            // the workspace's branch and dirty state
+	frameLen      int               // the last frame's length, to size the next one's buffer
+	lanes         []*agent.SubState // this turn's subagents (kept until the next prompt)
+	snapGen       int               // bumped whenever snap is replaced (the status line's cache key)
 	statusCache   struct {
 		key statusKey
 		out string
@@ -694,6 +695,8 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 	}
 	m.turnCost0, m.turnUsage0, m.turnStart = m.ledger.Cost, m.ledger.Usage, time.Now()
 	m.turnVerify, m.turnFiles = "", map[string]bool{}
+	m.lanes = nil
+	m.layout()
 	if m.discovering {
 		m.activity = "Discovering models"
 	}
@@ -760,6 +763,8 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			}
 		}
 		m.activity = "Thinking"
+	case agent.EvSubagent:
+		m.onSubagent(e.Sub)
 	case agent.EvStatus:
 		m.addInfo(sDim.Render("  ↻ " + e.Text))
 	case agent.EvUsage:
@@ -1098,11 +1103,12 @@ func (m *Model) modelsTable(filter string) string {
 
 // ─────────────────────────── rendering ───────────────────────────
 
-// panelHeight is the rows the open panels take above the input box.
+// panelHeight is the rows the open panels and the agent lanes take above the
+// input box.
 func (m *Model) panelHeight() int {
-	permH := 0
+	permH := m.laneRows()
 	if m.perm != nil {
-		permH = 5
+		permH += 6 // the box: title, what, why, keys, two borders
 	}
 	permH += m.reviewHeight()
 	if m.picker != nil {
@@ -1267,6 +1273,9 @@ func (m *Model) render() (string, int) {
 	if m.suggest != nil {
 		sb.WriteString(m.suggestView() + "\n")
 	}
+	if lanes := m.lanesView(); lanes != "" {
+		sb.WriteString(lanes + "\n")
+	}
 	box := sBox
 	if m.ta.Focused() {
 		box = sBoxOn
@@ -1333,7 +1342,7 @@ func (m *Model) permViewPlain() string {
 	if m.perm.danger {
 		q = "Warning, potentially destructive. Allow " + prettyTool(m.perm.tool) + "?"
 	}
-	return q + " " + m.perm.summary + "\ny yes, a always, n no."
+	return q + " " + m.perm.summary + "\n" + m.askWhy(m.perm.tool) + "\ny yes, a always, n no."
 }
 
 func (m *Model) permView() string {
@@ -1346,6 +1355,7 @@ func (m *Model) permView() string {
 	}
 	body := lipgloss.NewStyle().Bold(true).Render(title) + "\n" +
 		truncate(p.summary, m.w-8) + "\n" +
+		sDim.Render(truncate(m.askWhy(p.tool), m.w-8)) + "\n" +
 		sOK.Render("[y]") + " yes   " + sAccent.Render("[a]") + " always   " + sErr.Render("[n]") + " no"
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(border).Padding(0, 1).Width(m.w - 2).Render(body)
 }
