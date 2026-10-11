@@ -12,7 +12,7 @@
     + c.cap = n; c.evictUntilFits()
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  156ms
+  ● Verify go build ./... && go vet ./...  164ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
   ↳ turn 4.2k↑ 123↓ · $0.0000 · 0.4s · verified ✓ · 1 file changed (lru.go)
   the sidebar needs 100 columns (this window has 80); /resume lists sessions

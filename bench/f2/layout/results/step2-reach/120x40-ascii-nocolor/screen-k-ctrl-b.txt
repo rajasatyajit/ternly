@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.cla…/layout-s2/120x40-ascii-nocolor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+◆ ternly  /home/satyajit/.cla…layout-s2f/120x40-ascii-nocolor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
                                                                                        │Sessions  ↑↓ enter esc
   ◆ ternly  0.1.0 · Code, ternly.                                                      │›● (untitled)
   ● fake        1 models, 1 with tools · api                                           │   just now · 1 turns
@@ -13,7 +13,7 @@
     + c.cap = n; c.evictUntilFits()                                                    │
                                                                                        │
   Fixed: Resize now evicts until the cache fits, not just one entry.                   │
-  ● Verify go build ./... && go vet ./...  165ms                                       │
+  ● Verify go build ./... && go vet ./...  161ms                                       │
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(…    │
   -> turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)          │
                                                                                        │

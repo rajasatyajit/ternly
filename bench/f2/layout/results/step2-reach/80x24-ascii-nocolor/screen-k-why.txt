@@ -9,13 +9,13 @@
     + c.cap = n; c.evictUntilFits()
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  164ms
+  ● Verify go build ./... && go vet ./...  153ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
   -> turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)
   the sidebar needs 100 columns (this window has 80); /resume lists sessions
   routing for ~3.4k tokens of context
   model                                   p     time     money     quota  score
-  fake/m1                              0.15      15s        $0        $0  0.5559
+  fake/m1                              0.15      15s        $0        $0  0.5558
 
 ╭────────────────────────────────────────────────────────────────────────────╮
 │ Ask ternly to build, fix or explain…  (/help)                              │

@@ -1,7 +1,7 @@
 ◆ ternly  /home/…code/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
   ternly 0.1.0
-  session    20261011-153825-bd21b8 “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2/80x24-unicode/p…
+  session    20261011-161645-fe886d “Scripted Title”
+  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-unicode/…
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -14,7 +14,7 @@
     · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…
     · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 15:38 ●  Resize evicts one entry. find the cause and fix it
+   1 16:16 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
 
 ╭────────────────────────────────────────────────────────────────────────────╮

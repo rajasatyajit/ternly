@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2/200x50-ascii-nocolor/proj-lru  fix-resize-branch*                                                             Scripted Title · bwrap · yolo
+◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/200x50-ascii-nocolor/proj-lru  fix-resize-branch*                                                            Scripted Title · bwrap · yolo
   diff --git a/lru.go b/lru.go
   index 1ff30a4..7c40271 100644
   --- a/lru.go
@@ -15,8 +15,8 @@
   session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                                                                                                      …
   guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) · 1 checkpoints · 0 failovers · 0 empty answers asked again
   ternly 0.1.0
-  session    20261011-153128-fe118f “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2/200x50-ascii-nocolor/proj-lru
+  session    20261011-161220-9e73af “Scripted Title”
+  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/200x50-ascii-nocolor/proj-lru
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -29,7 +29,7 @@
     · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backend: Anthropic's consumer terms bar automated access except by API key or where explicitly permitted; ternly doesn't drive…
     · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), not used as a backend: ternly doesn't drive codex with a ChatGPT plan (ADR 022): use OPENAI_API_KEY; Sign in with ChatGPT…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 15:31 ●  Resize evicts one entry. find the cause and fix it
+   1 16:12 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
   none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agents, rules from .cursor/rules, or /plugin add
 
