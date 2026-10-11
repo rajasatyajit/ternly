@@ -1,5 +1,5 @@
-◆ ternly  /home/satyaji…x24-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
-  fake/m1                              0.15      15s        $0        $0  0.5559
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
+  fake/m1                              0.15      15s        $0        $0  0.5558
   lru.go | 2 +-
    1 file changed, 1 insertion(+), 1 deletion(-)
   untracked: NOTES.md

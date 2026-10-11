@@ -1,4 +1,6 @@
-◆ ternly  /home/satyajit/.cla…6/tmp/layout-s2f/120x40-unicode/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+  routing for ~3.4k tokens of context
+  model                                   p     time     money     quota  score
   fake/m1                              0.15      15s        $0        $0  0.5559
   lru.go | 2 +-
    1 file changed, 1 insertion(+), 1 deletion(-)
@@ -19,8 +21,8 @@
   session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                      …
   guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) …
   ternly 0.1.0
-  session    20261011-161348-6afa78 “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/120x40-unicode/proj-lru
+  session    20261011-183642-357b8a “Scripted Title”
+  workspace  /var/tmp/ternly-layout-335262682/home/proj-lru
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -30,8 +32,6 @@
   code graph on (Go): find_symbol, references, callers, … for the model
   connections:
     ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backend: Anthropic's consumer terms bar automa…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), not used as a backend: ternly doesn't dri…
 
 ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Ask ternly to build, fix or explain…  (/help)                                                                      │

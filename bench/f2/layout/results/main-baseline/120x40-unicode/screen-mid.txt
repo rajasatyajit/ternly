@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-base/120x40-unicode/proj-lru     Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                       Scripted Title · bwrap · yolo
 
   ◆ ternly  0.1.0 · Code, ternly.
   ● fake        1 models, 1 with tools · api

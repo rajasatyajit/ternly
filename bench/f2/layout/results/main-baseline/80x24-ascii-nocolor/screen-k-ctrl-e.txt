@@ -1,4 +1,4 @@
-◆ ternly  /home/satyaji…x24-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
 
   ◆ ternly  0.1.0 · Code, ternly.
   ● fake        1 models, 1 with tools · api
@@ -11,7 +11,7 @@
   ● Edit lru.go  (-1 +1 lines)  0ms
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  161ms
+  ● Verify go build ./... && go vet ./...  149ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
   the sidebar needs 100 columns (this window has 80); /resume lists sessions
 

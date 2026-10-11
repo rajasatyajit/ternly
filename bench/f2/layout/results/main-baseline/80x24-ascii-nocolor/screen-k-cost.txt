@@ -1,4 +1,4 @@
-◆ ternly  /home/satyaji…x24-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
   lru.go | 2 +-
    1 file changed, 1 insertion(+), 1 deletion(-)
   untracked: NOTES.md

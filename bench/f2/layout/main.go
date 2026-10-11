@@ -189,6 +189,7 @@ func main() {
 		report.WriteString("\n" + perfRun(*ternly, *probeBin, *fake, filepath.Join(*out, "perf")))
 	}
 	must(os.WriteFile(filepath.Join(*out, "REPORT.md"), []byte(report.String()), 0o644))
+	privacyCheck(*out)
 	fmt.Print(report.String())
 }
 
@@ -237,9 +238,16 @@ func script(dir string) string {
 
 // fixture makes HOME and the workspace (proj-lru on branch fix-resize-branch,
 // with an uncommitted file) and starts the fake provider.
+// The fixture lives in its own directory under /var/tmp (not /tmp: the sandbox
+// mounts a fresh one), never under this machine's home, and is removed
+// afterwards: screens show ~/proj-lru and /var/tmp/ternly-layout-…, nothing
+// personal. dir (the output) gets the script.
 func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
-	home, ws = filepath.Join(dir, "home"), filepath.Join(dir, "proj-lru")
-	_ = os.RemoveAll(home)
+	must(os.MkdirAll(dir, 0o755)) // the script goes here
+	root, err := os.MkdirTemp("/var/tmp", "ternly-layout-")
+	must(err)
+	home = filepath.Join(root, "home")
+	ws = filepath.Join(home, "proj-lru") // under HOME: the header shows ~/proj-lru
 	_ = os.RemoveAll(ws)
 	cfg, cache, data := filepath.Join(home, ".config", "ternly"), filepath.Join(home, ".cache", "ternly"), filepath.Join(home, ".local", "share", "ternly")
 	for _, d := range []string{cfg, cache, data, ws} {
@@ -272,8 +280,11 @@ func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
 	must(os.WriteFile(filepath.Join(ws, "NOTES.md"), []byte("scratch\n"), 0o644)) // dirty
 	env = []string{"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_CACHE_HOME=" + filepath.Join(home, ".cache"),
 		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
-		"FAKE_KEY=x", "TERNLY_HARNESS=1", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local"}
-	return home, ws, env, func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }
+		"FAKE_KEY=x", "TERNLY_HARNESS=1", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local",
+		// nothing of this machine on the screens: system tools only (no CLIs
+		// installed under the real home), a neutral user
+		"PATH=/usr/bin:/bin", "USER=f2", "LOGNAME=f2"}
+	return home, ws, env, func() { _ = cmd.Process.Kill(); _ = cmd.Wait(); _ = os.RemoveAll(root) }
 }
 
 type result struct {
@@ -299,7 +310,7 @@ type result struct {
 func runProbe(probeBin, ternly, ws string, env []string, s size, steps []string, dir string) result {
 	must(os.MkdirAll(dir, 0o755))
 	outJSON, raw := filepath.Join(dir, "probe.json"), filepath.Join(dir, "raw.gz")
-	args := []string{"-cols", fmt.Sprint(s.cols), "-rows", fmt.Sprint(s.rows), "-env", strings.Join(env, ","),
+	args := []string{"-clean-env", "-cols", fmt.Sprint(s.cols), "-rows", fmt.Sprint(s.rows), "-env", strings.Join(env, ","),
 		"-dir", ws, "-steps", strings.Join(steps, "; "), "-out", outJSON, "-raw", raw, "--", ternly, "--mode", "yolo"}
 	c := exec.Command(probeBin, args...)
 	c.Stderr = os.Stderr
@@ -313,6 +324,7 @@ func runProbe(probeBin, ternly, ws string, env []string, s size, steps []string,
 	for name, text := range r.Snaps {
 		_ = os.WriteFile(filepath.Join(dir, "screen-"+name+".txt"), []byte(text), 0o644)
 	}
+	writeMetrics(outJSON, filepath.Join(dir, "metrics.json"))
 	return r
 }
 
@@ -465,4 +477,56 @@ func must(err error) {
 func fail(msg string) {
 	fmt.Fprintln(os.Stderr, "layout:", msg)
 	os.Exit(1)
+}
+
+// writeMetrics keeps tuiprobe's measurements without what describes this
+// machine: the environment, the command line, the screens (saved apart) and
+// process ids. metrics.json and the screen-*.txt files are what gets
+// committed; probe.json and raw.gz stay local.
+func writeMetrics(probeJSON, out string) {
+	b, err := os.ReadFile(probeJSON)
+	if err != nil {
+		return
+	}
+	var m map[string]any
+	if json.Unmarshal(b, &m) != nil {
+		return
+	}
+	for _, k := range []string{"env", "cmd", "snaps", "reaped", "survivors"} {
+		delete(m, k)
+	}
+	b, _ = json.MarshalIndent(m, "", " ")
+	_ = os.WriteFile(out, b, 0o644)
+}
+
+// privacyCheck fails the run if a file meant for git names this machine:
+// the home directory, the user or the host name.
+func privacyCheck(dir string) {
+	home, _ := os.UserHomeDir()
+	host, _ := os.Hostname()
+	needles := []string{home, os.Getenv("USER"), host}
+	var bad []string
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			if d != nil && d.IsDir() && (d.Name() == "home" || d.Name() == "proj-lru") {
+				return filepath.SkipDir // the fixture: local only
+			}
+			return nil
+		}
+		name := d.Name()
+		if name != "REPORT.md" && name != "metrics.json" && !strings.HasPrefix(name, "screen-") {
+			return nil // local only (probe.json, raw.gz, the fake provider)
+		}
+		b, _ := os.ReadFile(p)
+		for _, n := range needles {
+			if len(n) >= 3 && strings.Contains(string(b), n) {
+				bad = append(bad, fmt.Sprintf("%s contains %q", p, n))
+			}
+		}
+		return nil
+	})
+	if len(bad) > 0 {
+		fail("privacy: files meant for git name this machine:\n  " + strings.Join(bad, "\n  "))
+	}
+	fmt.Fprintln(os.Stderr, "privacy: clean (no home path, user or host name in REPORT.md, metrics.json, screen-*.txt)")
 }

@@ -1,10 +1,10 @@
-# Layout recordings (2026-10-11 15:08)
+# Layout recordings (2026-10-11 18:24)
 
 ternly: `ternly 0.1.0`
 
-- `200x50-ascii-nocolor`: 23 distinct non-ASCII glyphs on screen (·×240 —×7 “×5 ”×5 …×35 ›×1 ↑×1 →×10 ↓×1 ↻×1 ≥×10 ⎿×38 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1950 non-ASCII bytes
-- `120x40-ascii-nocolor`: 23 distinct non-ASCII glyphs on screen (·×194 —×7 “×5 ”×5 …×51 ›×1 ↑×1 →×9 ↓×1 ↻×1 ≥×9 ⎿×34 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1512 non-ASCII bytes
-- `80x24-ascii-nocolor`: 20 distinct non-ASCII glyphs on screen (·×139 —×7 “×4 ”×4 …×60 →×6 ↻×1 ≥×6 ⎿×17 ─×2128 │×28 ╭×14 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1074 non-ASCII bytes
+- `200x50-ascii-nocolor`: 23 distinct non-ASCII glyphs on screen (·×239 —×7 “×5 ”×5 …×25 ›×1 ↑×1 →×12 ↓×1 ↻×1 ≥×12 ⎿×39 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1919 non-ASCII bytes
+- `120x40-ascii-nocolor`: 23 distinct non-ASCII glyphs on screen (·×184 —×7 “×5 ”×5 …×41 ›×1 ↑×1 →×9 ↓×1 ↻×1 ≥×9 ⎿×34 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1456 non-ASCII bytes
+- `80x24-ascii-nocolor`: 20 distinct non-ASCII glyphs on screen (·×144 —×7 “×4 ”×4 …×36 →×6 ↻×1 ≥×6 ⎿×17 ─×2128 │×28 ╭×14 …); colour SGR in the output: 0 truecolor, 0 256-colour, 0 16-colour; 1044 non-ASCII bytes
 
 ## Information reach (keys to see each fact; 0 = on the idle screen)
 
@@ -39,5 +39,5 @@ ternly: `ternly 0.1.0`
 
 | Tier | Startup ms (≤ 60) | Echo p50 / p95 ms (target ≤ 1 / ≤ 4; ADR 032: 6.5 at 120 fps) | Bytes per key (≤ 19) | Idle CPU % over 20 s (≤ 0.5) | RSS MiB (≤ 96) |
 |---|---|---|---|---|---|
-| unicode | 45 | 6.5 / 6.9 | 19 | 0.45 | 45 |
-| ascii-nocolor | 43 | 6.4 / 7.2 | 19 | 0.45 | 45 |
+| unicode | 52 | 6.6 / 6.9 | 19 | 0.50 | 43 |
+| ascii-nocolor | 55 | 6.5 / 7.1 | 19 | 0.50 | 45 |

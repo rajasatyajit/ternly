@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/120x40-unicode/proj-lru       Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                       Scripted Title · bwrap · yolo
   ● fake        1 models, 1 with tools · api
   /help or Ctrl+K for commands · @ for files
   tasks are routed to the cheapest capable model and escalated only on failure
@@ -9,7 +9,7 @@
   ● Edit lru.go  (-1 +1 lines)  0ms
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  153ms
+  ● Verify go build ./... && go vet ./...  154ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
   routing for ~3.4k tokens of context
   model                                   p     time     money     quota  score
