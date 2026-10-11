@@ -137,8 +137,15 @@ Markdown files become commands. The file name gives the name, and subdirectories
 Typing `/` opens a list of commands (built-in and user-defined) with descriptions. It filters by
 fuzzy match as you type; Tab completes and ↑/↓ choose.
 
-## Keys (ADR 023)
+## Keys (ADR 023, ADR 030)
 - **Ctrl+K:** every command, fuzzy-filtered.
+- **Esc:** clears what's typed; with nothing typed, interrupts a running turn. (Before ADR 030 it
+  only interrupted.) In a list or a question, Esc closes it, as before.
+- **Ctrl+U:** deletes from the cursor to the start of the line, as in a shell. (Before ADR 030 it
+  scrolled up half a page.)
+- **PgUp/PgDn:** scroll the transcript half a page. Ctrl+D no longer scrolls (nor deletes
+  forward: Delete does): ternly binds none of Ctrl+D, Ctrl+R, Ctrl+S, Ctrl+Q and Ctrl+Z, which
+  terminals and shells already use.
 - **`@`:** pick a workspace file.
 - **Ctrl+O:** a tool's full output.
 - **Ctrl+B:** the session sidebar. ↑↓ select, Enter switches, Esc returns to the input, and Ctrl+B

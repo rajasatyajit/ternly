@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### TUI: four fixes from the F2 survey (ADR 030)
+- **The welcome hint fits the screen.** It was one 118-column line, cut off at 80 columns; it now
+  wraps at " · " and between words, and re-wraps on resize. The no-providers hint and /help's key
+  line wrap the same way.
+- **The Ctrl+K palette's descriptions line up.** A row with an argument hint (`/model [id|auto]`) padded
+  its name by bytes, its styling included, so its description started in another column. Names
+  are padded by what shows, in one column for the whole list (at most 40 columns, 2/5 of the
+  screen); a hint that doesn't fit is shortened.
+- **The header keeps the sandbox and permission mode.** A long workspace path pushed them off the
+  right edge. They never truncate now; the session title shrinks (32 → 8 columns, then goes) and
+  the path elides in its middle (`/home/someone/wor…/project-x`).
+- **Widths are display columns.** The header, the palette and every shortened text in the TUI
+  count a CJK or emoji character as the two columns it takes. A path, title or file name in those
+  scripts used to overflow, as in the two bugs above.
+- **Keys** (docs/commands.md):
+  - **Esc** clears what's typed; with nothing typed, it interrupts a running turn. It only
+    interrupted before.
+  - **Ctrl+U** deletes to the start of the line, as in a shell. It scrolled up before.
+  - **Ctrl+D** is bound to nothing (it scrolled down, and deleted forward in the input). ternly
+    binds none of Ctrl+D/R/S/Q/Z. PgUp/PgDn scroll, as before.
+
 ### Keystroke echo: 14.6 ms → 6.5 ms, without a fork (ADR 032, F2 item a)
 - **A typed key reaches the terminal in 6.5 ms at the median** (p95 7.0–7.4 ms), down from
   14.5–14.7 ms. Measured through a pseudo-terminal with `bench/tuiprobe` at 120×40 in truecolor.
