@@ -1,13 +1,13 @@
-◆ ternly  /home/satyaji…x24-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
   checkpoints on
   memory     1 project · 0 user items · lexical · 600 tokens/turn
   code graph on (Go): find_symbol, references, callers, … for the model
   connections:
     ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 15:20 ●  Resize evicts one entry. find the cause and fix it
+   1 18:31 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
   none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agen…
 

@@ -1,4 +1,4 @@
-◆ ternly  /home/satyaji…ase/80x24-unicode/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
   model                                   p     time     money     quota  score
   fake/m1                              0.15      15s        $0        $0  0.5559
   lru.go | 2 +-

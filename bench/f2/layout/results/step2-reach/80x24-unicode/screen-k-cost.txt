@@ -1,4 +1,4 @@
-◆ ternly  /home/…code/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
    1 file changed, 1 insertion(+), 1 deletion(-)
   untracked: NOTES.md
   diff --git a/lru.go b/lru.go

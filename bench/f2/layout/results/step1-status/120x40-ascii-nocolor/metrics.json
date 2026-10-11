@@ -1,0 +1,339 @@
+{
+ "bytes_gzip": 3178,
+ "bytes_total": 14756,
+ "cols": 120,
+ "elapsed_s": 90.212829771,
+ "exited": "signal: killed",
+ "rows": 40,
+ "steps": [
+  {
+   "bytes": 1200,
+   "first_byte_ms": 49.267,
+   "ms": 50.691,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap start"
+  },
+  {
+   "ok": true,
+   "step": "type Resize evicts one entry. find the cause and fix it\\r"
+  },
+  {
+   "ms": 1717.104,
+   "ok": true,
+   "step": "until 60000 evicts\\suntil\\sthe\\scache\\sfits"
+  },
+  {
+   "bytes": 718,
+   "ms": 241.563,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap mid"
+  },
+  {
+   "ok": true,
+   "step": "type \\x02"
+  },
+  {
+   "bytes": 328,
+   "ms": 7.905,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-b"
+  },
+  {
+   "ok": true,
+   "step": "type \\x02"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0f"
+  },
+  {
+   "bytes": 1447,
+   "ms": 6.04,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-o"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0f"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x07"
+  },
+  {
+   "ok": false,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-g"
+  },
+  {
+   "ok": true,
+   "step": "type \\x07"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x05"
+  },
+  {
+   "ok": false,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-e"
+  },
+  {
+   "ok": true,
+   "step": "type \\x05"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /why\\r"
+  },
+  {
+   "bytes": 197,
+   "ms": 2.129,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-why"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /diff\\r"
+  },
+  {
+   "bytes": 540,
+   "ms": 23.948,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-diff"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /cost\\r"
+  },
+  {
+   "bytes": 286,
+   "ms": 7.718,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-cost"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /status\\r"
+  },
+  {
+   "bytes": 678,
+   "ms": 6.504,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-status"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /rewind\\r"
+  },
+  {
+   "bytes": 201,
+   "ms": 7.25,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-rewind"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /verify\\r"
+  },
+  {
+   "bytes": 125,
+   "ms": 6.173,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-verify"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type /agents\\r"
+  },
+  {
+   "bytes": 177,
+   "ms": 6.884,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-agents"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type summarise what changed\\r"
+  },
+  {
+   "ms": 57200.769,
+   "ok": true,
+   "step": "until 90000 SCRIPTED-FAILURE"
+  },
+  {
+   "ok": false,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap error"
+  }
+ ],
+ "technique": {
+  "alt_screen": true,
+  "bracketed_paste": true,
+  "full_clears": 1,
+  "kitty_keyboard": true,
+  "mouse_reporting": false,
+  "non_ascii_bytes": 1456,
+  "sgr_16": 0,
+  "sgr_256": 0,
+  "sgr_truecolor": 0,
+  "sync_updates": 185
+ }
+}

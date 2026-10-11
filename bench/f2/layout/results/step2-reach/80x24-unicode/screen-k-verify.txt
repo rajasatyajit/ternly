@@ -1,7 +1,9 @@
-◆ ternly  /home/…code/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 tur…
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops sto…
   ternly 0.1.0
-  session    20261011-161645-fe886d “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/80x24-unicode/…
+  session    20261011-183940-468bbc “Scripted Title”
+  workspace  /var/tmp/ternly-layout-2382364225/home/proj-lru
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -11,10 +13,8 @@
   code graph on (Go): find_symbol, references, callers, … for the model
   connections:
     ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 16:16 ●  Resize evicts one entry. find the cause and fix it
+   1 18:39 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
 
 ╭────────────────────────────────────────────────────────────────────────────╮

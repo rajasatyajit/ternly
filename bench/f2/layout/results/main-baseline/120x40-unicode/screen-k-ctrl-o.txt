@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-base/120x40-unicode/proj-lru     Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                       Scripted Title · bwrap · yolo
 ❯ Resize evicts one entry. find the cause and fix it
   ◆ fake/m1  T1 · free · T1 task → est. 28 s, free, p≥0.30
   ● Read lru.go  0ms

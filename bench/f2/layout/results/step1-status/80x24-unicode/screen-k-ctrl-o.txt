@@ -1,4 +1,4 @@
-◆ ternly  /home/satyaji…-s1/80x24-unicode/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
     ⎿     16    }
     ⎿     17
     ⎿     18    func (c *Cache) evictUntilFits() {
@@ -12,7 +12,7 @@
     ⎿ ctrl+o collapses
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  167ms
+  ● Verify go build ./... && go vet ./...  158ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
     ⎿ ctrl+o collapses
   the sidebar needs 100 columns (this window has 80); /resume lists sessions

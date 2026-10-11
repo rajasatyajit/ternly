@@ -1,12 +1,14 @@
-◆ ternly  /home/satyajit/.cla…layout-s2f/120x40-ascii-nocolor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
 
    func (c *Cache) evictOne() {
    if len(c.items) > c.cap {
   session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                      …
   guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) …
   ternly 0.1.0
-  session    20261011-161518-a4fec6 “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s2f/120x40-ascii-nocolor/proj-lru
+  session    20261011-183809-a60b9a “Scripted Title”
+  workspace  /var/tmp/ternly-layout-2183595605/home/proj-lru
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -16,10 +18,8 @@
   code graph on (Go): find_symbol, references, callers, … for the model
   connections:
     ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backend: Anthropic's consumer terms bar automa…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), not used as a backend: ternly doesn't dri…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 16:15 ●  Resize evicts one entry. find the cause and fix it
+   1 18:38 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
   none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agents, rules from .cursor/rules, or /plugin…
 

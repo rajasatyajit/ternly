@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/120x40-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                       Scripted Title · bwrap · yolo
   ◆ fake/m1  T1 · free · T1 task → est. 28 s, free, p≥0.30
   ● Read lru.go  0ms
     ⎿ 1    package lru
@@ -29,7 +29,7 @@
     ⎿ ctrl+o collapses
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  167ms
+  ● Verify go build ./... && go vet ./...  152ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
     ⎿ ctrl+o collapses
 

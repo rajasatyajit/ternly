@@ -1,4 +1,4 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/200x50-ascii-nocolor/proj-lru                                                                                 Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                                                                                                       Scripted Title · bwrap · yolo
 
   ◆ ternly  0.1.0 · Code, ternly.
   ● fake        1 models, 1 with tools · api
@@ -10,11 +10,11 @@
   ● Edit lru.go  (-1 +1 lines)  0ms
 
   Fixed: Resize now evicts until the cache fits, not just one entry.
-  ● Verify go build ./... && go vet ./...  161ms
+  ● Verify go build ./... && go vet ./...  153ms
     ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
   routing for ~3.4k tokens of context
   model                                   p     time     money     quota  score
-  fake/m1                              0.15      15s        $0        $0  0.5559
+  fake/m1                              0.15      15s        $0        $0  0.5561
   lru.go | 2 +-
    1 file changed, 1 insertion(+), 1 deletion(-)
   untracked: NOTES.md

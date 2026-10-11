@@ -1,4 +1,6 @@
-◆ ternly  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/120x40-ascii-nocolor/proj-lru Scripted Title · bwrap · yolo
+◆ ternly  ~/proj-lru                                                                       Scripted Title · bwrap · yolo
+  fake/m1                              0.15      15s        $0        $0  0.5559
+  lru.go | 2 +-
    1 file changed, 1 insertion(+), 1 deletion(-)
   untracked: NOTES.md
   diff --git a/lru.go b/lru.go
@@ -17,8 +19,8 @@
   session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns                                      …
   guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) …
   ternly 0.1.0
-  session    20261011-151535-7e738d “Scripted Title”
-  workspace  /home/satyajit/.claude/jobs/f10e4ff6/tmp/layout-s1/120x40-ascii-nocolor/proj-lru
+  session    20261011-182827-afd020 “Scripted Title”
+  workspace  /var/tmp/ternly-layout-3340478900/home/proj-lru
   model      auto-routing · last used fake/m1
   mode       yolo · sandbox bwrap
   verify     go build ./... && go vet ./... + coverage checks of changed files
@@ -28,10 +30,8 @@
   code graph on (Go): find_symbol, references, callers, … for the model
   connections:
     ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backend: Anthropic's consumer terms bar automa…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), not used as a backend: ternly doesn't dri…
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 15:15 ●  Resize evicts one entry. find the cause and fix it
+   1 18:28 ●  Resize evicts one entry. find the cause and fix it
 
 ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Ask ternly to build, fix or explain…  (/help)                                                                      │

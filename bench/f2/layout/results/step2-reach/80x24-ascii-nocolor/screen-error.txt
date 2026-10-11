@@ -1,8 +1,8 @@
-◆ ternly  /home/…olor/proj-lru  fix-resize-branch* Scripted Title · bwrap · yolo
-    · claude CLI found (/home/satyajit/.local/bin/claude), not used as a backen…
-    · codex CLI found (/home/satyajit/.nvm/versions/node/v22.22.2/bin/codex), n…
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+  connections:
+    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
   /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
-   1 16:18 ●  Resize evicts one entry. find the cause and fix it
+   1 18:41 ●  Resize evicts one entry. find the cause and fix it
   verify: go build ./... && go vet ./... + coverage checks of changed files
   none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agen…
 
