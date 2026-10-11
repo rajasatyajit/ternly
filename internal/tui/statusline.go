@@ -10,6 +10,7 @@ import (
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/surface"
 )
 
@@ -141,7 +142,7 @@ func (m *Model) statusFields() []statusField {
 		}
 		add(1, sDim.Render(fmt.Sprintf("plan %d/%d %s", k, len(p), untrusted(truncate(text, 24)))), sDim.Render(fmt.Sprintf("p%d/%d", k, len(p))))
 	}
-	if n := len(m.App.Agent.Turns()); n > 0 {
+	if n := m.App.Agent.TurnCount(); n > 0 {
 		add(1, sDim.Render(fmt.Sprintf("undo %d", n)), sDim.Render(fmt.Sprintf("u%d", n)))
 	}
 	if l := m.ledger; l.Usage.CacheRead > 0 {
@@ -228,9 +229,49 @@ func (m *Model) statusLines() int {
 	return 2
 }
 
-// statusBar renders the status line at the model's width.
+// statusBar renders the status line at the model's width. It is drawn every
+// frame but changes rarely (never on a keystroke), so it is kept until one
+// of its inputs changes: statusKey lists them all.
 func (m *Model) statusBar() string {
-	return strings.Join(layoutStatus(m.statusFields(), m.w-1, m.statusLines(), m.glyph().sep), "\n")
+	key := m.statusKey()
+	if key == m.statusCache.key && m.statusCache.out != "" {
+		return m.statusCache.out
+	}
+	out := strings.Join(layoutStatus(m.statusFields(), m.w-1, m.statusLines(), m.glyph().sep), "\n")
+	m.statusCache.key, m.statusCache.out = key, out
+	return out
+}
+
+// statusKey is everything statusFields and the layout read; the elapsed time
+// is in it as shown (to the tenth of a second, or the second).
+func (m *Model) statusKey() statusKey {
+	k := statusKey{w: m.w, lines: m.statusLines(), discovering: m.discovering, model: m.model, reason: m.reason,
+		ledger: m.ledger, turnCost0: m.turnCost0, turnUsage0: m.turnUsage0, snapGen: m.snapGen, ascii: m.App.Access.ASCII,
+		verify: m.verify, errors: m.errors, turns: m.App.Agent.TurnCount(), started: !m.turnStart.IsZero()}
+	if d, ok := m.turnElapsed(); ok {
+		k.elapsed = durShort(d)
+	}
+	if _, c := m.currentSurfaceModel(); c != nil && c.Quota != nil { // a quota runs out, or comes back, as time passes
+		k.quotaOut = time.Now().Before(c.Quota.ExhaustedUntil)
+	}
+	if m.discovering {
+		k.frame = m.frame // the "discovering" shimmer moves
+	}
+	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
+		k.turnLimit = lim.TurnUSD
+	}
+	return k
+}
+
+type statusKey struct {
+	w, lines, errors, turns, frame, snapGen int
+	discovering, ascii, started             bool
+	quotaOut                                bool
+	model                                   *discover.Model
+	reason, verify, elapsed                 string
+	ledger                                  agent.Ledger
+	turnCost0, turnLimit                    float64
+	turnUsage0                              llm.Usage
 }
 
 // layoutStatus lays fields out in at most maxLines lines of width w (each

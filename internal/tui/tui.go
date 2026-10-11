@@ -189,6 +189,12 @@ type Model struct {
 	turnFiles     map[string]bool // files this turn's edits and writes changed
 	errors        int             // errors this session (the status line counts them)
 	gitState      gitMsg          // the workspace's branch and dirty state
+	frameLen      int             // the last frame's length, to size the next one's buffer
+	snapGen       int             // bumped whenever snap is replaced (the status line's cache key)
+	statusCache   struct {
+		key statusKey
+		out string
+	}
 }
 
 // App bundles the long-lived services the UI drives.
@@ -1239,6 +1245,7 @@ func (m *Model) render() (string, int) {
 		return m.renderLinear()
 	}
 	var sb strings.Builder
+	sb.Grow(m.frameLen + m.frameLen/8) // the last frame's size: no regrowth (and copy) while it's built
 	sb.WriteString(m.header() + "\n")
 	if m.sideShown() {
 		sb.WriteString(m.besideSidebar(m.vp.view()) + "\n")
@@ -1267,6 +1274,7 @@ func (m *Model) render() (string, int) {
 	boxTop := strings.Count(sb.String(), "\n")
 	sb.WriteString(box.Width(m.w-2).Render(m.ta.View()) + "\n")
 	sb.WriteString(m.statusBar())
+	m.frameLen = sb.Len()
 	return sb.String(), boxTop
 }
 

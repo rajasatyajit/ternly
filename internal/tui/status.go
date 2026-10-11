@@ -33,13 +33,13 @@ func (m *Model) startSurface() tea.Cmd {
 	if m.App.Surface == nil {
 		return nil
 	}
-	m.snap = m.App.Surface.Snapshot()
+	m.snap, m.snapGen = m.App.Surface.Snapshot(), m.snapGen+1
 	m.surfaceCh = m.App.Surface.Changes(context.Background())
 	return m.watchSurface(m.surfaceCh)
 }
 
 func (m *Model) onSurface() tea.Cmd {
-	m.snap = m.App.Surface.Snapshot()
+	m.snap, m.snapGen = m.App.Surface.Snapshot(), m.snapGen+1
 	return m.watchSurface(m.surfaceCh)
 }
 
