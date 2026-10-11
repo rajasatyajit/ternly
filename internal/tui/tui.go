@@ -201,6 +201,18 @@ type App struct {
 	Actions      surface.Actions     // nil: /why falls back to /models why
 }
 
+// FPS is the frame rate: 120, the most Bubble Tea allows. Bubble Tea writes a
+// frame only on its ticker, so a typed key waits for the next tick: at most
+// 8.3 ms here instead of 16.7 ms at its default 60 (ADR 032). The idle
+// ticker costs about 0.1 point of CPU more. Writing input at once needs
+// Bubble Tea itself to change (charmbracelet/bubbletea#1857).
+const FPS = 120
+
+// ProgramOptions are the options every ternly Bubble Tea program runs with.
+func ProgramOptions() []tea.ProgramOption {
+	return []tea.ProgramOption{tea.WithFPS(FPS)}
+}
+
 func New(app *App, dark bool) *Model {
 	ta := textarea.New()
 	ta.Placeholder = "Ask ternly to build, fix or explain…  (/help)"

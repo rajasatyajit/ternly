@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Keystroke echo: 14.6 ms → 6.5 ms, without a fork (ADR 032, F2 item a)
+- **A typed key reaches the terminal in 6.5 ms at the median** (p95 7.0–7.4 ms), down from
+  14.5–14.7 ms. Measured through a pseudo-terminal with `bench/tuiprobe` at 120×40 in truecolor.
+- **The cause was the frame tick, verified.** Bubble Tea writes to the terminal only on its frame
+  ticker, so a key waits for the next tick. ternly now runs at 120 fps (`tui.FPS`), the most Bubble
+  Tea allows, so the wait is at most 8.3 ms instead of 16.7 ms.
+- **The cost is about 0.2 points of idle CPU.** The idle TUI measures 0.45–0.55%, against
+  0.25–0.35% at 60 fps.
+- **No fork.** A patched Bubble Tea measured 1.3 ms, but it needed a `go.mod` `replace`, and that
+  breaks `go install …@latest`. A fork under its own module path would also have meant forking
+  Bubbles. The change is offered upstream instead: charmbracelet/bubbletea#1857, with #1858
+  (render input at once) and #1859 (diff only changed lines). ternly issue #37 tracks adopting it
+  and returning to the default frame rate.
+- **A guard test.** `TestKeystrokeEcho` runs the real program with ternly's options, at a random
+  key phase, and requires a median under 8 ms. That's 6.0–7.0 ms at 120 fps and 9.1–11.0 ms at 60,
+  so a fall-back fails CI. It waits for a warm-up key's echo before measuring: on a loaded runner
+  the event loop can start 1.4 s after the first output.
+- **An upstream regression found.** ultraviolet `006e29f`, which ternly's dependencies select,
+  re-sends unchanged lines holding wide characters on every frame. This was bisected and reported
+  in #1857.
+
 ### Background work: idle-only, quota-aware, conditional (ADR 031)
 - **Background evaluations never run on a spent quota.** Before scheduling, ternly checks Ollama's
   documented balance (with `OLLAMA_API_KEY`) and every quota hit any ternly process recorded
