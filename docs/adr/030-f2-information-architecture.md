@@ -406,3 +406,20 @@ at all (CodeWhale).
   #1858 lands. See ADR 032.
 - **(b) Background work:** done (ADR 031).
 - **(c) The four bugs:** fixed, and widths now count display columns (CJK and emoji).
+
+## The information-reach target: what it still needs (owner's review of (d) steps 1–2, 2026-10-11)
+**The target stays ≥ 16 of 20 facts at ≤ 1 key, none unavailable. It isn't dropped.** After steps 1–2, the layout
+harness (`bench/f2/layout`, a scripted session through a pseudo-terminal) measures **15 at 0 keys and none missing
+from the UI** at every size and tier. That's every fact its session can show. The other five need sessions that
+produce them, and a fact the harness never sees can't count:
+
+| Fact | Needs | When |
+|---|---|---|
+| 11 running agents and their status | a scripted session with parallel sub-agents | step 3 (agent lanes) |
+| 16 pending approval | a scripted session in `ask` mode that stops on an edit | step 3 |
+| 4 quota remaining | a provider that reports a quota (headers), and one that runs out (HTTP 429) | step 3 |
+| 9 current plan step | plan data from the core (Phase C's plan) | deferred until Phase C resumes |
+| 10 the whole plan | the same | deferred until Phase C resumes |
+
+Step 3 adds the first three scenarios to the harness and re-measures. Until plan data exists, the best reachable count is 18 of 20,
+and the report will name the two facts it can't yet show.
