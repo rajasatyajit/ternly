@@ -34,13 +34,23 @@ func benchModel(b testing.TB, turns int) *Model {
 }
 
 // BenchmarkKeystroke: one typed character, through Update, to a rendered frame.
+// It types 20 characters, then deletes them, and again: the input stays short,
+// so a keystroke costs the same however many the benchmark runs (issue #40:
+// typing only, the line grew with b.N and so did the cost of each key).
 func BenchmarkKeystroke(b *testing.B) {
 	m := benchModel(b, 1000)
-	k := tea.KeyPressMsg{Code: 'a', Text: "a"}
+	typed, del := tea.KeyPressMsg{Code: 'a', Text: "a"}, tea.KeyPressMsg{Code: tea.KeyBackspace}
 	b.ReportAllocs()
-	for b.Loop() {
-		m.Update(k)
+	for i := 0; b.Loop(); i++ {
+		if i%40 < 20 {
+			m.Update(typed)
+		} else {
+			m.Update(del)
+		}
 		_ = m.View()
+	}
+	if v := m.ta.Value(); len(v) > 20 {
+		b.Fatalf("the input grew to %d characters", len(v))
 	}
 }
 
