@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/surface"
 )
 
@@ -45,7 +46,7 @@ func (m *Model) onSurface() tea.Cmd {
 
 func quotaLabel(q surface.Quota, now time.Time) string {
 	if q.ExhaustedUntil.After(now) {
-		return sErr.Render("quota out until " + q.ExhaustedUntil.Local().Format("15:04"))
+		return sErr.Render(quotaOut(q, now))
 	}
 	if q.Limit <= 0 {
 		return ""
@@ -125,4 +126,14 @@ func (m *Model) connectionLines() []string {
 		}
 	}
 	return out
+}
+
+// quotaOut says when a quota that ran out comes back: the provider's time
+// (Retry-After, or its balance API's reset) as a clock time; ternly's own
+// estimate only roughly, so a guess never reads as a fact.
+func quotaOut(q surface.Quota, now time.Time) string {
+	if q.UntilEstimated {
+		return "quota out, retry in " + discover.About(q.ExhaustedUntil.Sub(now)) + " (estimated)"
+	}
+	return "quota out until " + q.ExhaustedUntil.Local().Format("15:04")
 }

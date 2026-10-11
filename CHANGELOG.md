@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Quota times: the provider's, or marked as an estimate
+- **"quota out until HH:MM" only when the provider gave the time**: a Retry-After header, or a
+  balance API that reports the quota spent and when it resets. Without one, ternly holds the model
+  for its own 1-hour cooldown and says so: "quota out, retry in about 1h (estimated)", counting
+  down. `/status`, background work's skip reason and the "nowhere to escalate" hint follow the
+  same rule.
+
 ### TUI layout, step 3: agent lanes (ADR 030 (d))
 - **Running subagents have lanes above the input.** Each lane shows the agent's name, model, step,
   current tool call, tokens, cost and time; done and failed agents stay until the next prompt.

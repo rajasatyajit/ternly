@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -92,8 +93,8 @@ func TestSnapshot(t *testing.T) {
 func TestExhaustedShowsOnConnection(t *testing.T) {
 	c, r, _ := core(t)
 	until := time.Now().Add(time.Hour).Round(time.Second)
-	r.MarkExhausted("ollama/glm-5.1:cloud", until)
-	r.MarkExhausted("anthropic/claude-x", until)
+	r.MarkExhausted("ollama/glm-5.1:cloud", until, false)
+	r.MarkExhausted("anthropic/claude-x", until, false)
 	for _, k := range c.Snapshot().Connections {
 		switch k.ID {
 		case "ollama-cloud":
@@ -268,7 +269,7 @@ func BenchmarkSnapshot(b *testing.B) {
 			Priced: true, In: 1, Out: 4, Measure: &discover.Measurement{Tier: 2, TrustNeeded: 20}})
 	}
 	r.SetModels(ms)
-	r.MarkExhausted("anthropic/m1", time.Now().Add(time.Hour))
+	r.MarkExhausted("anthropic/m1", time.Now().Add(time.Hour), false)
 	var conns []discover.Connection
 	for i := range 10 {
 		conns = append(conns, discover.Connection{ID: fmt.Sprintf("c%d", i), Label: "C", State: "connected", Quota: &discover.Quota{Unit: "USD", Limit: 10}})
@@ -299,5 +300,59 @@ func TestLines(t *testing.T) {
 	}
 	if l := Lines(nil, nil, now); !strings.Contains(strings.Join(l, " "), "ollama serve") {
 		t.Errorf("no connections: %q", l)
+	}
+}
+
+// A hold whose time is ternly's estimate (no Retry-After) says so; a
+// provider's balance API that reports the quota spent and its reset replaces
+// the estimate with the provider's time; an unspent balance doesn't.
+func TestEstimatedHold(t *testing.T) {
+	r := discover.NewRouter()
+	ms := models()
+	r.SetModels(ms)
+	reset := time.Now().Add(3 * time.Hour).Round(time.Second)
+	conns := []discover.Connection{
+		{ID: "ollama-cloud", Label: "Ollama Cloud", Kind: "daemon", State: "connected", Models: 1},
+		{ID: "anthropic", Label: "Anthropic", Kind: "api-key", State: "connected", Models: 1,
+			Quota: &discover.Quota{Used: 10, Limit: 10, Unit: "USD", ResetsAt: reset, Source: "test"}},
+	}
+	c := New(r, &fakeAgent{cur: ms[0]}, conns, nil)
+	guess := time.Now().Add(time.Hour).Round(time.Second)
+	r.MarkExhausted("ollama/glm-5.1:cloud", guess, true)
+	r.MarkExhausted("anthropic/claude-x", guess, true)
+	for _, k := range c.Snapshot().Connections {
+		switch q := k.Quota; k.ID {
+		case "ollama-cloud":
+			if q == nil || !q.UntilEstimated || !q.ExhaustedUntil.Equal(guess) {
+				t.Errorf("cloud, no provider time: %+v", q)
+			}
+		case "anthropic":
+			if q == nil || q.UntilEstimated || !q.ExhaustedUntil.Equal(reset) {
+				t.Errorf("anthropic, balance spent until %v: %+v", reset, q)
+			}
+		}
+	}
+	conns[1].Quota.Used = 4 // not spent: its reset says nothing about this hold
+	c = New(r, &fakeAgent{cur: ms[0]}, conns, nil)
+	for _, k := range c.Snapshot().Connections {
+		if q := k.Quota; k.ID == "anthropic" && (q == nil || !q.UntilEstimated || !q.ExhaustedUntil.Equal(guess)) {
+			t.Errorf("anthropic, balance not spent: %+v", q)
+		}
+	}
+	r.MarkExhausted("ollama/glm-5.1:cloud", guess, false) // Retry-After: the provider's time
+	for _, k := range c.Snapshot().Connections {
+		if q := k.Quota; k.ID == "ollama-cloud" && (q == nil || q.UntilEstimated) {
+			t.Errorf("cloud, Retry-After: %+v", q)
+		}
+	}
+}
+
+func TestLinesEstimatedHold(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	est := Lines([]surface.Connection{{ID: "ollama-cloud", Label: "Ollama Cloud", Kind: "daemon", State: "connected", Models: 7,
+		Quota: &surface.Quota{ExhaustedUntil: now.Add(time.Hour), UntilEstimated: true}}}, nil, now)
+	all := strings.Join(est, "\n")
+	if !strings.Contains(all, "retried in about 1h (estimated)") || regexp.MustCompile(`\d\d:\d\d`).MatchString(all) || strings.Contains(all, "until") {
+		t.Errorf("an estimate must read as one, without a clock time:\n%s", all)
 	}
 }

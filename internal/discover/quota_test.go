@@ -72,11 +72,11 @@ func TestMarkExhaustedPersists(t *testing.T) {
 	m := &Model{ProvID: "ollama", ID: "glm-5.3:cloud", Cloud: true, Provider: &Provider{ID: "ollama", Local: true}}
 	r.SetModels([]*Model{m})
 	r.SetQuotaLog(OpenQuotaLog(path))
-	r.MarkExhausted(m.Key(), time.Now().Add(time.Hour))
+	r.MarkExhausted(m.Key(), time.Now().Add(time.Hour), false)
 	if ok, q := OpenQuotaLog(path).Exhausted("ollama:cloud", time.Now()); !ok || q.Model != m.Key() {
 		t.Fatalf("not recorded: %v %+v", ok, q)
 	}
 	r2 := NewRouter() // no log: nothing written, nothing breaks
 	r2.SetModels([]*Model{m})
-	r2.MarkExhausted(m.Key(), time.Now().Add(time.Hour))
+	r2.MarkExhausted(m.Key(), time.Now().Add(time.Hour), false)
 }

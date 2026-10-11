@@ -199,9 +199,13 @@ func TestQuotaGate(t *testing.T) {
 	// routing's own exhaustion (this session's 429)
 	r2 := discover.NewRouter()
 	r2.SetModels([]*discover.Model{cloud})
-	r2.MarkExhausted(cloud.Key(), time.Now().Add(time.Hour))
-	if ok, _ := quotaGate(discover.OpenQuotaLog(""), r2, nil)(cloud); ok {
-		t.Fatal("routing has it exhausted")
+	r2.MarkExhausted(cloud.Key(), time.Now().Add(time.Hour), false)
+	if ok, why := quotaGate(discover.OpenQuotaLog(""), r2, nil)(cloud); ok || !strings.Contains(why, "rate limited until ") {
+		t.Fatalf("routing has it exhausted (Retry-After): %v %q", ok, why)
+	}
+	r2.MarkExhausted(cloud.Key(), time.Now().Add(time.Hour), true)
+	if ok, why := quotaGate(discover.OpenQuotaLog(""), r2, nil)(cloud); ok || !strings.Contains(why, "retried in about 1h, estimated") || strings.Contains(why, "until") {
+		t.Fatalf("routing has it exhausted (estimated): %v %q", ok, why)
 	}
 }
 

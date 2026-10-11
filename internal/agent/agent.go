@@ -376,12 +376,13 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				return
 			}
 			hit, wait := llm.QuotaHit(err)
-			if wait <= 0 {
+			estimated := wait <= 0 // no Retry-After: the time is ours, shown as approximate
+			if estimated {
 				wait = quotaCooldown
 			}
 			switch {
 			case hit && model.Cloud: // a subscription's quota or rate limit
-				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait))
+				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait), estimated)
 			case hit: // a pay-per-token API's: routing keeps it; background work doesn't (ADR 031)
 				a.Router.NoteQuotaHit(model.Key(), time.Now().Add(wait))
 			}
