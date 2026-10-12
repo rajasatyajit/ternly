@@ -94,7 +94,7 @@ eval() { # ADR 009: retrieval quality; needs Ollama with the models below pulled
 }
 
 fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME; records → bench/results/fabrication
-  local models=${MODELS:-qwen3.6} runs=${RUNS:-1}
+  local models=${MODELS:-qwen3.6} runs=${RUNS:-1} gone=
   FAB_WORK=$(mktemp -d "$ROOT/.e2e-work-XXXXXX") # global: the EXIT trap runs after this function returns
   local work=$FAB_WORK
   trap 'rm -rf "$FAB_WORK"' EXIT
@@ -105,9 +105,11 @@ fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME
   export TERNLY_EVAL_JOURNAL_DIR="$ROOT/bench/results/fabrication/journals"
   for m in ${models//,/ }; do
     echo "== $m"
-    "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || true
+    st=0; "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || st=$?
+    if [ "$st" = 69 ]; then gone=69; break; fi # the model server is gone: the rest would fail the same way
   done
   cp "$work"/home/.local/share/ternly/capability/*.json bench/results/fabrication/ 2>/dev/null || true
+  return "${gone:-0}"
 }
 
 fuzz() { # every go test -fuzz target, FUZZTIME each (default 60s); new crashers land in testdata/fuzz

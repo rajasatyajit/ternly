@@ -111,6 +111,12 @@ These records are **not yet merged** into `internal/eval/defaults.json`.
    - PR #28 out of draft;
    - CHANGELOG.
 
+**Evals, 2026-10-12:** Ollama stopped at 16:55:41Z, part-way through granite4.2 (3 runs). Its 18 sound outcomes
+(run 1 complete, run 2 to stale-readme-api) are in `bench/results/fabrication/journals`, rebuilt from the
+record that run wrote; that record and qwen3.8's 0/0 one are not used. An unreachable model now stops the
+evaluation (exit 69, journal kept). Rerun: `SPECS="granite4.2:latest:3 qwen3.8:latest:1"
+bench/phasec/evals/eval-models.sh` once Ollama is up.
+
 **Pushed:** `track1/phase-c` is on GitHub, including this state. PR #28 is unchanged and still a draft.
 
 ## How to resume (each step skips what's already recorded)

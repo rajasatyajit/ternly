@@ -119,6 +119,10 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 				fmt.Printf("■ %-22s stopped: %s hit its quota; the finished traps are kept, and the rest run after the reset\n", tr.Name, key)
 				return exitQuota
 			}
+			if unavailable(o.Err) { // the model or its server is gone: scoring the rest would only record errors
+				fmt.Printf("■ %-22s stopped: %s is unavailable (%s); the finished traps are kept, and the rest run when it is back\n", tr.Name, model, o.Err)
+				return exitUnavailable
+			}
 			outs = append(outs, o)
 			if journal != nil {
 				if err := journal.Add(model, runs, run, key, o); err != nil {
@@ -278,4 +282,21 @@ func trapRecords(projDir string) []agent.Record {
 func lastLine(s string) string {
 	ls := strings.Split(strings.TrimSpace(s), "\n")
 	return ls[len(ls)-1]
+}
+
+// exitUnavailable is sysexits' EX_UNAVAILABLE: the evaluation stopped because
+// the model could not be reached; its journal is kept for a resume.
+const exitUnavailable = 69
+
+// unavailable reports whether a trap's error means the model itself could not
+// be reached (its server stopped, or it is no longer installed), not that the
+// trap failed. On 2026-10-12 Ollama stopped part-way through granite4.2's
+// evaluation, and the remaining 41 traps were each "scored" as an error in 0s.
+func unavailable(err string) bool {
+	for _, s := range []string{"no model matches", "connection refused", "could not connect"} {
+		if strings.Contains(err, s) {
+			return true
+		}
+	}
+	return false
 }

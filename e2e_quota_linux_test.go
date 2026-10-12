@@ -199,3 +199,54 @@ func TestEvalResumesInAFreshHome(t *testing.T) {
 		t.Fatalf("journal left after the record was saved: %v", js)
 	}
 }
+
+// A model that becomes unreachable part-way (on 2026-10-12 Ollama stopped
+// during granite4.2's evaluation) stops the evaluation with the journal kept
+// and no record saved, instead of scoring every remaining trap as an error.
+func TestEvalStopsWhenModelGone(t *testing.T) {
+	var chats, limit atomic.Int32
+	limit.Store(4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gone := limit.Load() > 0 && chats.Load() >= limit.Load()
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			if gone {
+				fmt.Fprint(w, `{"data":[]}`)
+				return
+			}
+			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+			return
+		}
+		if gone {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"error":"model \"m1\" not found"}`)
+			return
+		}
+		chats.Add(1)
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"I don't know that, and I won't guess.\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	t.Cleanup(srv.Close)
+	home := testHome(t, srv.URL)
+	data := filepath.Join(home, ".local", "share", "ternly")
+
+	out1, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != exitUnavailable {
+		t.Fatalf("first run: exit %v, want %d\n%s", err, exitUnavailable, out1)
+	}
+	if !strings.Contains(string(out1), "is unavailable") {
+		t.Fatalf("first run doesn't say the model is unavailable:\n%s", out1)
+	}
+	if recs, _ := filepath.Glob(filepath.Join(data, "capability", "*.json")); len(recs) != 0 {
+		t.Fatalf("a record was saved from a run whose model went away: %v", recs)
+	}
+	kept := trapLines(string(out1)) // the trap that found the model gone is neither printed nor kept
+	if js, _ := filepath.Glob(filepath.Join(data, "capability", "*.partial.jsonl")); len(js) != 1 {
+		t.Fatalf("journal: %v\n%s", js, out1)
+	}
+
+	limit.Store(0) // the model is back
+	out2, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	if err != nil || !strings.Contains(string(out2), fmt.Sprintf("↺ resuming: %d trap outcome(s)", kept)) {
+		t.Fatalf("second run: %v\n%s", err, out2)
+	}
+}
