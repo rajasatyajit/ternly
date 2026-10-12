@@ -66,6 +66,8 @@ signs:
 release:
   # Published only after the archives pass the smoke tests (release.yml).
   draft: true
+  # a tag with a pre-release suffix (v0.2.0-alpha.1) is published as a pre-release, never as latest
+  prerelease: auto
   footer: |
     ## Verify
     ```
