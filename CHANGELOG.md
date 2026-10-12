@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### F2.1: output bytes (ADR 030)
+- **The status line, lanes and activity line redraw only when what they show changes.** Running times
+  count whole seconds (at most one change a second); the cache field is text, not the wide `⚡`,
+  which made the renderer re-send the whole line every frame; "Thinking…" is a spinner cell and
+  static text, not a per-letter colour sweep. In a paired A/B: S1 3.7–4.2 KB compressed (budget
+  8.6 KB), 55 bytes per streaming frame (budget 57), and the 10-turn session 4.9–5.4 KB, down from
+  49–59 KB.
+- **Echo budgets by profile:** full ≤ 16 ms p95; low-power and remote ≤ 40 ms, a deliberate trade
+  until upstream bubbletea#1858.
+- **`tuiprobe -rowbytes`** shows which screen rows a recording's bytes went to;
+  `bench/f2/probe/ab.sh` A/Bs two builds' output bytes.
+
 ### F2 closed: the final comparison (ADR 030)
 - **ternly's final build compared with Claude Code and Codex**: the same scenarios, reach session,
   perf matrix and model as the survey (`bench/f2/final/`). ADR 030 records the scores, every

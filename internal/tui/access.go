@@ -50,15 +50,32 @@ func (m *Model) toolIcon(state int) string {
 	if m.App.Access.ReducedMotion || m.perm != nil || m.review != nil { // still while the user decides
 		return sDim.Render("◌")
 	}
-	return spinFrames[m.frame%len(spinFrames)]
+	return m.spinner()
 }
 
-// moving renders text that would shimmer; static under reduced motion.
+// spinner is the spinner's current glyph. It advances every spinEvery ticks
+// (about 3.5 a second at the 70 ms tick): only that one cell redraws.
+func (m *Model) spinner() string {
+	frames := spinFrames
+	if m.App.Access.ASCII {
+		frames = asciiSpin
+	}
+	return sAccent.Render(frames[(m.frame/spinEvery)%len(frames)])
+}
+
+const spinEvery = 4
+
+var asciiSpin = []string{"|", "/", "-", "\\"}
+
+// moving is text that's in progress: a spinner, then the text, static.
+// It was a colour sweep over every letter on every 70 ms tick, which
+// rewrote the whole line each time: the largest share of a streamed answer's
+// bytes (ADR 030, F2.1). Under reduced motion, the text alone.
 func (m *Model) moving(text string) string {
 	if m.App.Access.ReducedMotion {
 		return sAccent.Render(text)
 	}
-	return shine(text, m.frame)
+	return m.spinner() + " " + sAccent.Render(text)
 }
 
 // linear: the accessible mode (ADR 023), inside the same renderer — no

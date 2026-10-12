@@ -120,7 +120,7 @@ func (m *Model) lanesView() string {
 			fields = append(fields, untrusted(s.Doing))
 		}
 		fields = append(fields, sDim.Render(fmt.Sprintf("%s%s %s%s", kfmt(s.In), g.in, kfmt(s.Out), g.out)),
-			sDim.Render(fmt.Sprintf("$%.4f", s.Cost)), sDim.Render(durShort(laneTime(s))))
+			sDim.Render(fmt.Sprintf("$%.4f", s.Cost)), sDim.Render(laneDur(s)))
 		rows = append(rows, " "+fitLines(strings.Join(fields, sDim.Render(g.sep)), w))
 	}
 	if rest := m.lanes[show:]; len(rest) > 0 {
@@ -165,4 +165,13 @@ func (m *Model) announceLane(s *agent.SubState) {
 		line += ": " + strings.Join(parts, ", ")
 	}
 	m.addInfo(line)
+}
+
+// laneDur is a lane's time: whole seconds while it runs (at most one redraw
+// a second), to the tenth once it's done.
+func laneDur(s *agent.SubState) string {
+	if s.State == "running" {
+		return durLive(laneTime(s))
+	}
+	return durShort(laneTime(s))
 }
