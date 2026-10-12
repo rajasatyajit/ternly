@@ -1,0 +1,49 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                                                                                                   Scripted Title · bwrap · yolo
+                                                                                                                                       │Changes  Ctrl+X c · esc · pgup/pgdn
+  ◆ ternly  0.1.0 · Code, ternly.                                                                                                      │1 file changed by ternly this session:
+  ● ollama      1 models, 1 with tools · api                                                                                           │  lru.go
+  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure            │
+                                                                                                                                       │working tree
+❯ Resize evicts one entry. find the cause and fix it                                                                                   │  lru.go | 2 +-
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 28 s, quota, p≥0.30                             │   1 file changed, 1 insertion(+), 1 deletion(-)
+  ● Read lru.go  0ms                                                                                                                   │  untracked: NOTES.md
+  ● Edit lru.go  (-1 +1 lines)  0ms                                                                                                    │  diff --git a/lru.go b/lru.go
+    - c.cap = n; c.evictOne()                                                                                                          │  index 1ff30a4..7c40271 100644
+    + c.cap = n; c.evictUntilFits()                                                                                                    │  --- a/lru.go
+                                                                                                                                       │  +++ b/lru.go
+  Fixed: Resize now evicts until the cache fits, not just one entry.                                                                   │  @@ -7,7 +7,7 @@ type Cache struct {
+  ● Verify go build ./... && go vet ./...  263ms                                                                                       │   }
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered                │
+  ↳ turn 4.2k↑ 123↓ · $0.0000 · 0.5s · verified ✓ · 1 file changed (lru.go)                                                            │   // Resize changes the capacity, evicting the oldest items t…
+                                                                                                                                       │  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+                                                                                                                                       │  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits…
+                                                                                                                                       │
+                                                                                                                                       │   func (c *Cache) evictOne() {
+                                                                                                                                       │   if len(c.items) > c.cap {
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+                                                                                                                                       │
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                                                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.5k/131.1k · $0.0000 · turn 4.2k↑ 123↓ · 0.5s · verify ✓ · undo 1

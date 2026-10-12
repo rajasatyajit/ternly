@@ -495,3 +495,64 @@ the same method, step 4 listed twice.
   explains why `TestTUIIdleCPU`'s single samples in CI fall in two clusters (0.35–0.85 % and 1.15–1.60 %).
 - **On neither runner does ternly meet ≤ 0.5 %.** Paired comparisons are only valid within one run, and the workflow
   records which CPU it ran on.
+
+## Steps 5 and 6: the palette, and adapting to the environment (2026-10-12)
+**Step 5, the palette (Level 3):**
+- Each row shows, at its right, the keys that do the same (`/panel error … Ctrl+X e`; `/output … Ctrl+O · Ctrl+X o`).
+  The keys drop out where the description would lose its room.
+- A query of three letters or more also matches descriptions, ranked below name matches: `diff` finds the changes
+  panel.
+- With nothing typed, the five most recently used commands come first.
+- `/output` and `/sidebar` make Ctrl+O and Ctrl+B reachable from the palette.
+
+**Step 6, adapting:**
+- **Glyphs:** in the ASCII mode the whole frame is made ASCII before it's written. ternly's glyphs get same-width
+  stand-ins; box drawing becomes `+ - |`, which fixes the input box's corners; anything else outside ASCII becomes `?`
+  per column. The recordings show 0 non-ASCII bytes at every size.
+- **Colour:** a 16-colour tier (`TERM=xterm`) was added to the recordings. It emits only 16-colour SGR.
+- **Accessible mode:** it announces each subagent's change of state.
+
+**Frame rate, chosen at startup by profile** (Bubble Tea can't change it while running). `ui.fps` overrides it.
+`/doctor` shows the profile and why, and below 30 fps it warns how long a key can wait for its frame (up to one frame
+interval, half of one on average). The owner's decision (2026-10-12) is **low-power = 30 fps, and its idle budget stays
+0.5 %, unmet, pending upstream #1858**.
+
+| Profile | When | fps | Idle CPU: budget / measured | Echo p95: budget / measured |
+|---|---|---|---|---|
+| full | AC power, local terminal, ≥ 4 CPUs at ≥ 2 GHz | 120 | pending upstream #1858 / 0.70–1.55 % | ≤ 16 ms / 9.2–9.5 ms: **met** |
+| low-power | on battery, or < 4 CPUs, or < 2 GHz | 30 | ≤ 0.5 % / 0.30 % (AMD 9V45), 0.45–0.50 % (Intel 8370C), 0.70–0.85 % (AMD 7763): **unmet on the slowest runner; pending upstream #1858** | ≤ 16 ms / 33.1–33.7 ms: **unmet** |
+| remote | over SSH (also stops the spinner) | 30 | as low-power | as low-power |
+
+**The echo measurement was wrong until now, and is fixed.**
+- **The flaw:** tuiprobe sent each key 150 ms after the previous frame went quiet. Frames come on a ticker, so every
+  key landed at the same point of the frame interval, and "echo" measured that phase: about 48 ms at 10, 15 and 20 fps
+  alike, and 14–15 ms at 30 and 60 fps.
+- **The fix:** each key now waits a random 0–125 ms first (with a fixed seed).
+- **What it shows:** a key waits for the next frame, so the p95 echo is about one frame interval and the p50 about
+  half of one plus ~5 ms. The owner's choice of 30 fps assumed echo of about 15 ms (the old number); it is 33 ms p95.
+- **What is affected:** every echo figure taken before (ADR 032's 6.5 ms, the survey's per-harness echo, steps 1–4)
+  carries the same phase bias. They are re-measured in the final comparison.
+
+**The runs behind the table** (`tui-idle.yml`; 7 interleaved rounds × 20 s, 120×40; Unicode / ASCII medians):
+
+| Run | Runner CPU | Echo probe | Result |
+|---|---|---|---|
+| [38195393234](https://github.com/rajasatyajit/ternly/actions/runs/38195393234) | AMD EPYC 9V45 | random pause (fixed) | 120 fps: 0.70 / 0.70 %, echo 6.1 / 9.5 ms (A/A Δ −0.15…+0.10)<br>60: 0.50 %, 10.3 / 17.8 ms<br>30: 0.30 %, 20.8 / 33.7 ms<br>10: 0.20 %, 49.3 / 97.3 ms |
+| [38157307607](https://github.com/rajasatyajit/ternly/actions/runs/38157307607) | AMD EPYC 7763 | fixed 150 ms (biased) | idle 120 fps: 1.55 %; 60: 1.10–1.15 %; 30: 0.70–0.75 % |
+| [38164163926](https://github.com/rajasatyajit/ternly/actions/runs/38164163926) | AMD EPYC 7763 | fixed 150 ms (biased) | idle 60 fps: 1.45 %; 30: 0.85 %; 20: 0.65 %; 15: 0.50 % |
+| [38161144184](https://github.com/rajasatyajit/ternly/actions/runs/38161144184) | Intel Xeon 8370C | fixed 150 ms (biased) | idle 30 fps: 0.45–0.50 %; 20: 0.35 %; 15: 0.30 %; 10: 0.20–0.25 % |
+| [38167139795](https://github.com/rajasatyajit/ternly/actions/runs/38167139795) | AMD EPYC 9V45 | fixed 150 ms (biased) | idle 10 fps: 0.20–0.25 % (A/A Δ ±0.05); 15: 0.25–0.30 % |
+
+The idle figures in the biased runs are sound; only their echo figures carry the phase bias. What the runs show:
+- **Idle CPU is the frame ticker's wakeups, and the runner's CPU sets its level:** 120 fps costs 0.70 % on an AMD 9V45
+  and 1.55 % on an AMD 7763. Locally at 1 fps, ternly wakes about 7 times a second and uses no measurable CPU.
+- **No fixed frame rate meets both budgets on every runner measured.**
+  - 16 ms echo p95 needs about 60 fps or more (17.8 ms at 60).
+  - ≤ 0.5 % idle on the AMD 7763 needs about 15 fps or less.
+  - Only writing a frame as soon as input arrives, not on the next tick, removes the conflict: that is upstream #1858.
+
+**Recordings** (`bench/f2/layout/results/step5-palette`, `…/step6-adaptive`):
+- Reach: 18 of 20 facts at 0 keys and none missing, in all nine runs (200×50, 120×40 and 80×24, in Unicode, ASCII/no
+  colour and 16 colours).
+- The estimated-quota scenario passes.
+- The recordings ran on the owner's desktop under the full profile, so the frame-rate change doesn't touch them.

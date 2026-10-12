@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*            Scripted Title · bwrap · ask
+    - func (c *Cache) evictOne()
+    + func (c *Cache) evictFirst()
+
+  Waiting for your answer  y yes · a always · n no
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Edit lru.go?  hunk 1 of 1 · 1 selected                                     │
+│ why: the permission mode is ask, so edits and commands wait for your ye…   │
+│ [x] @@ -9,7 +9,7 @@                                                        │
+│  // Resize changes the capacity, evicting the oldest items that no long…   │
+│  func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }           │
+│                                                                            │
+│ -func (c *Cache) evictOne() {                                              │
+│ +func (c *Cache) evictFirst() {                                            │
+│      if len(c.items) > c.cap {                                             │
+│          c.items = c.items[1:]                                             │
+│      }                                                                     │
+│ [y] apply selected   [a] always   [n] decline   space toggles · ↑↓ hunks   │
+╰────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.8k/131.1k · $0.0000 · 2.5k↑ · 0.1s · ✓ · u3

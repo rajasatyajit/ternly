@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+    ⎿     19        for len(c.items) > c.cap {
+    ⎿     20            c.items = c.items[1:]
+    ⎿     21        }
+    ⎿     22    }
+    ⎿ ctrl+o collapses
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    - c.cap = n; c.evictOne()
+    + c.cap = n; c.evictUntilFits()
+    ⎿ edited lru.go (1 replacement(s))
+    ⎿ ctrl+o collapses
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  175ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
+    ⎿ ctrl+o collapses
+  -> turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)
+  the sidebar needs 100 columns (this window has 80); /resume lists sessions
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000
+ turn 4.2k^ 123v | 0.4s | verify ok | undo 1

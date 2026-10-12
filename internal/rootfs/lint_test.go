@@ -69,6 +69,8 @@ var allowed = map[string]string{
 	"internal/plugins/store.go OpenStore":                "plugin store index",
 	"internal/plugins/marketplace.go Store.Marketplaces": "plugin store index",
 	"internal/tui/commands.go Model.cmdEditor":           "the temp file the user's editor wrote",
+	"internal/tui/profile.go DetectEnv":                  "/sys cpufreq: the CPU's top clock, for the frame-rate profile",
+	"internal/tui/profile.go linuxPower":                 "/sys power_supply: AC or battery, for the frame-rate profile",
 
 	// the tool layer: already confined (os.Root)
 	"internal/tools/tools.go Registry.builtin": "fs.WalkDir over the registry's os.Root",

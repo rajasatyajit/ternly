@@ -27,9 +27,15 @@ func (m *Model) onSubagent(s *agent.SubState) {
 	}
 	for i, l := range m.lanes {
 		if l.ID == s.ID {
+			if m.linear() && l.State != s.State {
+				m.announceLane(s)
+			}
 			m.lanes[i] = s
 			return
 		}
+	}
+	if m.linear() {
+		m.announceLane(s)
 	}
 	m.lanes = append(m.lanes, s)
 	sort.Slice(m.lanes, func(i, j int) bool { return m.lanes[i].ID < m.lanes[j].ID })
@@ -131,4 +137,32 @@ func (m *Model) lanesView() string {
 		rows = append(rows, " "+sDim.Render(fitLines(fmt.Sprintf("+%d more: %s", len(rest), strings.Join(parts, ", ")), w)))
 	}
 	return strings.Join(rows, "\n")
+}
+
+// announceLane is a subagent's change of state as a line, for the linear
+// (screen reader) mode, which has no lanes: "[agent lexer] done: ollama/m1,
+// step 5, 1.2k tokens in, 12s". Only changes of state are announced, not
+// every step.
+func (m *Model) announceLane(s *agent.SubState) {
+	parts := []string{}
+	if s.Model != "" {
+		parts = append(parts, untrusted(s.Model))
+	}
+	if s.Step > 0 {
+		parts = append(parts, fmt.Sprintf("step %d", s.Step))
+	}
+	if s.State == "running" && s.Doing != "" {
+		parts = append(parts, untrusted(s.Doing))
+	}
+	if s.State == "done" || s.State == "failed" {
+		parts = append(parts, kfmt(s.In)+" tokens in")
+		if d := laneTime(s); d > 0 {
+			parts = append(parts, durShort(d))
+		}
+	}
+	line := fmt.Sprintf("  [agent %s] %s", untrusted(orStr(s.Name, fmt.Sprint(s.ID))), s.State)
+	if len(parts) > 0 {
+		line += ": " + strings.Join(parts, ", ")
+	}
+	m.addInfo(line)
 }

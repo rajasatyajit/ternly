@@ -216,3 +216,32 @@ func (m *Model) openPalette() {
 // directOK: Alt+letter can go straight to an action (the input doesn't use it
 // for word editing).
 func directOK(letter string) bool { return len(letter) == 1 && !strings.Contains("bcdflu", letter) }
+
+// commandKeys are the keys that do what a command does, for the palette.
+func (m *Model) commandKeys(name string) string {
+	switch name {
+	case "output":
+		return "Ctrl+O · " + m.actionKeys(actionFor("o"))
+	case "sidebar":
+		return "Ctrl+B · " + m.actionKeys(actionFor("s"))
+	}
+	return ""
+}
+
+// noteRecent keeps the palette's recently used commands, latest first (5).
+func (m *Model) noteRecent(name, arg string) {
+	if name == "panel" {
+		k := panelKind(strings.ToLower(strings.TrimSpace(arg)))
+		if _, ok := panelTitles[k]; !ok {
+			return
+		}
+		name = "panel " + string(k)
+	}
+	r := []string{name}
+	for _, x := range m.recent {
+		if x != name && len(r) < 5 {
+			r = append(r, x)
+		}
+	}
+	m.recent = r
+}

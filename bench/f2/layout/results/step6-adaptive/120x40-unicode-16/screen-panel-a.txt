@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+Agents  Ctrl+X a · esc · pgup/pgdn
+none in this turn; the last ones, in turn 2:
+
+✓ tests · done
+  model  ollama/m1
+  step   1
+  last   read_file go.mod
+  usage  1.8k in · 30 out · $0
+  time   2.8s
+
+✓ lexer · done
+  model  ollama/m1
+  step   1
+  last   read_file lru.go
+  usage  2.0k in · 38 out · $0
+  time   2.4s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.9k/131.1k · $0.0000 · ⚠ 1 error · quota out until 00:25
+ turn 0↑ 0↓ · 0.0s · verify ✓ · undo 4

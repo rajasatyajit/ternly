@@ -65,6 +65,8 @@ func init() {
 		{name: "exit", aliases: []string{"quit", "q"}, section: "Session", desc: "exit (the session is saved)"},
 
 		{name: "panel", args: "agents|changes|error|plan|routing", section: "Panels", desc: "open or close a panel (the leader key, then its letter)", run: (*Model).cmdPanel},
+		{name: "output", section: "Panels", desc: "show tool output in full, or collapse it again", run: func(m *Model, _ string) tea.Cmd { m.toggleExpanded(); return nil }},
+		{name: "sidebar", section: "Panels", desc: "the session list beside the transcript (100 columns or more)", run: func(m *Model, _ string) tea.Cmd { m.toggleSidebar(); return nil }},
 
 		{name: "model", args: "[id|auto]", section: "Models & cost", desc: "pin a model, or return to cost-aware routing"},
 		{name: "models", args: "[filter | why [model]]", section: "Models & cost", desc: "list models: tier, price, context; routing v2: rank and why"},
@@ -169,12 +171,14 @@ func (m *Model) dispatch(v string) tea.Cmd {
 	name, arg, _ := strings.Cut(strings.TrimPrefix(v, "/"), " ")
 	arg = strings.TrimSpace(arg)
 	if c := lookup(name); c != nil {
+		m.noteRecent(c.name, arg)
 		if c.run != nil {
 			return c.run(m, arg)
 		}
 		return m.legacyCommand("/"+c.name, arg, v)
 	}
 	if u := m.userCommand(name); u != nil {
+		m.noteRecent(u.Name, "")
 		return m.runUser(u, arg)
 	}
 	m.addInfo(sErr.Render("  unknown command /" + name + " — /help"))
@@ -527,6 +531,12 @@ func (m *Model) cmdDoctor(string) tea.Cmd {
 			line(bad, "models", "none found — set an API key or start Ollama / LM Studio, then /refresh")
 		} else {
 			line(ok, "models", fmt.Sprintf("%d from %d providers (%d local, %d with tools)", len(ms), len(provs), local, tools))
+		}
+		if f := m.App.Frame; f.FPS > 0 {
+			line(ok, "frame rate", fmt.Sprintf("%d fps, the %s profile: %s (ui.fps in config.json overrides)", f.FPS, f.Name, f.Why))
+			if w := f.EchoWarning(); w != "" {
+				line(warn, "", w)
+			}
 		}
 		if m.App.Agent.CP != nil {
 			line(ok, "checkpoints", "on (/undo, /rewind restore files)")
@@ -1329,6 +1339,7 @@ func (m *Model) cmdCommands(arg string) tea.Cmd {
 
 type compItem struct {
 	name, hint, desc string
+	keys             string // the keys that do the same, shown at the right
 	project          bool
 }
 
@@ -1389,13 +1400,28 @@ func (m *Model) updateCompletion() {
 		s int
 	}
 	var all []scored
-	for _, c := range builtins {
-		best := fuzzyScore(q, c.name)
-		for _, a := range c.aliases {
+	// score: a name match first; else the query in the description (lowest);
+	// with nothing typed, the recently used first
+	score := func(name string, names []string, desc string) int {
+		best := fuzzyScore(q, name)
+		for _, a := range names {
 			best = max(best, fuzzyScore(q, a)-5)
 		}
-		if best >= 0 {
-			all = append(all, scored{compItem{name: c.name, hint: c.args, desc: c.desc}, best})
+		if best < 0 && len(q) >= 3 && strings.Contains(strings.ToLower(desc), q) {
+			best = 0
+		}
+		if q == "" {
+			for i, r := range m.recent {
+				if r == name {
+					best = 2000 - i
+				}
+			}
+		}
+		return best
+	}
+	for _, c := range builtins {
+		if s := score(c.name, c.aliases, c.desc); s >= 0 {
+			all = append(all, scored{compItem{name: c.name, hint: c.args, desc: c.desc, keys: m.commandKeys(c.name)}, s})
 		}
 	}
 	for i := range keyActions { // every panel, with its keys
@@ -1404,12 +1430,12 @@ func (m *Model) updateCompletion() {
 			continue
 		}
 		name := "panel " + string(a.panel)
-		if s := max(fuzzyScore(q, name), fuzzyScore(q, string(a.panel))-5); s >= 0 {
-			all = append(all, scored{compItem{name: name, desc: panelDescs[a.panel] + " · " + m.actionKeys(a)}, s})
+		if s := score(name, []string{string(a.panel)}, panelDescs[a.panel]); s >= 0 {
+			all = append(all, scored{compItem{name: name, desc: panelDescs[a.panel], keys: m.actionKeys(a)}, s})
 		}
 	}
 	for _, u := range m.userCmds {
-		if s := fuzzyScore(q, strings.ToLower(u.Name)); s >= 0 {
+		if s := score(strings.ToLower(u.Name), nil, u.Description); s >= 0 {
 			all = append(all, scored{compItem{name: u.Name, hint: u.ArgHint, desc: u.Description, project: u.Project}, s})
 		}
 	}
@@ -1513,11 +1539,20 @@ func (m *Model) compView() string {
 		if it.project {
 			desc += " (project)"
 		}
-		line := " " + text + " " + sDim.Render(truncate(desc, max(8, m.w-col-3)))
+		keys, descW := it.keys, m.w-col-3
+		if kw := ansi.StringWidth(keys); keys != "" && descW-kw-3 >= 16 { // keys at the right, if the description keeps room
+			descW -= kw + 3
+		} else {
+			keys = ""
+		}
+		line := " " + text + " " + sDim.Render(truncate(desc, max(8, descW)))
 		if i == m.comp.sel {
 			line = sAccent.Render("›") + line
 		} else {
 			line = " " + line
+		}
+		if keys != "" {
+			line += strings.Repeat(" ", max(2, m.w-1-lipgloss.Width(line)-ansi.StringWidth(keys))) + sAccent.Render(keys)
 		}
 		b.WriteString(line + "\n")
 	}

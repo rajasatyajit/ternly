@@ -56,7 +56,7 @@ func TestKeystrokeEcho(t *testing.T) {
 	m.App.Discover = func() ([]*discover.Model, []string) { return nil, nil }
 	in, keys := io.Pipe()
 	w := &echoWriter{wrote: make(chan struct{}, 1)}
-	p := tea.NewProgram(m, append(ProgramOptions(), tea.WithInput(in), tea.WithOutput(w), tea.WithWindowSize(120, 40),
+	p := tea.NewProgram(m, append(ProgramOptions(FPS), tea.WithInput(in), tea.WithOutput(w), tea.WithWindowSize(120, 40),
 		tea.WithColorProfile(colorprofile.TrueColor), tea.WithoutSignals(),
 		tea.WithEnvironment([]string{"TERM=xterm-256color", "COLORTERM=truecolor"}))...)
 	done := make(chan struct{})

@@ -1,0 +1,39 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+    ⎿      2
+    ⎿      3    // Cache keeps at most cap items, oldest first.
+    ⎿      4    type Cache struct {
+    ⎿      5        items []int
+    ⎿      6        cap   int
+    ⎿      7    }
+    ⎿      8
+    ⎿      9    // Resize changes the capacity, evicting the oldest items that no longer fit.
+    ⎿     10    func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+    ⎿     11
+    ⎿     12    func (c *Cache) evictOne() {
+    ⎿     13        if len(c.items) > c.cap {
+    ⎿     14            c.items = c.items[1:]
+    ⎿     15        }
+    ⎿     16    }
+    ⎿     17
+    ⎿     18    func (c *Cache) evictUntilFits() {
+    ⎿     19        for len(c.items) > c.cap {
+    ⎿     20            c.items = c.items[1:]
+    ⎿     21        }
+    ⎿     22    }
+    ⎿ ctrl+o collapses
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    - c.cap = n; c.evictOne()
+    + c.cap = n; c.evictUntilFits()
+    ⎿ edited lru.go (1 replacement(s))
+    ⎿ ctrl+o collapses
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  191ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
+    ⎿ ctrl+o collapses
+  -> turn 4.2k^ 123v | $0.0000 | 0.4s | verified ok | 1 file changed (lru.go)
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000 | turn 4.2k^ 123v | 0.4s | verify ok | undo 1
