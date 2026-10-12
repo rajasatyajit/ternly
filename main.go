@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,7 +42,20 @@ import (
 	"github.com/rajasatyajit/ternly/internal/tui"
 )
 
-var version = "0.1.0"
+// version is set at release by the linker (-X main.version=…). A build without
+// it (go install …@v0.2.0-alpha.1) takes the module version Go records in the
+// binary; a local build from a checkout says "devel".
+var version = ""
+
+func init() {
+	if version != "" {
+		return
+	}
+	version = "devel"
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		version = strings.TrimPrefix(bi.Main.Version, "v")
+	}
+}
 
 type fileConfig struct {
 	Mode              string                `json:"mode"`
