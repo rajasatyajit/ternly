@@ -69,7 +69,10 @@ type fileConfig struct {
 	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
 	Plugins         *bool         `json:"plugins"`        // plugins, skills, agents, rules (default on)
 	Suggestions     *bool         `json:"suggestions"`    // suggest capabilities a task needs (default on)
-	Keys            struct {
+	UI              struct {
+		FPS int `json:"fps"` // frames per second, 1–120; 0: chosen by the environment (ADR 030 step 6)
+	} `json:"ui"`
+	Keys struct {
 		Leader string `json:"leader"` // the key before a panel's letter (default ctrl+x; ADR 030)
 	} `json:"keys"`
 	CatalogSources *struct {
@@ -659,11 +662,12 @@ func run() int {
 		}
 		fc.Routing.BackgroundEval.Enabled = &on
 	}
+	frame := tui.ChooseProfile(tui.DetectEnv(), fc.UI.FPS)
 	leader, note := tui.ParseLeader(fc.Keys.Leader)
 	if note != "" {
 		notes = append(notes, "config.json: "+note)
 	}
-	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Leader: leader, Discover: func() ([]*discover.Model, []string) {
+	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Leader: leader, Frame: frame, Discover: func() ([]*discover.Model, []string) {
 		ms, w := discoverFn()
 		if pin != "" {
 			router.SetModels(ms)
@@ -684,7 +688,7 @@ func run() int {
 	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
 	// background work runs while idle (no turn, no input for idle.After) and on AC power (ADR 031)
 	gate := idle.New(ag.Running)
-	p := tea.NewProgram(activity{Model: m, touch: gate.Touch}, append(tui.ProgramOptions(), tea.WithContext(ctx))...)
+	p := tea.NewProgram(activity{Model: m, touch: gate.Touch}, append(tui.ProgramOptions(frame.FPS), tea.WithContext(ctx))...)
 	emit = func(e agent.Event) { stc.Observe(e); p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
 	pol.Review = tui.Reviewer(p) // edits that ask are reviewed per hunk (ADR 021 amendment 1)

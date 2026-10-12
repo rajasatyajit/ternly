@@ -14,7 +14,8 @@
 //
 //	stable QUIET_MS [MAX_MS]   wait until no output for QUIET_MS (records the time)
 //	until MAX_MS TEXT          wait until the emulated screen shows TEXT; records ms since launch (\s is a space)
-//	keys TEXT                  type TEXT one key at a time; per key: echo latency and bytes until quiet
+//	keys TEXT                  type TEXT one key at a time, each after a random 0-125 ms pause
+//	                           (fixed seed): echo latency and bytes until quiet per key
 //	type TEXT                  send TEXT at once (\n is Enter, \e is Escape)
 //	enter | esc | tab | ctrlc | ctrld
 //	stream QUIET_MS MAX_MS     measure output until quiet for QUIET_MS: frames, bytes, fps
@@ -34,6 +35,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -448,7 +450,15 @@ func (p *probe) run(step string) StepResult {
 			sr.Note = "not seen: " + want
 		}
 	case "keys":
+		// A pause of random length before each key: frames come on a ticker, and
+		// a key sent a fixed time after the last frame lands at the same phase
+		// of it every time, so its echo would measure that phase, not the
+		// harness (with 150 ms of quiet, about 48 ms at 10, 15 and 20 fps alike).
+		// 0-125 ms covers a frame interval down to 8 fps; the seed is fixed, so
+		// runs pause alike.
+		rng := rand.New(rand.NewPCG(1, 2))
 		for _, k := range unescape(rest) {
+			time.Sleep(time.Duration(rng.Int64N(int64(125 * time.Millisecond))))
 			n0, _ := p.rec.state()
 			t0 := time.Now()
 			p.send(string(k))

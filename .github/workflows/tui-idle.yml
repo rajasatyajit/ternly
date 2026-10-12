@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       binaries:
-        description: "name=ref pairs, comma-separated (the first is the reference)"
+        description: "name=ref or name=ref@fps (ui.fps), comma-separated; the first is the reference"
         default: "step3=5cbe1e3,step3-again=5cbe1e3,step2=0a123af,pre-layout=c903a5b"
       rounds:
         description: "rounds"
@@ -53,12 +53,13 @@ jobs:
           spec=""
           IFS=',' read -ra pairs <<< "$BINARIES"
           for p in "${pairs[@]}"; do
-            name="${p%%=*}"; ref="${p#*=}"
-            case "$name$ref" in *[!A-Za-z0-9._-]*) echo "bad pair: $p"; exit 1;; esac
+            name="${p%%=*}"; ref="${p#*=}"; fps=""
+            case "$ref" in *@*) fps="${ref#*@}"; ref="${ref%@*}";; esac
+            case "$name$ref$fps" in *[!A-Za-z0-9._-]*) echo "bad pair: $p"; exit 1;; esac
             git worktree add -q "$RUNNER_TEMP/src-$name" "$ref"
             (cd "$RUNNER_TEMP/src-$name" && CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/bin/ternly-$name" .)
-            echo "$name: $(git rev-parse --short "$ref")"
-            spec="$spec${spec:+,}$name=$RUNNER_TEMP/bin/ternly-$name"
+            echo "$name: $(git rev-parse --short "$ref")${fps:+ at $fps fps}"
+            spec="$spec${spec:+,}$name=$RUNNER_TEMP/bin/ternly-$name${fps:+@$fps}"
           done
           echo "SPEC=$spec" >> "$GITHUB_ENV"
       - name: Measure (interleaved)

@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -156,4 +158,59 @@ func utf8Locale() bool {
 		}
 	}
 	return false
+}
+
+// asciiStandIns are ASCII characters of the same width for the glyphs ternly
+// draws; asciiFrame uses them in the ASCII mode.
+var asciiStandIns = map[rune]byte{
+	'◆': '*', '◇': '*', '●': '*', '○': 'o', '◌': 'o', '◉': '*', '•': '*', '▣': '#', '■': '#', '□': '#',
+	'✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '⚠': '!', '⏹': '#', '⎿': '`', '↳': '`', '↻': '~',
+	'▸': '>', '▶': '>', '›': '>', '‹': '<', '»': '>', '«': '<', '→': '>', '←': '<', '↑': '^', '↓': 'v',
+	'…': '.', '·': '.', '—': '-', '–': '-', '“': '"', '”': '"', '‘': '\'', '’': '\'', '≥': '>', '≤': '<',
+	'⏎': '/', '×': 'x', '█': '#', '▏': '|', '▕': '|', '¦': '|', '\u00a0': ' ',
+}
+
+// asciiFrame makes a frame ASCII for a terminal that can't show UTF-8 (the
+// ASCII mode: a non-UTF-8 locale, or TERNLY_ASCII): ternly's glyphs become
+// their stand-ins, box drawing becomes + - |, and anything else outside
+// ASCII (a model's text in another script) becomes ? per column it takes.
+// Every replacement keeps the width, so the layout stays as computed.
+func asciiFrame(s string) string {
+	i := 0
+	for i < len(s) && s[i] < 0x80 {
+		i++
+	}
+	if i == len(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	b.WriteString(s[:i])
+	for _, r := range s[i:] {
+		switch {
+		case r < 0x80:
+			b.WriteRune(r)
+		case asciiStandIns[r] != 0:
+			b.WriteByte(asciiStandIns[r])
+		case r >= 0x2500 && r <= 0x257f: // box drawing
+			b.WriteByte(boxASCII(r))
+		case r >= 0x2580 && r <= 0x259f, r >= 0x2800 && r <= 0x28ff: // blocks, braille (spinners)
+			b.WriteByte('#')
+		default:
+			b.WriteString(strings.Repeat("?", max(1, ansi.StringWidth(string(r)))))
+		}
+	}
+	return b.String()
+}
+
+// boxASCII is a box-drawing character's ASCII stand-in: a horizontal line
+// '-', a vertical one '|', a corner or a junction '+'.
+func boxASCII(r rune) byte {
+	switch r {
+	case '─', '━', '┄', '┅', '┈', '┉', '╌', '╍', '═', '╴', '╶', '╸', '╺', '╼', '╾':
+		return '-'
+	case '│', '┃', '┆', '┇', '┊', '┋', '╎', '╏', '║', '╵', '╷', '╹', '╻', '╽', '╿':
+		return '|'
+	}
+	return '+'
 }

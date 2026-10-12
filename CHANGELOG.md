@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### TUI layout, steps 5 and 6: the palette, and adapting to the environment (ADR 030 (d))
+- **The Ctrl+K palette shows each row's keys at the right** (`/panel error … Ctrl+X e`), matches
+  descriptions from three letters (`diff` finds the changes panel), and lists the five most recently
+  used first. `/output` (Ctrl+O) and `/sidebar` (Ctrl+B) are in it too.
+- **The frame rate fits the machine**, chosen at startup: 120 fps on AC power in a local terminal on
+  a capable CPU; 30 on battery or a small CPU, and over SSH (with no spinner animation). Below
+  30 fps (`ui.fps`) `/doctor` warns how long a typed key can wait for its frame.
+- **tuiprobe types each key after a random pause**: a fixed pause measured the phase of the frame
+  ticker, not the echo (about 48 ms at 10–20 fps alike).
+  `"ui": {"fps": N}` overrides it; `/doctor` shows the profile and why.
+- **ASCII mode is ASCII throughout:** the input box's corners, popups, panels and the status line;
+  text in other scripts shows as `?` per column, so the layout holds.
+- **The accessible mode announces subagents** when their state changes.
+- **`bench/f2/layout`**: a palette probe, a 16-colour tier, and `-idle-ab name=binary@fps` with echo
+  per sample; `tui-idle.yml` takes `name=ref@fps`.
+
 ### TUI layout, step 4: panels and the leader key (ADR 030 (d))
 - **Ctrl+X, then a letter, opens a panel**, and a popup lists the letters while Ctrl+X waits:
   a agents, c changes, e last error, p plan, r why (routing), s sessions, o tool output,

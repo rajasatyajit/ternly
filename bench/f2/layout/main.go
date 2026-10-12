@@ -52,7 +52,13 @@ type tier struct {
 var tiers = []tier{
 	{"unicode", []string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8"}},
 	{"ascii-nocolor", []string{"TERM=xterm", "COLORTERM=", "LANG=C", "LC_ALL=C", "NO_COLOR=1"}},
+	// 16 colours (TERM=xterm, no COLORTERM): recorded for the colour tier; not in
+	// the perf and idle runs, which keep the two tiers above
+	{"unicode-16", []string{"TERM=xterm", "COLORTERM=", "LANG=C.UTF-8"}},
 }
+
+// perfTiers are the tiers the perf and idle runs measure.
+func perfTiers() []tier { return tiers[:2] }
 
 // A probe is a key sequence typed from the idle prompt; keys counts it as the
 // survey did (a chord is 1, "/diff⏎" is 6).
@@ -63,6 +69,7 @@ type probe struct {
 
 var probes = []probe{
 	{"ctrl-b", `\x02`, 1}, {"ctrl-o", `\x0f`, 1}, {"ctrl-g", `\x07`, 1}, {"ctrl-e", `\x05`, 1},
+	{"ctrl-k", `\x0b`, 1}, // the palette: every command and panel, with its keys
 	{"why", `/why\r`, 5}, {"diff", `/diff\r`, 6}, {"cost", `/cost\r`, 6},
 	{"status", `/status\r`, 8}, {"rewind", `/rewind\r`, 8}, {"verify", `/verify\r`, 8}, {"agents", `/agents\r`, 8},
 	// the leader alone (the which-key popup), then the leader and each panel's letter
@@ -110,7 +117,7 @@ func main() {
 	fake := flag.String("fake", "", "the bench/fakeprovider binary (default: built from this checkout)")
 	out := flag.String("out", "", "output directory")
 	sizes := flag.String("sizes", "200x50,120x40,80x24", "terminal sizes")
-	only := flag.String("tiers", "unicode,ascii-nocolor", "render tiers")
+	only := flag.String("tiers", "unicode,ascii-nocolor,unicode-16", "render tiers")
 	perf := flag.Bool("perf", true, "also run the performance probe at 120x40")
 	ab := flag.String("idle-ab", "", "only measure idle CPU of these binaries, interleaved: name=binary,name=binary")
 	rounds := flag.Int("rounds", 7, "-idle-ab: rounds")
@@ -165,8 +172,11 @@ func main() {
 			res := session(*ternly, *probeBin, *fake, filepath.Join(*out, name), s, t)
 			counts[name] = reach(res)
 			runs = append(runs, name)
-			if t.name == "ascii-nocolor" {
+			switch t.name {
+			case "ascii-nocolor":
 				fmt.Fprintf(&report, "- `%s`: %s\n", name, asciiCheck(res))
+			case "unicode-16":
+				fmt.Fprintf(&report, "- `%s`: colour SGR in the output: %d truecolor, %d 256-colour, %d 16-colour\n", name, res.Tech.TrueColor, res.Tech.Color256, res.Tech.Color16)
 			}
 		}
 	}
@@ -296,11 +306,12 @@ func script(dir string) string {
 // afterwards: screens show ~/proj-lru and /var/tmp/ternly-layout-…, nothing
 // personal. dir (the output) gets the script.
 func fixture(fake, dir string) (home, ws string, env []string, stop func()) {
-	return fixtureWith(fake, dir, script)
+	return fixtureWith(fake, dir, script, 0)
 }
 
-// fixtureWith is fixture with another script for the fake provider.
-func fixtureWith(fake, dir string, script func(string) string) (home, ws string, env []string, stop func()) {
+// fixtureWith is fixture with another script for the fake provider and, with
+// fps > 0, ternly's frame rate set (ui.fps) instead of chosen by the machine.
+func fixtureWith(fake, dir string, script func(string) string, fps int) (home, ws string, env []string, stop func()) {
 	must(os.MkdirAll(dir, 0o755)) // the script goes here
 	root, err := os.MkdirTemp("/var/tmp", "ternly-layout-")
 	must(err)
@@ -321,6 +332,9 @@ func fixtureWith(fake, dir string, script func(string) string) (home, ws string,
 	// ternly's own Ollama provider, pointed at the fake (OLLAMA_HOST below): its m1 is
 	// an Ollama Cloud model, so the quota scenario (429) is Ollama Cloud's
 	conf := `{"suggestions":false,"routing":{"background_eval":{"enabled":false}}}`
+	if fps > 0 {
+		conf = strings.TrimSuffix(conf, "}") + fmt.Sprintf(`,"ui":{"fps":%d}}`, fps)
+	}
 	must(os.WriteFile(filepath.Join(cfg, "config.json"), []byte(conf), 0o600))
 	must(os.WriteFile(filepath.Join(cache, "catalog.json"), []byte(`{"m1":{"Tools":true,"Ctx":131072}}`), 0o600))
 	must(os.WriteFile(filepath.Join(ws, "go.mod"), []byte("module example.com/lru\n\ngo 1.26\n"), 0o644))
@@ -410,8 +424,9 @@ func session(ternly, probeBin, fake, dir string, s size, t tier) result {
 			steps = append(steps, "type "+p.seq, "sleep 400")
 		}
 		// Esc on an empty, idle prompt writes nothing, so "stable" would wait out
-		// its limit (no output to settle): a short sleep is enough.
-		steps = append(steps, `type \e`, "sleep 400")
+		// its limit (no output to settle): a short sleep is enough. A second Esc
+		// clears what the palette typed ("/") once its list has closed.
+		steps = append(steps, `type \e`, "sleep 400", `type \e`, "sleep 300")
 	}
 	// turn 2: two subagents at once; the screen while both run, and after
 	steps = append(steps, `type check the cache from two angles\r`, "until 30000 tests", "sleep 700", "snap agents",
@@ -488,7 +503,7 @@ func asciiCheck(r result) string {
 func perfRun(ternly, probeBin, fake, dir string) string {
 	var b strings.Builder
 	b.WriteString("## Performance at 120×40 (budgets: ADR 030)\n\n| Tier | Startup ms (≤ 60) | Echo p50 / p95 ms (target ≤ 1 / ≤ 4; ADR 032: 6.5 at 120 fps) | Bytes per key (≤ 19) | Idle CPU % over 20 s (≤ 0.5) | RSS MiB (≤ 96) |\n|---|---|---|---|---|---|\n")
-	for _, t := range tiers {
+	for _, t := range perfTiers() {
 		d := filepath.Join(dir, t.name)
 		home, ws, env, stop := fixture(fake, d)
 		r := runProbe(probeBin, ternly, ws, append(env, t.env...), size{120, 40},
@@ -617,7 +632,7 @@ func quotaEstimated(ternly, probeBin, fake, dir string, t tier) (string, bool) {
 		must(os.WriteFile(p, b, 0o644))
 		return p
 	}
-	home, ws, env, stop := fixtureWith(fake, dir, scr)
+	home, ws, env, stop := fixtureWith(fake, dir, scr, 0)
 	defer stop()
 	defer reap(probeBin, home)
 	r := runProbe(probeBin, ternly, ws, append(env, t.env...), size{120, 40},

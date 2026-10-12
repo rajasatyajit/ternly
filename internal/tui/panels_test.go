@@ -268,7 +268,7 @@ func TestPalettePanels(t *testing.T) {
 	typeText(m, "rout")
 	found := false
 	for _, it := range m.comp.items {
-		if it.name == "panel routing" && strings.Contains(it.desc, "Ctrl+X r") {
+		if it.name == "panel routing" && it.keys == "Ctrl+X r" {
 			found = true
 		}
 	}

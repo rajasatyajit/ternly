@@ -198,6 +198,7 @@ type Model struct {
 	sessFiles     map[string]bool   // files ternly's edits and writes changed this session
 	turnTrail     []string          // this turn's status lines (retries, failover), for the error panel
 	lastErr       *errRecord        // the session's last error
+	recent        []string          // the palette's recently used commands, latest first
 	prevLanes     []*agent.SubState // the last turn's subagents that had any (the agents panel)
 	prevLanesTurn int               // …and that turn's number
 	snapGen       int               // bumped whenever snap is replaced (the status line's cache key)
@@ -229,6 +230,7 @@ type App struct {
 	Surface      surface.Status      // status from the core (ADR 021); nil until its adapter exists
 	Actions      surface.Actions     // nil: /why falls back to /models why
 	Leader       string              // the leader key (ParseLeader); "": DefaultLeader
+	Frame        FrameProfile        // the frame rate chosen at startup (profile.go), for /doctor
 }
 
 // FPS is the frame rate: 120, the most Bubble Tea allows. Bubble Tea writes a
@@ -238,9 +240,13 @@ type App struct {
 // Bubble Tea itself to change (charmbracelet/bubbletea#1857).
 const FPS = 120
 
-// ProgramOptions are the options every ternly Bubble Tea program runs with.
-func ProgramOptions() []tea.ProgramOption {
-	return []tea.ProgramOption{tea.WithFPS(FPS)}
+// ProgramOptions are the options every ternly Bubble Tea program runs with,
+// at the frame rate its profile chose (profile.go); 0 is FPS.
+func ProgramOptions(fps int) []tea.ProgramOption {
+	if fps <= 0 {
+		fps = FPS
+	}
+	return []tea.ProgramOption{tea.WithFPS(fps)}
 }
 
 func New(app *App, dark bool) *Model {
@@ -253,6 +259,9 @@ func New(app *App, dark bool) *Model {
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
 	ta.KeyMap.DeleteCharacterForward.SetKeys("delete") // not Ctrl+D: ternly binds none of Ctrl+D/R/S/Q/Z (ADR 030)
 	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true, leaderKey: app.Leader, sessFiles: map[string]bool{}}
+	if app.Frame.Name == "remote" { // over SSH: no spinner animation on the link (ADR 030 step 6)
+		app.Access.ReducedMotion = true
+	}
 	switch app.Theme {
 	case "dark", "light":
 		dark, m.themeSet = app.Theme == "dark", true
@@ -1260,7 +1269,11 @@ func fitLines(s string, w int) string {
 
 func (m *Model) View() tea.View {
 	s, boxTop := m.render()
-	v := tea.NewView(safeFrame(s))
+	frame := safeFrame(s)
+	if m.App.Access.ASCII {
+		frame = asciiFrame(frame)
+	}
+	v := tea.NewView(frame)
 	v.AltScreen = !m.linear() // the accessible mode is linear: inline, finished text in the scrollback
 	v.ReportFocus = true      // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
 	if m.App.Access.Mouse {
