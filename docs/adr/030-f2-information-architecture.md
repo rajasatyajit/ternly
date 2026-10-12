@@ -556,3 +556,109 @@ The idle figures in the biased runs are sound; only their echo figures carry the
   colour and 16 colours).
 - The estimated-quota scenario passes.
 - The recordings ran on the owner's desktop under the full profile, so the frame-rate change doesn't touch them.
+
+## F2 closed: the final comparison (2026-10-12)
+**Method, per the F2 brief:** ternly's final build (main 79ebb29) against the two best-scoring rivals, with the same
+scenarios (S1–S5), reach session, perf matrix and model as the survey.
+
+**The rivals:**
+- **Codex** scored best on the extended lines (reach 1, parallel agents 3).
+- **Claude Code** scored best on most of ADR 023's eight lines (density, discoverability, diff review,
+  accessibility). On the extended lines it ties with Crush and CodeWhale (2).
+
+**Versions:** Claude Code 2.1.296 and Codex 0.162.1, the survey's versions; gemma4:latest, digest dc35e8d9c606, the
+survey's model. Ollama is 0.40.3 now (0.35.1 in the survey).
+
+**Data:** `bench/f2/final/` holds `SUMMARY.md` (the perf matrix, 54 cells), `MATRIX.md` (reach with evidence),
+`scores.tsv` (scenario outcomes) and `metrics.jsonl` (measurements only). The screens stay local.
+
+**Two fixes were needed before the numbers could be used:**
+- **The model proxy** (`bench/f2/scenarios/tools/proxy`) didn't close Ollama's side when a harness was killed
+  mid-request. Ollama went on generating for nobody, the requests (the longest 3 h 45 m) piled up until they held every
+  slot, and every S5 turn of all three harnesses timed out. It's fixed and tested, and the whole run was redone.
+- **The echo probe** pauses randomly before each key (above). Echo figures from before that change are biased.
+
+**Scenarios** (outcomes from `tools/score`; model-bound, the same as in the survey for all three):
+
+| | ternly | Claude Code | Codex |
+|---|---|---|---|
+| S1 explain | answered | answered | answered |
+| S2 fix (tests pass after) | fail | pass (`changed=n`: the scorer saw no working-tree change; not investigated) | fail |
+| S3 plan and parallel work | none | none (but delegated: "Waiting for 1 background agent") | none |
+| S4 review (seeded bugs named) | 0/2 | 1/2 | **2/2** |
+| S5 30 turns, then a provider failure | 30/30, error shown, recovered | 30/30, shown, recovered | 30/30, shown, recovered |
+
+**Rubric, the extended lines:**
+
+| Line | ternly before → final | Claude Code | Codex |
+|---|---|---|---|
+| Information reach: facts at ≤ 1 key (0 at ≤ 5, 4 at ≥ 16, linear, rounded as in the survey) | 8 → **15**: 1 → **4** (3.6; 15 is under the 16 threshold) | 5: 0 | 5: 0 |
+| Parallel-agent visibility | 0 → **3** | 2 (a 0-key cue, `↓` to manage; seen live in S3) | 3 (a 1-key command centre with filters; not exercised live) |
+| Render cost: mean of best/value per metric × 4 (decision 6) | **2.97** | 2.19 | 2.32 |
+| Render cost, alternative 1: geometric mean × 4 | **2.68** | 1.83 | 1.67 |
+| Render cost, alternative 2: metrics best of the three | **3 of 7** (startup, bytes/key, RSS) | 2 (S1 gzip, bytes per frame) | 2 (echo, idle CPU) |
+
+Notes on the extended lines:
+- **ternly's parallel-agent score rests on the scripted recordings.** They show lanes at 0 keys (model, step, call,
+  tokens, cost, time) and the agents panel at 2 keys. gemma4 never delegated in the live S3, so it wasn't seen live;
+  Claude Code's was.
+- **Render cost** uses this run's desktop medians: ready ms, echo p95, bytes per key, idle CPU, RSS, S1 gzip bytes and
+  bytes per frame.
+
+**ADR 023's eight lines** (ternly's scores are judged from the evidence named; the rivals' best is ADR 023's, from
+2026-10-08, same versions, not re-judged):
+
+| Line | ternly after F | ternly final | Evidence | ADR 023's best rival |
+|---|---|---|---|---|
+| Responsiveness | 4 | 3 | startup 56 ms (the least of the three); echo p95 10.6 ms vs Codex 6.9; idle 0.93 % vs Codex 0.27 % (desktop) | Codex/Claude startup, OpenCode idle |
+| Density without clutter | 3 | 4 | 15 facts at 0 keys; 2-line status by priority; lanes; receipts | OpenCode, Claude: 3 |
+| Discoverability | 3 | 4 | the palette with keys; the leader key with which-key; `/panel` | OpenCode, Claude: 3 |
+| Diff and review | 2 | 4 | inline diff per edit; the changes panel; per-hunk review in ask mode | Claude Code: 3 |
+| Error clarity | 3 | 4 | a framed cause and next step; an error counter; the error panel; estimates marked as such | OpenCode: 3 |
+| Accessibility | 3 | 4 | linear mode with subagent announcements; reduced motion; NO_COLOR; ASCII frames | Claude Code, Gemini: 3 |
+| Terminal compatibility | 3 | 3 | ready at truecolor, 256, 16, none, ASCII and dumb; kitty, WezTerm and SSH still untested | — |
+| Security of the screen | 4 | 4 | unchanged (three layers, tested) | — |
+
+**Budgets, before (survey, main 1b0085a) → final.** "Desktop" is the owner's machine, where all three harnesses ran
+interleaved; budget checks on idle and echo come from CI (ADR 030 step 6).
+
+| Budget | Before | Final | Met? |
+|---|---|---|---|
+| Startup to input ≤ 60 ms (desktop, 120×40) | 72 ms | 56 ms | **met** |
+| Echo p95 ≤ 16 ms: full profile, 120 fps (CI) | 14.1 ms (biased probe) | 9.2–9.5 ms (CI), 10.6 ms (desktop) | **met** |
+| Echo p95 ≤ 16 ms: low-power and remote, 30 fps (CI) | — | 33.1–33.7 ms | **unmet** |
+| Idle CPU ≤ 0.5 %: full, 120 fps | 3.20 % (desktop) | 0.70–1.55 % (CI), 0.93 % (desktop) | **pending upstream #1858** |
+| Idle CPU ≤ 0.5 %: low-power, 30 fps | — | 0.30 % (AMD 9V45), 0.45–0.50 % (Intel 8370C), 0.70–0.85 % (AMD 7763) | **unmet on the slowest runner; pending upstream #1858** |
+| Bytes per key ≤ 19 | 19 | 19 | **met** |
+| RSS ≤ 96 MiB (base) | 96 | 71 | **met** |
+| RSS growth over 10 turns | 211 → 239 MiB | 90 → 62 MiB | **met** (no growth) |
+| Non-ASCII bytes in the ASCII tier: 0 | 745 | 0 | **met** |
+| S1 compressed bytes ≤ 8.6 KB (the survey's best, ternly's own) | 8.6 KB | 10.9 KB | **unmet** (a regression; cause not yet investigated: the routing card, the receipt and the 2-line status are candidates) |
+| Bytes per frame while streaming ≤ the best measured (57 B, Claude Code) | 151 | 155 | **unmet** |
+| Long session, compressed bytes over 10 turns | 20.9 KB | 43.1 KB | no budget set; **doubled** (cause not yet investigated: the elapsed time redrawing the status line each second is a candidate) |
+
+**Where ternly is not best, as measured in this run:**
+- **echo:** Codex 0.5 / 6.9 ms (p50 / p95) vs ternly 5.6 / 10.6. Codex writes on input; ternly waits for a frame.
+- **idle CPU (desktop):** Codex 0.27 %, Claude Code 0.67 %, ternly 0.93 %.
+- **S1 compressed bytes:** Claude Code 9.6 KB vs ternly 10.9 KB.
+- **bytes per streaming frame:** Claude Code 57, Codex 88, ternly 155.
+- **long-session bytes:** Claude Code 10.0 KB vs ternly 43.1 KB compressed.
+- **task outcomes:** S2 (Claude Code passed) and S4 (Codex named both bugs, ternly none). These are model-bound, with
+  the same model everywhere.
+- **live parallel work:** only Claude Code delegated in S3.
+
+**Where it is best, among these three in this run:**
+- reach (15 facts at ≤ 1 key, vs 5 and 5);
+- startup (56 ms vs 62 and 376);
+- bytes per key (19 vs 38 and 119);
+- RSS (71 MiB vs 259 and 812);
+- the ASCII tier (0 non-ASCII bytes vs 1011 and 1153);
+- render cost under all three formulas.
+
+Nothing here is claimed beyond these three harnesses and this run.
+
+**Left open:**
+- echo and idle at once: upstream #1858;
+- the streaming and long-session byte regressions: an issue to file after review;
+- the plan facts (9, 10): Phase C;
+- kitty, WezTerm and SSH terminal checks.

@@ -1,0 +1,16 @@
+harness	scenario	outcome	detail	wall
+claude	S1	answered		147s
+claude	S2	pass	changed=n	238s
+claude	S3	none	once=false count=false changed=false	282s
+claude	S4	1/2	peek_bug=false resize_bug=true	219s
+claude	S5	turns=30/30	error_shown=true recovered=true rss_kb=342132	638s
+codex	S1	answered		106s
+codex	S2	fail	changed=n	64s
+codex	S3	none	once=false count=false changed=false	123s
+codex	S4	2/2	peek_bug=true resize_bug=true	87s
+codex	S5	turns=30/30	error_shown=true recovered=true rss_kb=943436	697s
+ternly	S1	answered		83s
+ternly	S2	fail	changed=n	182s
+ternly	S3	none	once=false count=false changed=false	285s
+ternly	S4	0/2	peek_bug=false resize_bug=false	49s
+ternly	S5	turns=30/30	error_shown=true recovered=true rss_kb=62332	800s
