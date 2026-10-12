@@ -67,9 +67,34 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 	t0 := time.Now()
 	ctl := openEvalControl(os.Getenv("TERNLY_EVAL_CONTROL"))
 	quota := discover.OpenQuotaLog(filepath.Join(dataDir, "quota.json"))
+	// A full run keeps each trap's outcome as it finishes, so a stopped evaluation
+	// resumes where it stopped (only a full run is saved, so only it resumes).
+	var journal *eval.Journal
+	var done eval.Done
+	if re == nil {
+		jdir := filepath.Join(dataDir, "capability")
+		if d := os.Getenv("TERNLY_EVAL_JOURNAL_DIR"); d != "" { // a harness whose HOME is temporary keeps it elsewhere
+			jdir = d
+		}
+		if journal, done, err = eval.OpenJournal(jdir, model, runs); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer journal.Close()
+		if done.Key != "" {
+			key = done.Key
+		}
+		if n := len(done.Outcomes); n > 0 {
+			fmt.Printf("↺ resuming: %d trap outcome(s) already kept in %s\n", n, journal.Path())
+		}
+	}
 	for run := 1; run <= runs; run++ {
 		for _, tr := range eval.Traps {
 			if re != nil && !re.MatchString(tr.Name) {
+				continue
+			}
+			if o, ok := done.Has(run, tr.Name); ok { // finished before the evaluation stopped
+				outs = append(outs, o)
 				continue
 			}
 			var o eval.Outcome
@@ -91,10 +116,15 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 				key = k
 			}
 			if quota.HitSince(key, t0) || quota.HitSince(model, t0) { // a trap run hit the quota (ADR 031)
-				fmt.Printf("■ %-22s stopped: %s hit its quota; nothing saved, retried after the reset\n", tr.Name, key)
+				fmt.Printf("■ %-22s stopped: %s hit its quota; the finished traps are kept, and the rest run after the reset\n", tr.Name, key)
 				return exitQuota
 			}
 			outs = append(outs, o)
+			if journal != nil {
+				if err := journal.Add(model, runs, run, key, o); err != nil {
+					fmt.Fprintln(os.Stderr, "the evaluation's journal:", err)
+				}
+			}
 			mark := map[eval.Score]string{eval.Checked: "✓", eval.Declined: "·", eval.Fabricated: "✗"}[o.Score]
 			if o.Err != "" {
 				mark, o.Why = "!", o.Err
@@ -109,6 +139,8 @@ func runEval(dataDir, model string, pass []string, runs int, only string) int {
 		rec = rec.Accumulate(dir)
 		if path, err = rec.Save(dir); err != nil {
 			fmt.Fprintln(os.Stderr, err)
+		} else if journal != nil {
+			_ = journal.Remove() // the record has it all now
 		}
 	}
 	fmt.Printf("\n%s (eval v%s; this batch %d run(s), %s; %d run(s) in all)\n", key, eval.Version, runs, time.Since(t0).Round(time.Second), rec.Runs)

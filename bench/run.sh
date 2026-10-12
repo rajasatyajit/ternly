@@ -101,6 +101,8 @@ fabrication() { # ADR 012: ternly --eval per model (MODELS, RUNS), isolated HOME
   CGO_ENABLED=0 go build -o "$work/ternly" .
   mkdir -p bench/results/fabrication
   isolate "$work"
+  # each model's eval journal outlives this temporary HOME: a stopped model resumes
+  export TERNLY_EVAL_JOURNAL_DIR="$ROOT/bench/results/fabrication/journals"
   for m in ${models//,/ }; do
     echo "== $m"
     "$work/ternly" --eval --model "$m" --local-only --eval-runs "$runs" || true

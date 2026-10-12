@@ -70,8 +70,11 @@ speculative decoding, and models kept loaded for 30 minutes.
 These records are **not yet merged** into `internal/eval/defaults.json`.
 
 ## What remains for Phase C, in order
-0. **Make evals save per-task results incrementally, so an interrupted model run resumes instead
-   of restarting.** granite4.2's partial run was lost: `ternly --eval` writes a model's record
+0. **Done (2026-10-12): evals save per-task results incrementally, so an interrupted model run resumes
+   instead of restarting.** `ternly --eval` keeps each trap in a journal (`internal/eval/journal.go`,
+   `TERNLY_EVAL_JOURNAL_DIR` for a harness whose HOME is temporary; bench/run.sh keeps them in
+   `bench/results/fabrication/journals`). Proven by `TestEvalResumesAfterStop` and
+   `TestEvalResumesInAFreshHome`: an evaluation stopped by a 429 resumes with only the rest. Was: granite4.2's partial run was lost: `ternly --eval` writes a model's record
    only when the whole model finishes, and `eval-models.sh` buffered its per-trap lines.
    This comes first, before any more evals run.
 1. **Finish the evals.** Run granite4.2 (3 runs), qwen3.8 (at least 1 run; slow, about 4 t/s) and
@@ -94,7 +97,12 @@ These records are **not yet merged** into `internal/eval/defaults.json`.
    This needs the quota reset or paid capacity the owner approves. Report the gap; don't
    extrapolate.
 5. **e2e** on the final head. The last e2e run (19/19) was on 5885c4a, before the routing fix.
-6. **The report:**
+6. **Delegation by weaker models** (added 2026-10-12, docs/plans/v0.2.md item 4): measure how often each local
+   model calls the subagent (`task`) tool on S3-style tasks; if rarely, improve the tool's description and
+   A/B it.
+7. **The plan panel** (ADR 030): the core's plan steps (PlanFirst) reach the snapshot; the TUI's plan panel and
+   status line should show them (facts 9 and 10), measured with the layout harness.
+8. **The report:**
    - ADR 029's Results section (routing fix, levers keep/drop, reproducibility, cost and time per
      successful task);
    - PR #28 out of draft;
