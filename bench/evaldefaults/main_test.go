@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rajasatyajit/ternly/internal/eval"
@@ -43,5 +44,23 @@ func TestMerge(t *testing.T) {
 	}
 	if err := run(defs, aliases{"ollama/x=ollama/y"}, []string{rec}); err == nil {
 		t.Fatal("an alias of a model not among the records was accepted")
+	}
+}
+
+// The shipped defaults carry the counts, not the answers: an answer can quote
+// the measuring machine's paths (gemma4's did: its home directory).
+func TestMergeDropsOutcomes(t *testing.T) {
+	dir := t.TempDir()
+	defs := filepath.Join(dir, "defaults.json")
+	write(t, defs, []eval.Record{})
+	rec := filepath.Join(dir, "a.json")
+	write(t, rec, eval.Record{Model: "ollama/a", Version: eval.Version, Runs: 1,
+		Outcomes: []eval.Outcome{{Trap: "x", Answer: "no Go files in /home/someone/.cache/x"}}})
+	if err := run(defs, aliases{"ollama/a=ollama/a2"}, []string{rec}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(defs)
+	if strings.Contains(string(b), "/home/") || strings.Contains(string(b), `"outcomes"`) {
+		t.Fatalf("the defaults carry the outcomes:\n%s", b)
 	}
 }

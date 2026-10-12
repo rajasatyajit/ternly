@@ -64,6 +64,9 @@ func run(path string, al aliases, files []string) error {
 		if r.Model == "" || r.Runs == 0 {
 			return fmt.Errorf("%s: no model or no runs", f)
 		}
+		// The per-trap outcomes are a local audit trail: the model's answers quote
+		// the paths of the machine that measured it, and routing needs only the counts.
+		r.Outcomes = nil
 		added[r.Model] = r
 	}
 	for _, a := range al {
