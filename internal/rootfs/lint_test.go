@@ -50,6 +50,7 @@ var allowed = map[string]string{
 	"routing_config.go backgroundEvals":                  "writes a background evaluation's log under the data directory",
 	"internal/llm/cache.go cachedClient.Stream":          "ternly's own response cache (ADR 029)",
 	"internal/eval/record.go load":                       "capability records",
+	"internal/eval/journal.go OpenJournal":               "the evaluation's own journal of finished traps",
 	"internal/graph/build.go newBuilderFrom":             "compiler export data in GOCACHE",
 	"internal/graph/deps.go loadDeps":                    "dependency graph cache",
 	"internal/graph/foreign.go newForeign":               "tag cache",
