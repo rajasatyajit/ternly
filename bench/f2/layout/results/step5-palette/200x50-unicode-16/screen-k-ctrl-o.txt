@@ -1,0 +1,49 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                                                                                                   Scripted Title · bwrap · yolo
+
+  ◆ ternly  0.1.0 · Code, ternly.
+  ● ollama      1 models, 1 with tools · api
+  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure
+
+❯ Resize evicts one entry. find the cause and fix it
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 28 s, quota, p≥0.30
+  ● Read lru.go  0ms
+    ⎿ 1    package lru
+    ⎿      2
+    ⎿      3    // Cache keeps at most cap items, oldest first.
+    ⎿      4    type Cache struct {
+    ⎿      5        items []int
+    ⎿      6        cap   int
+    ⎿      7    }
+    ⎿      8
+    ⎿      9    // Resize changes the capacity, evicting the oldest items that no longer fit.
+    ⎿     10    func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+    ⎿     11
+    ⎿     12    func (c *Cache) evictOne() {
+    ⎿     13        if len(c.items) > c.cap {
+    ⎿     14            c.items = c.items[1:]
+    ⎿     15        }
+    ⎿     16    }
+    ⎿     17
+    ⎿     18    func (c *Cache) evictUntilFits() {
+    ⎿     19        for len(c.items) > c.cap {
+    ⎿     20            c.items = c.items[1:]
+    ⎿     21        }
+    ⎿     22    }
+    ⎿ ctrl+o collapses
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    - c.cap = n; c.evictOne()
+    + c.cap = n; c.evictUntilFits()
+    ⎿ edited lru.go (1 replacement(s))
+    ⎿ ctrl+o collapses
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  267ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+    ⎿ ctrl+o collapses
+  ↳ turn 4.2k↑ 123↓ · $0.0000 · 0.5s · verified ✓ · 1 file changed (lru.go)
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                                                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.5k/131.1k · $0.0000 · turn 4.2k↑ 123↓ · 0.5s · verify ✓ · undo 1

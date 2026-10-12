@@ -15,12 +15,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/capability"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/memory"
 	"github.com/rajasatyajit/ternly/internal/plugins"
@@ -110,6 +112,7 @@ const (
 	bTool
 	bInfo
 	bError
+	bWelcome // the welcome: rendered for the current width
 )
 
 type block struct {
@@ -123,6 +126,8 @@ type block struct {
 	full     string   // a tool's whole output (Ctrl+O shows it)
 	lines    []string // rendered, split (the virtualised transcript)
 	linesFor string   // the rendering lines was split from
+	path     string   // an edit or write: the file
+	diff     []string // an edit: its change, as '-'/'+' lines
 }
 
 // ─────────────────────────── model ───────────────────────────
@@ -176,6 +181,31 @@ type Model struct {
 	fileReq       bool         // a file listing for fileQ is wanted
 	snap          surface.Snapshot
 	surfaceCh     <-chan struct{}
+	turnStart     time.Time         // when the current (or last) turn started; zero before the first
+	turnTook      time.Duration     // the last finished turn's time
+	turnUsage0    llm.Usage         // the session's usage when the current turn started
+	verify        string            // the last verification's verdict (agent.Verdict*); "" before any
+	turnVerify    string            // this turn's verdict, for its receipt
+	turnFiles     map[string]bool   // files this turn's edits and writes changed
+	errors        int               // errors this session (the status line counts them)
+	gitState      gitMsg            // the workspace's branch and dirty state
+	frameLen      int               // the last frame's length, to size the next one's buffer
+	lanes         []*agent.SubState // this turn's subagents (kept until the next prompt)
+	panel         *panel            // the open panel (panels.go); nil: none
+	leaderKey     string            // the leader (keys.go); "": DefaultLeader
+	leaderWait    bool              // the leader was pressed: the next key picks an action
+	kbdEnhanced   bool              // the terminal disambiguates keys: Alt+letter goes straight to an action
+	sessFiles     map[string]bool   // files ternly's edits and writes changed this session
+	turnTrail     []string          // this turn's status lines (retries, failover), for the error panel
+	lastErr       *errRecord        // the session's last error
+	recent        []string          // the palette's recently used commands, latest first
+	prevLanes     []*agent.SubState // the last turn's subagents that had any (the agents panel)
+	prevLanesTurn int               // …and that turn's number
+	snapGen       int               // bumped whenever snap is replaced (the status line's cache key)
+	statusCache   struct {
+		key statusKey
+		out string
+	}
 }
 
 // App bundles the long-lived services the UI drives.
@@ -199,6 +229,24 @@ type App struct {
 	Access       Access              // reduced motion, screen reader, mouse (AccessFromEnv)
 	Surface      surface.Status      // status from the core (ADR 021); nil until its adapter exists
 	Actions      surface.Actions     // nil: /why falls back to /models why
+	Leader       string              // the leader key (ParseLeader); "": DefaultLeader
+	Frame        FrameProfile        // the frame rate chosen at startup (profile.go), for /doctor
+}
+
+// FPS is the frame rate: 120, the most Bubble Tea allows. Bubble Tea writes a
+// frame only on its ticker, so a typed key waits for the next tick: at most
+// 8.3 ms here instead of 16.7 ms at its default 60 (ADR 032). The idle
+// ticker costs about 0.1 point of CPU more. Writing input at once needs
+// Bubble Tea itself to change (charmbracelet/bubbletea#1857).
+const FPS = 120
+
+// ProgramOptions are the options every ternly Bubble Tea program runs with,
+// at the frame rate its profile chose (profile.go); 0 is FPS.
+func ProgramOptions(fps int) []tea.ProgramOption {
+	if fps <= 0 {
+		fps = FPS
+	}
+	return []tea.ProgramOption{tea.WithFPS(fps)}
 }
 
 func New(app *App, dark bool) *Model {
@@ -209,7 +257,11 @@ func New(app *App, dark bool) *Model {
 	ta.CharLimit = 0
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetKeys("shift+enter", "alt+enter", "ctrl+j")
-	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true}
+	ta.KeyMap.DeleteCharacterForward.SetKeys("delete") // not Ctrl+D: ternly binds none of Ctrl+D/R/S/Q/Z (ADR 030)
+	m := &Model{App: app, ta: ta, vp: transcript{h: 20, follow: true}, discovering: true, leaderKey: app.Leader, sessFiles: map[string]bool{}}
+	if app.Frame.Name == "remote" { // over SSH: no spinner animation on the link (ADR 030 step 6)
+		app.Access.ReducedMotion = true
+	}
 	switch app.Theme {
 	case "dark", "light":
 		dark, m.themeSet = app.Theme == "dark", true
@@ -217,7 +269,7 @@ func New(app *App, dark bool) *Model {
 	m.setTheme(dark)
 	m.ta.SetVirtualCursor(false) // the terminal draws (and blinks) the cursor: no redraws while idle
 	m.ta.Focus()
-	m.blocks = append(m.blocks, &block{kind: bInfo, text: m.welcome()})
+	m.blocks = append(m.blocks, &block{kind: bWelcome})
 	if app.Sessions != nil {
 		if st := app.Agent.Export(); len(st.History) > 0 {
 			m.loadTranscript(st)
@@ -271,6 +323,7 @@ func (m *Model) Init() tea.Cmd {
 	if c := m.startSurface(); c != nil {
 		cmds = append(cmds, c)
 	}
+	cmds = append(cmds, gitInfo(m.App.Reg.Root))
 	return tea.Batch(cmds...)
 }
 
@@ -305,6 +358,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.layout()
 		m.refresh(true)
+		m.refreshPanel() // rebuilt for the new width
+
+	case tea.KeyboardEnhancementsMsg:
+		m.kbdEnhanced = msg.SupportsKeyDisambiguation()
+
+	case panelDiffMsg:
+		m.onPanelDiff(msg)
 
 	case tickMsg:
 		m.frame++
@@ -316,7 +376,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case discoveredMsg:
 		m.discovering = false
 		m.App.Router.SetModels(msg.models)
-		m.blocks[0].text, m.blocks[0].rendered = m.welcome(), ""
+		m.blocks[0].rendered = ""
 		for _, w := range msg.warn {
 			m.addInfo(sWarn.Render("! ") + untrusted(w))
 		}
@@ -345,6 +405,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentMsg:
 		cmds = append(cmds, m.onAgent(cleanEvent(agent.Event(msg))))
+		if msg.Kind == agent.EvDone { // the turn may have switched or dirtied the branch
+			cmds = append(cmds, gitInfo(m.App.Reg.Root))
+		}
+
+	case gitMsg:
+		m.gitState = msg
 
 	case startMsg:
 		if m.busy {
@@ -493,6 +559,14 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.review != nil {
 		return m.reviewKey(k), true
 	}
+	if m.perm == nil && m.picker == nil {
+		if c, handled := m.leaderKeyPress(k); handled {
+			return c, true
+		}
+		if m.panel != nil && m.panelKey(k) {
+			return nil, true
+		}
+	}
 	if k.String() == "ctrl+b" && m.perm == nil && m.picker == nil {
 		m.toggleSidebar()
 		return nil, true
@@ -548,7 +622,12 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.quitAt = time.Now()
 		m.addInfo(sDim.Render("  press Ctrl+C again to exit"))
 		return nil, true
-	case "esc":
+	case "esc": // clear what's typed; with nothing typed, interrupt the turn
+		if m.ta.Value() != "" {
+			m.ta.Reset()
+			m.histIx = len(m.hist)
+			return nil, true
+		}
 		if m.busy {
 			m.interrupt()
 		}
@@ -584,10 +663,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 			}
 			return nil, true
 		}
-	case "pgup", "ctrl+u":
+	case "pgup":
 		m.vp.scroll(-max(1, m.vp.h/2))
 		return nil, true
-	case "pgdown", "ctrl+d":
+	case "pgdown":
 		m.vp.scroll(max(1, m.vp.h/2))
 		return nil, true
 	case "ctrl+l":
@@ -595,20 +674,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.refresh(true)
 		return nil, true
 	case "ctrl+o": // collapsible tool output
-		m.expanded = !m.expanded
-		for _, b := range m.blocks {
-			if b.kind == bTool {
-				b.rendered = ""
-			}
-		}
-		m.refresh(false)
+		m.toggleExpanded()
 		return nil, true
-	case "ctrl+k": // the command palette: every command, fuzzy-filtered as you type
-		if m.ta.Value() == "" {
-			m.ta.SetValue("/")
-			m.ta.CursorEnd()
-			m.updateCompletion()
-		}
+	case "ctrl+k": // the command palette: every command and panel, fuzzy-filtered as you type
+		m.openPalette()
 		return nil, true
 	}
 	return nil, false
@@ -648,7 +717,14 @@ func (m *Model) startWith(prompt, extra string) tea.Cmd {
 		m.App.Agent.Commit(agent.Record{T: "status", Text: "active"})
 		m.paused = false
 	}
-	m.turnCost0 = m.ledger.Cost
+	m.turnCost0, m.turnUsage0, m.turnStart = m.ledger.Cost, m.ledger.Usage, time.Now()
+	m.turnVerify, m.turnFiles = "", map[string]bool{}
+	if len(m.lanes) > 0 {
+		m.prevLanes, m.prevLanesTurn = m.lanes, m.App.Agent.TurnCount()
+	}
+	m.lanes = nil
+	m.turnTrail = nil
+	m.layout()
 	if m.discovering {
 		m.activity = "Discovering models"
 	}
@@ -679,19 +755,34 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 		m.model, m.reason = e.Model, e.Reason
 		m.activity = "Thinking"
 		if e.Reason != "pinned" {
-			m.addInfo(sDim.Render(fmt.Sprintf("  ◆ %s  %s · %s · %s", untrusted(e.Model.Key()), tierBadge(e.Model.Tier), discover.Price(e.Model), untrusted(e.Reason))))
+			m.addInfo(m.routeCard(e.Model, e.Reason))
 		}
+		m.refreshPanel(pRouting)
 	case agent.EvToolStart:
-		m.blocks = append(m.blocks, &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text})
+		b := &block{kind: bTool, tool: e.Tool, id: e.ToolID, text: e.Text}
+		if b.path, b.diff = editDiff(e.Tool, e.Args); b.path == "" {
+			b.path = writePath(e.Tool, e.Args)
+		}
+		m.blocks = append(m.blocks, b)
 		m.activity = "Running " + prettyTool(e.Tool)
 	case agent.EvVerify:
 		m.blocks = append(m.blocks, &block{kind: bTool, tool: "verify", id: "verify", text: e.Text})
 		m.activity = "Verifying"
 	case agent.EvToolEnd:
+		if e.Tool == "verify" {
+			m.verify, m.turnVerify = e.Verdict, e.Verdict
+		}
 		for i := len(m.blocks) - 1; i >= 0; i-- {
 			if b := m.blocks[i]; b.kind == bTool && b.id == e.ToolID && b.state == 0 {
 				b.state, b.elapsed, b.detail, b.rendered, b.full = 2, e.Elapsed, firstLines(e.Text, 3), "", e.Text
 				if e.OK {
+					if b.path != "" && m.turnFiles != nil {
+						m.turnFiles[b.path] = true
+					}
+					if b.path != "" {
+						m.sessFiles[b.path] = true
+						m.refreshPanel(pChanges)
+					}
 					b.state = 1
 					b.detail = ""
 					if e.Tool == "bash" || e.Tool == "verify" {
@@ -705,25 +796,46 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			}
 		}
 		m.activity = "Thinking"
+	case agent.EvSubagent:
+		m.onSubagent(e.Sub)
+		m.refreshPanel(pAgents)
 	case agent.EvStatus:
 		m.addInfo(sDim.Render("  ↻ " + e.Text))
+		m.turnTrail = append(m.turnTrail, e.Text)
 	case agent.EvUsage:
 		m.ledger = e.Ledger
 	case agent.EvError:
 		m.lastFailed = true
+		m.errors++
 		m.blocks = append(m.blocks, &block{kind: bError, text: e.Text})
+		m.lastErr = &errRecord{text: e.Text, at: time.Now(), trail: append([]string(nil), m.turnTrail...)}
+		if m.model != nil {
+			m.lastErr.model = m.model.Key()
+		}
+		m.refreshPanel(pError)
 	case agent.EvDone:
 		m.ledger = e.Ledger
+		if !m.turnStart.IsZero() {
+			m.turnTook = time.Since(m.turnStart)
+		}
 		m.reloadSidebar()                           // turns and titles changed
 		if m.busy && !m.answered && !m.lastFailed { // a turn that ends in silence looks like a hang
 			m.blocks = append(m.blocks, &block{kind: bInfo, text: sWarn.Render("  the model ended the turn without an answer") +
 				sDim.Render(" — ask again, or /model to pick another (/why shows the ranking)")})
+		}
+		if m.busy && !m.turnStart.IsZero() {
+			m.blocks = append(m.blocks, &block{kind: bInfo, text: m.receipt()})
 		}
 		m.busy, m.cancel = false, nil
 		for _, b := range m.blocks {
 			if b.kind == bTool && b.state == 0 {
 				b.state, b.rendered = 2, ""
 			}
+		}
+		m.refreshPanel(pAgents, pRouting)
+		var diff tea.Cmd
+		if m.panel != nil && m.panel.kind == pChanges { // the turn changed files: read the diff again
+			diff = m.fetchDiff()
 		}
 		if sm := m.App.Sessions; sm != nil {
 			go sm.AutoTitle(context.Background())
@@ -754,7 +866,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			}
 			if m.busy { // an after-turn hook started a turn: it runs before the queue
 				m.refresh(true)
-				return tea.Batch(append(out, detect)...)
+				return tea.Batch(append(out, detect, diff)...)
 			}
 		}
 		if len(m.queue) > 0 {
@@ -765,7 +877,7 @@ func (m *Model) onAgent(e agent.Event) tea.Cmd {
 			go func() { cmd() }()
 		}
 		m.refresh(true)
-		return detect
+		return tea.Batch(detect, diff)
 	}
 	m.refresh(true)
 	return nil
@@ -1036,13 +1148,15 @@ func (m *Model) modelsTable(filter string) string {
 
 // ─────────────────────────── rendering ───────────────────────────
 
-func (m *Model) layout() {
-	inputH := m.ta.Height() + 2
-	permH := 0
+// panelHeight is the rows the open panels and the agent lanes take above the
+// input box.
+func (m *Model) panelHeight() int {
+	permH := m.laneRows()
 	if m.perm != nil {
-		permH = 5
+		permH += 6 // the box: title, what, why, keys, two borders
 	}
 	permH += m.reviewHeight()
+	permH += m.whichKeyRows()
 	if m.picker != nil {
 		permH += min(len(m.picker.items()), 9) + 4
 	}
@@ -1055,7 +1169,12 @@ func (m *Model) layout() {
 	if m.suggest != nil {
 		permH += 2*len(m.suggest.s.Candidates) + 4
 	}
-	m.vp.h = max(3, m.h-1-inputH-1-permH)
+	return permH
+}
+
+func (m *Model) layout() {
+	inputH := m.ta.Height() + 2
+	m.vp.h = max(3, m.h-1-inputH-m.statusLines()-m.panelHeight())
 	m.vp.clamp()
 }
 
@@ -1087,7 +1206,7 @@ func (m *Model) refresh(force bool) {
 }
 
 func (m *Model) renderBlock(b *block) string {
-	if b.kind != bInfo { // ternly styles only info lines; every other block holds outside text
+	if b.kind != bInfo && b.kind != bWelcome { // ternly styles only info lines; every other block holds outside text
 		b.text, b.detail, b.tool = untrusted(b.text), untrusted(b.detail), untrusted(b.tool)
 	}
 	switch b.kind {
@@ -1108,6 +1227,7 @@ func (m *Model) renderBlock(b *block) string {
 		if b.elapsed > 0 {
 			line += sDim.Render("  " + dur(b.elapsed))
 		}
+		line += m.renderDiff(b.diff)
 		detail := b.detail
 		if m.expanded && b.full != "" {
 			detail = firstLines(untrusted(b.full), maxExpanded)
@@ -1126,14 +1246,34 @@ func (m *Model) renderBlock(b *block) string {
 		}
 		return line
 	case bError:
-		return sErr.Render("  ✗ ") + lipgloss.NewStyle().Width(m.cw()-6).Render(b.text)
+		return m.errorBox(b)
+	case bWelcome:
+		return m.welcome()
 	}
-	return b.text
+	return fitLines(b.text, m.cw()) // an info line never spills past the transcript
+}
+
+// fitLines cuts each line of s to w display columns, ending a cut line in "…".
+func fitLines(s string, w int) string {
+	if w <= 0 {
+		return s
+	}
+	ls := strings.Split(s, "\n")
+	for i, l := range ls {
+		if ansi.StringWidth(l) > w {
+			ls[i] = ansi.Truncate(l, w, "…")
+		}
+	}
+	return strings.Join(ls, "\n")
 }
 
 func (m *Model) View() tea.View {
 	s, boxTop := m.render()
-	v := tea.NewView(safeFrame(s))
+	frame := safeFrame(s)
+	if m.App.Access.ASCII {
+		frame = asciiFrame(frame)
+	}
+	v := tea.NewView(frame)
 	v.AltScreen = !m.linear() // the accessible mode is linear: inline, finished text in the scrollback
 	v.ReportFocus = true      // regaining focus re-reads the terminal's background (a GNOME light/dark switch)
 	if m.App.Access.Mouse {
@@ -1161,10 +1301,16 @@ func (m *Model) render() (string, int) {
 		return m.renderLinear()
 	}
 	var sb strings.Builder
+	sb.Grow(m.frameLen + m.frameLen/8) // the last frame's size: no regrowth (and copy) while it's built
 	sb.WriteString(m.header() + "\n")
-	if m.sideShown() {
+	switch {
+	case m.panelRail():
+		sb.WriteString(m.besidePanel(m.vp.view()) + "\n")
+	case m.panelOverlay(): // the panel in the transcript's place, as many rows
+		sb.WriteString(strings.Join(m.panelView(m.vp.h), "\n") + "\n")
+	case m.sideShown():
 		sb.WriteString(m.besideSidebar(m.vp.view()) + "\n")
-	} else {
+	default:
 		sb.WriteString(m.vp.view() + "\n")
 	}
 	if m.perm != nil {
@@ -1182,6 +1328,12 @@ func (m *Model) render() (string, int) {
 	if m.suggest != nil {
 		sb.WriteString(m.suggestView() + "\n")
 	}
+	if m.whichKeyRows() > 0 {
+		sb.WriteString(m.whichKeyView() + "\n")
+	}
+	if lanes := m.lanesView(); lanes != "" {
+		sb.WriteString(lanes + "\n")
+	}
 	box := sBox
 	if m.ta.Focused() {
 		box = sBoxOn
@@ -1189,6 +1341,7 @@ func (m *Model) render() (string, int) {
 	boxTop := strings.Count(sb.String(), "\n")
 	sb.WriteString(box.Width(m.w-2).Render(m.ta.View()) + "\n")
 	sb.WriteString(m.statusBar())
+	m.frameLen = sb.Len()
 	return sb.String(), boxTop
 }
 
@@ -1198,11 +1351,42 @@ func (m *Model) header() string {
 	if home, _ := os.UserHomeDir(); home != "" {
 		cwd = strings.Replace(cwd, home, "~", 1)
 	}
+	// What gives way, in order: the session title shrinks (from 32 columns
+	// to 8, then goes); then the branch (from 24 to 4, then goes); then the
+	// path elides in its middle, keeping at least 16; the sandbox and
+	// permission mode never truncate. So the branch is budgeted first.
 	right := sDim.Render(m.App.Reg.Sandbox.Mode() + " · " + m.App.Reg.Policy.Mode())
-	if t := m.App.Agent.Title(); t != "" {
-		right = sAccent.Render(truncate(t, 32)) + sDim.Render(" · ") + right
+	if lipgloss.Width(logo)+1+lipgloss.Width(right) > m.w {
+		return strings.Repeat(" ", max(0, m.w-lipgloss.Width(right))) + right
 	}
-	mid := sDim.Render("  " + cwd)
+	avail := m.w - lipgloss.Width(logo) - 2 - 1 - lipgloss.Width(right) // "  " before the path, a space before the right
+	branch := untrusted(m.gitState.branch)
+	if branch != "" && m.gitState.dirty {
+		branch += "*"
+	}
+	pathMin := min(ansi.StringWidth(cwd), 16)
+	br := ""
+	if branch != "" {
+		if bw := min(ansi.StringWidth(branch), 24, avail-pathMin-2); bw >= 4 { // 2: "  " before it
+			br = sAccent.Render(ansi.Truncate(branch, bw, "…"))
+			avail -= lipgloss.Width(br) + 2
+		}
+	}
+	title := m.App.Agent.Title()
+	tw := min(ansi.StringWidth(title), 32, avail-pathMin-3) // 3: " · " after the title
+	if tw >= 8 {
+		title = truncate(title, tw)
+		tw = ansi.StringWidth(title) // a wide character can leave one column over
+		right = sAccent.Render(title) + sDim.Render(" · ") + right
+		avail -= tw + 3
+	}
+	mid := ""
+	if p := elideMiddle(cwd, avail); p != "" {
+		mid = sDim.Render("  " + p)
+	}
+	if br != "" {
+		mid += "  " + br
+	}
 	gap := max(1, m.w-lipgloss.Width(logo)-lipgloss.Width(mid)-lipgloss.Width(right))
 	return logo + mid + strings.Repeat(" ", gap) + right
 }
@@ -1216,7 +1400,7 @@ func (m *Model) permViewPlain() string {
 	if m.perm.danger {
 		q = "Warning, potentially destructive. Allow " + prettyTool(m.perm.tool) + "?"
 	}
-	return q + " " + m.perm.summary + "\ny yes, a always, n no."
+	return q + " " + m.perm.summary + "\n" + m.askWhy(m.perm.tool) + "\ny yes, a always, n no."
 }
 
 func (m *Model) permView() string {
@@ -1229,33 +1413,9 @@ func (m *Model) permView() string {
 	}
 	body := lipgloss.NewStyle().Bold(true).Render(title) + "\n" +
 		truncate(p.summary, m.w-8) + "\n" +
+		sDim.Render(truncate(m.askWhy(p.tool), m.w-8)) + "\n" +
 		sOK.Render("[y]") + " yes   " + sAccent.Render("[a]") + " always   " + sErr.Render("[n]") + " no"
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(border).Padding(0, 1).Width(m.w - 2).Render(body)
-}
-
-func (m *Model) statusBar() string {
-	left := sDim.Render("auto-routing")
-	if m.discovering {
-		left = m.moving("discovering models")
-	} else if m.model != nil {
-		left = sAccent.Render("◆ "+untrusted(m.model.Key())) + " " + tierBadge(m.model.Tier)
-	}
-	l := m.ledger
-	right := sDim.Render(fmt.Sprintf("↑%s ↓%s", kfmt(l.Usage.In+l.Usage.CacheRead+l.Usage.CacheWrite), kfmt(l.Usage.Out)))
-	if l.Usage.CacheRead > 0 {
-		right += sDim.Render(fmt.Sprintf(" ⚡%.0f%%", l.CacheRate()*100))
-	}
-	right += "  " + sAccent.Render(fmt.Sprintf("$%.4f", l.Cost))
-	if mt := m.meter(); mt != "" {
-		right = mt + "  " + right
-	}
-	if lim, _ := m.App.Agent.Caps(); lim.TurnUSD > 0 {
-		if spent := l.Cost - m.turnCost0; spent >= 0.75*lim.TurnUSD { // warn before the turn limit stops work
-			right = sWarn.Render(fmt.Sprintf("turn $%.2f/$%.2f", spent, lim.TurnUSD)) + "  " + right
-		}
-	}
-	gap := max(1, m.w-lipgloss.Width(left)-lipgloss.Width(right)-1)
-	return " " + left + strings.Repeat(" ", gap) + right
 }
 
 func (m *Model) welcome() string {
@@ -1284,7 +1444,9 @@ func (m *Model) welcome() string {
 	}
 	sort.Strings(names)
 	if len(names) == 0 {
-		sb.WriteString(sErr.Render("  no providers found") + sDim.Render(" — export a key (ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…)\n  or start Ollama / LM Studio, then /refresh"))
+		sb.WriteString(sErr.Render("  no providers found") + "\n" + wrapList(sDim, []string{
+			"export a key (ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…) or start Ollama / LM Studio, then /refresh",
+		}, m.cw()))
 		return sb.String()
 	}
 	for _, p := range names {
@@ -1295,11 +1457,52 @@ func (m *Model) welcome() string {
 		}
 		sb.WriteString(fmt.Sprintf("  %s %-11s %s\n", sOK.Render("●"), p, sDim.Render(fmt.Sprintf("%d models, %d with tools · %s", c[0], c[1], kind))))
 	}
-	sb.WriteString(sDim.Render("  /help or Ctrl+K for commands · @ for files · tasks are routed to the cheapest capable model and escalated only on failure"))
+	sb.WriteString(wrapList(sDim, []string{"/help or Ctrl+K for commands", "@ for files",
+		"tasks are routed to the cheapest capable model and escalated only on failure"}, m.cw()))
 	return sb.String()
 }
 
 // ─────────────────────────── helpers ───────────────────────────
+
+// wrapList joins items with " · " into lines of at most w columns, each
+// indented by two spaces and styled with st; an item too long for a line
+// wraps between words. w ≤ 0 (the width isn't known yet): one line.
+func wrapList(st lipgloss.Style, items []string, w int) string {
+	avail := w - 2
+	if w <= 0 {
+		avail = math.MaxInt
+	}
+	var lines []string
+	cur := ""
+	for _, it := range items {
+		if cur != "" && lipgloss.Width(cur+" · "+it) <= avail {
+			cur += " · " + it
+			continue
+		}
+		if cur != "" {
+			lines = append(lines, cur)
+			cur = ""
+		}
+		for _, word := range strings.Fields(it) {
+			switch {
+			case cur == "":
+				cur = word
+			case lipgloss.Width(cur+" "+word) <= avail:
+				cur += " " + word
+			default:
+				lines = append(lines, cur)
+				cur = word
+			}
+		}
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	for i, l := range lines {
+		lines[i] = st.Render("  " + l) // per line: a multi-line Render pads every line to the widest
+	}
+	return strings.Join(lines, "\n")
+}
 
 func tierBadge(t int) string {
 	c := []string{"#6B7280", "#22D3EE", "#A78BFA", "#F472B6"}[min(max(t, 0), 3)]
@@ -1349,15 +1552,25 @@ func firstLines(s string, n int) string {
 	return strings.Join(ls, "\n")
 }
 
+// truncate shortens s to n display columns (at least 8), ending in "…"; a
+// wide character takes two. Newlines show as " ⏎ ".
 func truncate(s string, n int) string {
 	s = strings.ReplaceAll(s, "\n", " ⏎ ")
-	if n < 8 {
-		n = 8
+	return ansi.Truncate(s, max(n, 8), "…")
+}
+
+// elideMiddle shortens s to n display columns by replacing its middle with
+// "…", keeping more of the end (a path's last directories); "" if n < 5.
+func elideMiddle(s string, n int) string {
+	w := ansi.StringWidth(s)
+	if w <= n {
+		return s
 	}
-	if r := []rune(s); len(r) > n {
-		return string(r[:n-1]) + "…"
+	if n < 5 {
+		return ""
 	}
-	return s
+	head := (n - 1) / 3
+	return ansi.Truncate(s, head, "") + "…" + ansi.TruncateLeft(s, w-(n-1-head), "")
 }
 
 func dur(d time.Duration) string {

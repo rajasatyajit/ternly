@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+Routing  Ctrl+X r · esc · pgup/pgdn
+  this turn: ollama/m1 — T1 task → est. 5 s, quota, p≥0.30
+
+  routing for ~3.9k tokens of context
+  model                                   p     time     money     quota  score
+  ollama/m1                          — quota exhausted (rate limited)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.9k/131.1k · $0.0000 · ⚠ 1 error · quota out until 00:25
+ turn 0↑ 0↓ · 0.0s · verify ✓ · undo 4

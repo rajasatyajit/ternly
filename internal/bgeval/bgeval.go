@@ -6,8 +6,11 @@
 //   - Ollama Cloud quota and local models; a pay-per-token model only with an
 //     explicit weekly budget (default $0: never);
 //   - at most PerWeek evaluations in any 7 days, each capped at PerModel;
-//   - only while no turn runs: a turn starting stops the evaluation, which
-//     is retried later without counting against the caps;
+//   - only while the session is idle, the quota has room and the machine is
+//     on AC power (ADR 031): a turn starting or the user typing pauses the
+//     evaluation, which resumes where it was once idle again;
+//   - never on a quota that's spent (or was hit recently): a hit during an
+//     evaluation stops it, uncounted, and it's retried after the reset;
 //   - an off switch, and every model's state shown in /models.
 package bgeval
 
@@ -35,16 +38,26 @@ type Caps struct {
 
 // DefaultCaps: one evaluation of the 14 traps takes 5–14 minutes (ADR 017:
 // qwen3.6 locally, 13 min); three a week covers the models a provider
-// typically adds.
-var DefaultCaps = Caps{Enabled: true, PerModel: 20 * time.Minute, PerWeek: 3}
+// typically adds. Off unless the user opts in (ADR 031: asked once, at the
+// first interactive start).
+var DefaultCaps = Caps{Enabled: false, PerModel: 20 * time.Minute, PerWeek: 3}
 
-// Outcomes recorded in the ledger. Yielded runs (a turn started) don't count.
+// Outcomes recorded in the ledger. Yielded runs (ledgers before ADR 031: a
+// turn started) and quota stops don't count.
 const (
-	Measured = "measured"
-	Failed   = "failed"
-	Timeout  = "timed out"
-	Yielded  = "yielded to a turn"
+	Measured  = "measured"
+	Failed    = "failed"
+	Timeout   = "timed out"
+	Yielded   = "yielded to a turn"
+	QuotaStop = "stopped: quota exhausted"
 )
+
+// ErrQuota is what Run returns when the evaluation stopped on a quota hit.
+var ErrQuota = errors.New("quota exhausted")
+
+// counts reports whether an outcome counts against the caps and as the
+// model's last attempt.
+func counts(outcome string) bool { return outcome != Yielded && outcome != QuotaStop }
 
 // Entry is one evaluation attempt.
 type Entry struct {
@@ -109,16 +122,24 @@ type Scheduler struct {
 	Caps   Caps
 	Ledger *Ledger
 	Models func() []*discover.Model // the current model list (best candidates first)
-	Busy   func() bool              // a turn is running
+	// Idle reports whether background work may run now, and why not
+	// (internal/idle: no turn, no recent input, on AC power). nil: always.
+	Idle func() (bool, string)
+	// Quota reports whether m's quota has room, and why not. nil: no check.
+	Quota func(m *discover.Model) (bool, string)
 	// Run evaluates one model within ctx (main: `ternly --eval` as a child
-	// process). budgetUSD > 0 only for a pay-per-token model.
-	Run  func(ctx context.Context, m *discover.Model, budgetUSD float64) error
+	// process). budgetUSD > 0 only for a pay-per-token model. pause carries
+	// true when the session stops being idle and false when it is again; Run
+	// returns ErrQuota when the evaluation stopped on a quota hit.
+	Run  func(ctx context.Context, m *discover.Model, budgetUSD float64, pause <-chan bool) error
 	Done func() // after a measurement: re-read capabilities, re-rank
 	Now  func() time.Time
 	Poll time.Duration // how often to look for work (default 30 s)
+	Tick time.Duration // how often a running evaluation re-checks Idle (default 200 ms)
 
 	mu      sync.Mutex
 	running string // model key being evaluated
+	paused  bool   // ... and paused (the session isn't idle)
 }
 
 func (s *Scheduler) now() time.Time {
@@ -133,7 +154,7 @@ func (s *Scheduler) now() time.Time {
 func (s *Scheduler) weekly() (n int, paid float64) {
 	since := s.now().Add(-7 * 24 * time.Hour)
 	for _, e := range s.Ledger.snapshot() {
-		if e.Outcome != Yielded && e.Started.After(since) {
+		if counts(e.Outcome) && e.Started.After(since) {
 			n++
 			paid += e.BudgetUSD
 		}
@@ -145,7 +166,7 @@ func (s *Scheduler) weekly() (n int, paid float64) {
 func (s *Scheduler) last(key string) *Entry {
 	var out *Entry
 	for _, e := range s.Ledger.snapshot() {
-		if e.Model == key && e.Outcome != Yielded {
+		if e.Model == key && counts(e.Outcome) {
 			out = &e
 		}
 	}
@@ -158,12 +179,20 @@ func (s *Scheduler) Status(m *discover.Model) string {
 		return ""
 	}
 	s.mu.Lock()
-	running := s.running == m.Key()
+	running, paused := s.running == m.Key(), s.paused
 	s.mu.Unlock()
 	if running {
+		if paused {
+			return "evaluation paused (resumes when idle)"
+		}
 		return "evaluating now (bundled traps)"
 	}
-	_, why := s.eligible(m)
+	ok, why := s.eligible(m)
+	if ok && s.Idle != nil {
+		if idle, whyNot := s.Idle(); !idle {
+			return why + " (now: " + whyNot + ")"
+		}
+	}
 	return why
 }
 
@@ -181,17 +210,21 @@ func (s *Scheduler) eligible(m *discover.Model) (bool, string) {
 		return false, fmt.Sprintf("evaluation %s %s", e.Outcome, e.Finished.Format("2006-01-02"))
 	}
 	n, paid := s.weekly()
-	budget := 0.0
 	if !m.Local() && !m.Cloud { // pay per token
 		if s.Caps.PaidUSD <= 0 {
 			return false, "not evaluated: a paid API (routing.background_eval.paid_usd_per_week is 0)"
 		}
-		if budget = s.Caps.PaidUSD - paid; budget <= 0 {
+		if s.Caps.PaidUSD-paid <= 0 {
 			return false, "queued: this week's paid evaluation budget is spent"
 		}
 	}
 	if n >= s.Caps.PerWeek {
 		return false, fmt.Sprintf("queued: %d evaluations this week (the cap)", s.Caps.PerWeek)
+	}
+	if s.Quota != nil && !m.Local() { // checked last: it may ask the provider (cached)
+		if ok, why := s.Quota(m); !ok {
+			return false, "queued: " + why
+		}
 	}
 	return true, "queued for evaluation when idle"
 }
@@ -204,6 +237,14 @@ func (s *Scheduler) next() *discover.Model {
 		}
 	}
 	return nil
+}
+
+func (s *Scheduler) idle() bool {
+	if s.Idle == nil {
+		return true
+	}
+	ok, _ := s.Idle()
+	return ok
 }
 
 // Loop looks for work every Poll until ctx ends.
@@ -224,10 +265,16 @@ func (s *Scheduler) Loop(ctx context.Context) {
 	}
 }
 
+// quotaEvery is how often a running evaluation re-checks its quota (a trap
+// run's 429 is recorded by that process; the evaluation also stops itself).
+var quotaEvery = 10 * time.Second
+
 // Step runs at most one evaluation, if the session is idle and a model
-// qualifies. It returns the outcome ("" when nothing ran).
+// qualifies. It returns the outcome ("" when nothing ran). While it runs,
+// the session leaving idle pauses it and returning resumes it; the time
+// cap counts running time only.
 func (s *Scheduler) Step(ctx context.Context) string {
-	if !s.Caps.Enabled || s.Busy() {
+	if !s.Caps.Enabled || !s.idle() {
 		return ""
 	}
 	m := s.next()
@@ -240,39 +287,71 @@ func (s *Scheduler) Step(ctx context.Context) string {
 		budget = s.Caps.PaidUSD - paid
 	}
 	s.mu.Lock()
-	s.running = m.Key()
+	s.running, s.paused = m.Key(), false
 	s.mu.Unlock()
-	defer func() { s.mu.Lock(); s.running = ""; s.mu.Unlock() }()
+	defer func() { s.mu.Lock(); s.running, s.paused = "", false; s.mu.Unlock() }()
 
-	ectx, cancel := context.WithTimeout(ctx, s.Caps.PerModel)
+	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var yielded bool
-	var once sync.Once
-	stop := make(chan struct{})
-	go func() { // a turn starting stops the evaluation
-		tk := time.NewTicker(200 * time.Millisecond)
-		defer tk.Stop()
-		for {
+	pause := make(chan bool)
+	errc := make(chan error, 1)
+	started := s.now()
+	go func() { errc <- s.Run(rctx, m, budget, pause) }()
+
+	tick := s.Tick
+	if tick == 0 {
+		tick = 200 * time.Millisecond
+	}
+	tk := time.NewTicker(tick)
+	defer tk.Stop()
+	left, from := s.Caps.PerModel, time.Now() // running time left, since from
+	paused, timedOut, quota := false, false, false
+	lastQuota := time.Now()
+	var err error
+wait:
+	for {
+		select {
+		case err = <-errc:
+			break wait
+		case <-tk.C:
+		}
+		idle := s.idle()
+		if paused == idle { // the session left idle (pause) or came back (resume)
+			if paused = !idle; paused {
+				left -= time.Since(from)
+			} else {
+				from = time.Now()
+			}
+			s.mu.Lock()
+			s.paused = paused
+			s.mu.Unlock()
 			select {
-			case <-stop:
-				return
-			case <-tk.C:
-				if s.Busy() {
-					once.Do(func() { yielded = true; cancel() })
-					return
-				}
+			case pause <- paused:
+			case err = <-errc:
+				break wait
 			}
 		}
-	}()
-	started := s.now()
-	err := s.Run(ectx, m, budget)
-	close(stop)
-	once.Do(func() {}) // the watcher can no longer set yielded
+		if !paused && time.Since(from) >= left {
+			timedOut = true
+			cancel()
+			err = <-errc
+			break wait
+		}
+		if s.Quota != nil && time.Since(lastQuota) >= quotaEvery {
+			lastQuota = time.Now()
+			if ok, _ := s.Quota(m); !ok {
+				quota = true
+				cancel()
+				err = <-errc
+				break wait
+			}
+		}
+	}
 	out := Measured
 	switch {
-	case yielded:
-		out = Yielded
-	case errors.Is(ectx.Err(), context.DeadlineExceeded):
+	case quota || errors.Is(err, ErrQuota):
+		out = QuotaStop
+	case timedOut:
 		out = Timeout
 	case ctx.Err() != nil:
 		return "" // ternly is exiting: not an attempt

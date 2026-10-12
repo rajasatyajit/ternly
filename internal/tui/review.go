@@ -106,6 +106,8 @@ func (m *Model) reviewView() string {
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render(title) + "\n")
 	if p.Why != "" {
 		b.WriteString(sWarn.Render(untrusted(p.Why)) + "\n")
+	} else {
+		b.WriteString(sDim.Render(truncate(m.askWhy(p.Tool), max(10, m.w-8))) + "\n")
 	}
 	h := p.Hunks[r.cur]
 	mark := map[bool]string{true: "[x]", false: "[ ]"}[r.sel[r.cur]]

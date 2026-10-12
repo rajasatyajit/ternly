@@ -23,6 +23,196 @@
   frequency (ADR 028's finding). With 120 notes revised 16 times, top-1 agreement with an exact
   index was 93.7%; it is now 100%.
 
+### F2.1: output bytes (ADR 030)
+- **The status line, lanes and activity line redraw only when what they show changes.** Running times
+  count whole seconds (at most one change a second); the cache field is text, not the wide `⚡`,
+  which made the renderer re-send the whole line every frame; "Thinking…" is a spinner cell and
+  static text, not a per-letter colour sweep. In a paired A/B: S1 3.7–4.2 KB compressed (budget
+  8.6 KB), 55 bytes per streaming frame (budget 57), and the 10-turn session 4.9–5.4 KB, down from
+  49–59 KB.
+- **Echo budgets by profile:** full ≤ 16 ms p95; low-power and remote ≤ 40 ms, a deliberate trade
+  until upstream bubbletea#1858.
+- **`tuiprobe -rowbytes`** shows which screen rows a recording's bytes went to;
+  `bench/f2/probe/ab.sh` A/Bs two builds' output bytes.
+
+### F2 closed: the final comparison (ADR 030)
+- **ternly's final build compared with Claude Code and Codex**: the same scenarios, reach session,
+  perf matrix and model as the survey (`bench/f2/final/`). ADR 030 records the scores, every
+  budget per profile as met or unmet, and where ternly is not best.
+- **The model proxy closes Ollama's side when a harness goes away**: requests left behind by killed
+  harnesses had piled up until they held every slot.
+- `batch.sh` and `reach-all.sh` take a subset of harnesses from `F2_ONLY`.
+
+### TUI layout, steps 5 and 6: the palette, and adapting to the environment (ADR 030 (d))
+- **The Ctrl+K palette shows each row's keys at the right** (`/panel error … Ctrl+X e`), matches
+  descriptions from three letters (`diff` finds the changes panel), and lists the five most recently
+  used first. `/output` (Ctrl+O) and `/sidebar` (Ctrl+B) are in it too.
+- **The frame rate fits the machine**, chosen at startup: 120 fps on AC power in a local terminal on
+  a capable CPU; 30 on battery or a small CPU, and over SSH (with no spinner animation). Below
+  30 fps (`ui.fps`) `/doctor` warns how long a typed key can wait for its frame.
+- **tuiprobe types each key after a random pause**: a fixed pause measured the phase of the frame
+  ticker, not the echo (about 48 ms at 10–20 fps alike).
+  `"ui": {"fps": N}` overrides it; `/doctor` shows the profile and why.
+- **ASCII mode is ASCII throughout:** the input box's corners, popups, panels and the status line;
+  text in other scripts shows as `?` per column, so the layout holds.
+- **The accessible mode announces subagents** when their state changes.
+- **`bench/f2/layout`**: a palette probe, a 16-colour tier, and `-idle-ab name=binary@fps` with echo
+  per sample; `tui-idle.yml` takes `name=ref@fps`.
+
+### TUI layout, step 4: panels and the leader key (ADR 030 (d))
+- **Ctrl+X, then a letter, opens a panel**, and a popup lists the letters while Ctrl+X waits:
+  a agents, c changes, e last error, p plan, r why (routing), s sessions, o tool output,
+  k commands. The leader is set in config.json (`"keys": {"leader": "f2"}`); ternly refuses
+  Ctrl+D, R, S, Q and Z, and keys the input uses, and says so.
+- **Panels:**
+  - agents: each subagent's model, step, last call, usage and time; after the turn, the last
+    ones, with their turn;
+  - changes: the files ternly changed this session, and the working tree's diff, read again when
+    a turn ends;
+  - last error: ternly's cause, the whole message, the turn's status lines before it, the next
+    step;
+  - routing: why this turn's model, and `/why`'s ranking;
+  - plan: says there's no plan data yet (it comes with Phase C).
+- **At 160 columns or more a panel docks beside the transcript; narrower, it takes the
+  transcript's place.** Esc closes it (after clearing anything typed), PgUp/PgDn scroll it. One
+  panel or the session sidebar, not both.
+- **Alt+letter opens a panel directly where the terminal disambiguates keys** (the kitty keyboard
+  protocol), except b, c, d, f, l and u, which the input uses with Alt.
+- **The Ctrl+K palette lists every panel with its keys** (`/panel agents` …), and `/panel <name>`
+  opens one. In the accessible mode the keys and panels print as text.
+- **`bench/f2/layout`** records the popup and each panel, the panels after all four turns, and a
+  429 without Retry-After (the estimated quota label).
+
+### Quota times: the provider's, or marked as an estimate
+- **"quota out until HH:MM" only when the provider gave the time**: a Retry-After header, or a
+  balance API that reports the quota spent and when it resets. Without one, ternly holds the model
+  for its own 1-hour cooldown and says so: "quota out, retry in about 1h (estimated)", counting
+  down. `/status`, background work's skip reason and the "nowhere to escalate" hint follow the
+  same rule.
+
+### TUI layout, step 3: agent lanes (ADR 030 (d))
+- **Running subagents have lanes above the input.** Each lane shows the agent's name, model, step,
+  current tool call, tokens, cost and time; done and failed agents stay until the next prompt.
+  - At 100 columns or more there's a row per agent, three at most, with the rest summed up.
+  - Narrower, there's one row for all of them ("2 agents: ● lexer 1 · ✓ tests").
+  - ASCII glyphs where the locale isn't UTF-8.
+- **The core reports subagents as they go** (`EvSubagent`): queued, running, the model chosen,
+  each tool call, usage, then done or failed, under the agent definition's name.
+- **A pending approval says why it asks** ("why: the permission mode is ask, so edits and commands
+  wait for your yes"), in the permission box and in the per-hunk review, unless the core gave its
+  own reason.
+- **`bench/f2/layout` runs three more scenarios:** two subagents at once, an edit waiting for a yes
+  in ask mode, and Ollama Cloud's rate limit (429 with Retry-After). `bench/fakeprovider` gained
+  per-agent script queues, several tool calls per answer, response headers, and Ollama's discovery
+  API for a cloud model.
+
+### TUI layout, step 2: information reach (ADR 030 (d))
+- **An edit shows its change** under its tool line: up to 6 `-`/`+` lines, the rest with Ctrl+O.
+  What the model wrote is shown as text.
+- **A routing card per turn** says why that model ("chosen as the cheapest capable model: T1 task →
+  est. 28 s, free, p≥0.30"; failover and escalation say so).
+- **A receipt after every turn:** its tokens in and out, cost ("cost unknown" for an unpriced
+  model), time, the verification's verdict, and the files it changed.
+- **Errors are framed** with ternly's one-line cause (rate limit or quota, credentials, context
+  too long, timeout, unreachable, provider failure) and the next step. The status line counts
+  them (⚠ 1 error). ASCII mode frames them in ASCII.
+- **The header shows the git branch,** with `*` when tracked files changed. It's read off the UI
+  thread at start and after every turn. It gives way after the session title and before the path.
+  A branch name is shown as text.
+
+### TUI layout, step 1: the status line (ADR 030 (d))
+- **The status line carries the facts checked between turns:**
+  - the model and why it was chosen (▸ cheapest, ◆ pinned, ↑ escalated, ⇄ failover);
+  - context used/window and the session's cost. A model with no price shows "cost unknown",
+    not $0.0000;
+  - the provider's quota (only where it reports one) and lost trust;
+  - this turn's tokens in and out, the turn's time (live while it runs), the last
+    verification's verdict, the plan step and the undo depth.
+- **It fits any width.** Fields are in priority order. A line that's too long shortens its least
+  important fields first, then drops them; the model is last to go. It uses one line when
+  everything fits in full and two otherwise (two at 80×24). It collapses to one line below 24
+  rows, when the input grows, or when two would leave the transcript fewer than 16 rows.
+- **ASCII glyphs where the locale isn't UTF-8** (LC_ALL, LC_CTYPE, LANG, as in C), or with
+  `TERNLY_ASCII=1`. This covers the status line so far; the rest comes with the adaptive tiers.
+- **Transcript info lines no longer spill past the screen.** At 60 columns the routing line was 79
+  columns wide.
+- **`bench/f2/layout`** records every step: screens at 200×50, 120×40 and 80×24, Unicode and
+  ASCII/no-colour; the 20-fact information reach; and startup, echo, bytes per key, idle CPU and RSS
+  against ADR 030's budgets. It drives a scripted `bench/fakeprovider` session, so runs are
+  repeatable.
+
+### TUI: four fixes from the F2 survey (ADR 030)
+- **The welcome hint fits the screen.** It was one 118-column line, cut off at 80 columns; it now
+  wraps at " · " and between words, and re-wraps on resize. The no-providers hint and /help's key
+  line wrap the same way.
+- **The Ctrl+K palette's descriptions line up.** A row with an argument hint (`/model [id|auto]`) padded
+  its name by bytes, its styling included, so its description started in another column. Names
+  are padded by what shows, in one column for the whole list (at most 40 columns, 2/5 of the
+  screen); a hint that doesn't fit is shortened.
+- **The header keeps the sandbox and permission mode.** A long workspace path pushed them off the
+  right edge. They never truncate now; the session title shrinks (32 → 8 columns, then goes) and
+  the path elides in its middle (`/home/someone/wor…/project-x`).
+- **Widths are display columns.** The header, the palette and every shortened text in the TUI
+  count a CJK or emoji character as the two columns it takes. A path, title or file name in those
+  scripts used to overflow, as in the two bugs above.
+- **Keys** (docs/commands.md):
+  - **Esc** clears what's typed; with nothing typed, it interrupts a running turn. It only
+    interrupted before.
+  - **Ctrl+U** deletes to the start of the line, as in a shell. It scrolled up before.
+  - **Ctrl+D** is bound to nothing (it scrolled down, and deleted forward in the input). ternly
+    binds none of Ctrl+D/R/S/Q/Z. PgUp/PgDn scroll, as before.
+
+### Keystroke echo: 14.6 ms → 6.5 ms, without a fork (ADR 032, F2 item a)
+- **A typed key reaches the terminal in 6.5 ms at the median** (p95 7.0–7.4 ms), down from
+  14.5–14.7 ms. Measured through a pseudo-terminal with `bench/tuiprobe` at 120×40 in truecolor.
+- **The cause was the frame tick, verified.** Bubble Tea writes to the terminal only on its frame
+  ticker, so a key waits for the next tick. ternly now runs at 120 fps (`tui.FPS`), the most Bubble
+  Tea allows, so the wait is at most 8.3 ms instead of 16.7 ms.
+- **The cost is about 0.2 points of idle CPU.** The idle TUI measures 0.45–0.55%, against
+  0.25–0.35% at 60 fps.
+- **No fork.** A patched Bubble Tea measured 1.3 ms, but it needed a `go.mod` `replace`, and that
+  breaks `go install …@latest`. A fork under its own module path would also have meant forking
+  Bubbles. The change is offered upstream instead: charmbracelet/bubbletea#1857, with #1858
+  (render input at once) and #1859 (diff only changed lines). ternly issue #37 tracks adopting it
+  and returning to the default frame rate.
+- **A guard test.** `TestKeystrokeEcho` runs the real program with ternly's options, at a random
+  key phase, and requires a median under 8 ms. That's 6.0–7.0 ms at 120 fps and 9.1–11.0 ms at 60,
+  so a fall-back fails CI. It waits for a warm-up key's echo before measuring: on a loaded runner
+  the event loop can start 1.4 s after the first output.
+- **An upstream regression found.** ultraviolet `006e29f`, which ternly's dependencies select,
+  re-sends unchanged lines holding wide characters on every frame. This was bisected and reported
+  in #1857.
+
+### Background work: idle-only, quota-aware, conditional (ADR 031)
+- **Background evaluations never run on a spent quota.** Before scheduling, ternly checks Ollama's
+  documented balance (with `OLLAMA_API_KEY`) and every quota hit any ternly process recorded
+  (`<data>/quota.json`). A hit with no known reset keeps background work off that quota for a
+  day. A 429 during an evaluation stops it after that trap: nothing is saved, it doesn't count
+  against the caps, and it's retried after the reset.
+- **Background work runs only when idle and on AC power:** no turn running, no key pressed for
+  5 minutes, and mains or USB power (Linux sysfs, macOS `pmset`; unknown counts as AC). Typing or
+  a turn starting pauses an evaluation (the trap in progress runs again on resume) and the
+  catalog refresh (after the request in flight); both go on from where they were.
+- **Evaluations are opt-in.** On the first interactive start with no
+  `routing.background_eval.enabled`, ternly asks once ("Run background capability evaluations
+  when idle? [y/N]") and saves the answer. Headless, CI and harness runs never ask and stay off.
+  An explicit value is never asked about or changed.
+- **The catalog refresh is conditional and idle-only.** Requests carry `If-None-Match` /
+  `If-Modified-Since`; a 304 or an identical body (SHA-256, for sources without validators) isn't
+  indexed again. Progress is saved per source and per registry page, so an interrupted refresh
+  resumes instead of starting over. npm's search (no validators) runs weekly. Headless runs never
+  refresh.
+- **Measured** (ADR 031): a daily refresh 1.19 MB → 26 KB; an interrupted first refresh resumes
+  instead of re-downloading 39 MB; idle CPU 10–40 s after a second start 9.1% → 0.4–0.9%. The UI's
+  own idle cost (0.4–0.9%) still misses the 0.5% target.
+
+### Toolchain: Go 1.27.2 and x/net v0.60.0 (security)
+- **Go 1.27.2 and golang.org/x/net v0.60.0** fix GO-2026-6612, GO-2026-6613 and GO-2026-6617
+  (net/http and x/net http2, published 2026-10-11). govulncheck found them reachable through
+  netguard's transport and failed CI on every branch.
+- **staticcheck runs from master (452d5bb86b45, 2026-10-09)** until a release ships: v0.8.1 can't
+  read go1.27.2's export data (version 5).
+
 ### Catalog refresh, empty answers, e2e failure kinds (ADR 028)
 - **The capability catalog's index rebuilds once per refresh, at its end,** and is exact
   afterwards. Before, document frequencies could count replaced entries and push common words'

@@ -1,0 +1,39 @@
+* ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title . bwrap . yolo
+Agents  Ctrl+X a . esc . pgup/pgdn
+no subagents in this session yet
+they show here, and as lanes above the input, while the model delegates (the task tool)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
++--------------------------------------------------------------------------------------------------------------------+
+| Ask ternly to build, fix or explain.  (/help)                                                                      |
++--------------------------------------------------------------------------------------------------------------------+
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000 | turn 4.2k^ 123v | 0.4s | verify ok | undo 1

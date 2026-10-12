@@ -1,0 +1,827 @@
+{
+ "bytes_gzip": 8483,
+ "bytes_total": 63577,
+ "cols": 120,
+ "elapsed_s": 102.295311058,
+ "exited": "\u003cnil\u003e",
+ "rows": 40,
+ "steps": [
+  {
+   "bytes": 1623,
+   "first_byte_ms": 52.112,
+   "ms": 53.5,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap start"
+  },
+  {
+   "ok": true,
+   "step": "type Resize evicts one entry. find the cause and fix it\\r"
+  },
+  {
+   "ms": 1711.393,
+   "ok": true,
+   "step": "until 60000 evicts\\suntil\\sthe\\scache\\sfits"
+  },
+  {
+   "bytes": 1650,
+   "ms": 257.997,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap mid"
+  },
+  {
+   "ok": true,
+   "step": "type \\x02"
+  },
+  {
+   "bytes": 1174,
+   "ms": 9.739,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-b"
+  },
+  {
+   "ok": true,
+   "step": "type \\x02"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0f"
+  },
+  {
+   "bytes": 2214,
+   "ms": 8.129,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-o"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0f"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x07"
+  },
+  {
+   "ok": false,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-g"
+  },
+  {
+   "ok": true,
+   "step": "type \\x07"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x05"
+  },
+  {
+   "ok": false,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-e"
+  },
+  {
+   "ok": true,
+   "step": "type \\x05"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0b"
+  },
+  {
+   "bytes": 926,
+   "ms": 6.422,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-ctrl-k"
+  },
+  {
+   "ok": true,
+   "step": "type \\x0b"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18"
+  },
+  {
+   "bytes": 1078,
+   "ms": 6.177,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-leader"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18a"
+  },
+  {
+   "bytes": 313,
+   "ms": 3.694,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-x-a"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18c"
+  },
+  {
+   "bytes": 1029,
+   "ms": 25.198,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-x-c"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18e"
+  },
+  {
+   "bytes": 203,
+   "ms": 1.615,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-x-e"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18p"
+  },
+  {
+   "bytes": 383,
+   "ms": 6.726,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-x-p"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18r"
+  },
+  {
+   "bytes": 461,
+   "ms": 6.107,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-x-r"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /why\\r"
+  },
+  {
+   "bytes": 258,
+   "ms": 9.03,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-why"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /diff\\r"
+  },
+  {
+   "bytes": 778,
+   "ms": 24.623,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-diff"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /cost\\r"
+  },
+  {
+   "bytes": 324,
+   "ms": 5.393,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-cost"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /status\\r"
+  },
+  {
+   "bytes": 828,
+   "ms": 5.296,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-status"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /rewind\\r"
+  },
+  {
+   "bytes": 266,
+   "ms": 5.737,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-rewind"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /verify\\r"
+  },
+  {
+   "bytes": 548,
+   "ms": 10.752,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-verify"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type /agents\\r"
+  },
+  {
+   "bytes": 955,
+   "ms": 11.992,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap k-agents"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 300"
+  },
+  {
+   "ok": true,
+   "step": "type check the cache from two angles\\r"
+  },
+  {
+   "ms": 59971.956,
+   "ok": true,
+   "step": "until 30000 tests"
+  },
+  {
+   "ok": true,
+   "step": "sleep 700"
+  },
+  {
+   "ok": true,
+   "step": "snap agents"
+  },
+  {
+   "ms": 62886.045,
+   "ok": true,
+   "step": "until 60000 Both\\sagents\\sreported"
+  },
+  {
+   "bytes": 311,
+   "ms": 16.28,
+   "ok": true,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap agents-done"
+  },
+  {
+   "ok": true,
+   "step": "type /mode ask\\r"
+  },
+  {
+   "bytes": 177,
+   "ms": 6.58,
+   "ok": true,
+   "step": "stable 700 10000"
+  },
+  {
+   "ok": true,
+   "step": "type rename the first-eviction helper\\r"
+  },
+  {
+   "ms": 65145.345,
+   "ok": true,
+   "step": "until 30000 why:"
+  },
+  {
+   "bytes": 48,
+   "ms": 56.901,
+   "ok": true,
+   "step": "stable 700 10000"
+  },
+  {
+   "ok": true,
+   "step": "snap approval"
+  },
+  {
+   "ok": true,
+   "step": "type y"
+  },
+  {
+   "ms": 65919.259,
+   "ok": true,
+   "step": "until 30000 Edited\\safter"
+  },
+  {
+   "bytes": 1179,
+   "ms": 133.078,
+   "ok": true,
+   "step": "stable 1000 20000"
+  },
+  {
+   "ok": true,
+   "step": "type /mode yolo\\r"
+  },
+  {
+   "bytes": 178,
+   "ms": 10.102,
+   "ok": true,
+   "step": "stable 700 10000"
+  },
+  {
+   "ok": true,
+   "step": "type summarise what changed\\r"
+  },
+  {
+   "ms": 67785.988,
+   "ok": true,
+   "step": "until 90000 SCRIPTED-FAILURE"
+  },
+  {
+   "ok": false,
+   "step": "stable 1500 30000"
+  },
+  {
+   "ok": true,
+   "step": "snap error"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18a"
+  },
+  {
+   "bytes": 621,
+   "ms": 7.703,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap panel-a"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18c"
+  },
+  {
+   "bytes": 1204,
+   "ms": 23.939,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap panel-c"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18e"
+  },
+  {
+   "bytes": 592,
+   "ms": 6.168,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap panel-e"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  },
+  {
+   "ok": true,
+   "step": "type \\x18r"
+  },
+  {
+   "bytes": 516,
+   "ms": 5.993,
+   "ok": true,
+   "step": "stable 700 15000"
+  },
+  {
+   "ok": true,
+   "step": "snap panel-r"
+  },
+  {
+   "ok": true,
+   "step": "type \\e"
+  },
+  {
+   "ok": true,
+   "step": "sleep 400"
+  }
+ ],
+ "technique": {
+  "alt_screen": true,
+  "bracketed_paste": true,
+  "full_clears": 1,
+  "kitty_keyboard": true,
+  "mouse_reporting": false,
+  "non_ascii_bytes": 7735,
+  "sgr_16": 868,
+  "sgr_256": 22,
+  "sgr_truecolor": 1160,
+  "sync_updates": 115
+ }
+}

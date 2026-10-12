@@ -1,0 +1,39 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                    Scripted Title · bwrap · ask
+❯ check the cache from two angles
+  ↻ memory: 1 note recalled (/memory to review)
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T2 task → est. 15 s, quota, p≥0.15
+  ● task tests: Say which tests cover Resize.  2.8s
+  ● task lexer: Find every caller of the eviction helpers.  2.4s
+  ↻ subagent 1/4 started: tests
+  ↻ subagent 2/4 started: lexer
+
+  Both agents reported back: the callers are fixed and no test covers Resize yet.
+  -> turn 8.0k^ 178v | $0.0000 | 2.9s
+  permission mode: ask
+
+❯ rename the first-eviction helper
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 5 s, quota, p≥0.30
+  ◌ Edit lru.go  (-1 +1 lines)
+    - func (c *Cache) evictOne()
+    + func (c *Cache) evictFirst()
+
+  Waiting for your answer  y yes · a always · n no
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Edit lru.go?  hunk 1 of 1 · 1 selected                                                                             │
+│ why: the permission mode is ask, so edits and commands wait for your yes (/mode to change)                         │
+│ [x] @@ -9,7 +9,7 @@                                                                                                │
+│  // Resize changes the capacity, evicting the oldest items that no longer fit.                                     │
+│  func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }                                                   │
+│                                                                                                                    │
+│ -func (c *Cache) evictOne() {                                                                                      │
+│ +func (c *Cache) evictFirst() {                                                                                    │
+│      if len(c.items) > c.cap {                                                                                     │
+│          c.items = c.items[1:]                                                                                     │
+│      }                                                                                                             │
+│ [y] apply selected   [a] always   [n] decline   space toggles · ↑↓ hunks                                           │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.8k/131.1k | $0.0000 | turn 2.5k^ 50v | 0.1s | verify ok | undo 3

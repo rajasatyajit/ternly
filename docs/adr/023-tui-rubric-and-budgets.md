@@ -105,7 +105,8 @@ diff was reviewed. Result: input box at 65 → 45 ms. ternly's own `main` reache
 
 **8. Meter, `/why` and connections, from `internal/surface` (ADR 021):**
 - **status bar:** context fill (amber ≥ 70 %, red ≥ 90 %), the current connection's quota or
-  "quota out until", and "trust lost" (ADR 020);
+  "quota out until" (the provider's time; ternly's own cooldown reads "quota out, retry in
+  about 1h (estimated)"), and "trust lost" (ADR 020);
 - **`/why`:** `Actions.Explain`;
 - **`/status`:** connections with the next step.
 

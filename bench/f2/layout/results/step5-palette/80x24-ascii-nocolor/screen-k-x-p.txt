@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+Plan  Ctrl+X p · esc · pgup/pgdn
+no plan data in this session
+plans with their steps and states come from the core with Phase C (ADR 030);
+until then /plan is a read-only mode, and the plan is in the answer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.5k/131.1k | $0.0000
+ turn 4.2k^ 123v | 0.4s | verify ok | undo 1

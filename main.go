@@ -30,6 +30,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/deps"
 	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/graph"
+	"github.com/rajasatyajit/ternly/internal/idle"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/memory"
@@ -70,7 +71,13 @@ type fileConfig struct {
 	MemoryEnrich    enrichSetting `json:"memory_enrich"`  // other wordings per note: true/"local" (default), "remote", false
 	Plugins         *bool         `json:"plugins"`        // plugins, skills, agents, rules (default on)
 	Suggestions     *bool         `json:"suggestions"`    // suggest capabilities a task needs (default on)
-	CatalogSources  *struct {
+	UI              struct {
+		FPS int `json:"fps"` // frames per second, 1–120; 0: chosen by the environment (ADR 030 step 6)
+	} `json:"ui"`
+	Keys struct {
+		Leader string `json:"leader"` // the key before a panel's letter (default ctrl+x; ADR 030)
+	} `json:"keys"`
+	CatalogSources *struct {
 		Marketplaces []string `json:"marketplaces"` // extra raw marketplace.json URLs
 		MCPRegistry  string   `json:"mcp_registry"` // another MCP registry base URL
 		NPM          *bool    `json:"npm"`          // search npm's mcp-server keyword (default on)
@@ -235,7 +242,8 @@ func run() int {
 		r.SetModels(ms)
 		r.SetCostModel(cm)
 		if cm != nil { // each model's background-evaluation state, from the ledger
-			r.SetEvalStatus(backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, r, nil, nil).Status)
+			quota := quotaGate(discover.OpenQuotaLog(filepath.Join(dataDir, "quota.json")), r, nil)
+			r.SetEvalStatus(backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, r, nil, quota, nil).Status)
 		}
 		why := r.Explanations(modelsCtx)
 		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
@@ -324,6 +332,8 @@ func run() int {
 	}
 
 	router := discover.NewRouter()
+	quotaLog := discover.OpenQuotaLog(filepath.Join(dataDir, "quota.json")) // quota hits, for background work in any ternly process (ADR 031)
+	router.SetQuotaLog(quotaLog)
 	var emit func(agent.Event)
 	ag := agent.New(reg, router, func(e agent.Event) { emit(e) })
 	stc = status.New(router, ag, nil, discoverAll)
@@ -522,7 +532,7 @@ func run() int {
 		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
 			notes = append(notes, "plugins off: "+err.Error())
 		} else {
-			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.Subagent, NoCode: noCodeReason(pol),
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, NoCode: noCodeReason(pol),
 				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
 				SessionID: func() string {
 					if s := mgr.Current(); s != nil {
@@ -546,6 +556,7 @@ func run() int {
 		}
 	}
 	var caps *capability.Service
+	var cat *capability.Catalog // refreshed in the background by an interactive session only (ADR 031)
 	if prt != nil && (fc.Suggestions == nil || *fc.Suggestions) && !inEval {
 		src := capability.DefaultSources
 		if cs := fc.CatalogSources; cs != nil {
@@ -557,7 +568,7 @@ func run() int {
 				src.NPMSearch = *cs.NPM
 			}
 		}
-		cat := &capability.Catalog{Dir: filepath.Join(dataDir, "catalog"), Sources: src}
+		cat = &capability.Catalog{Dir: filepath.Join(dataDir, "catalog"), Sources: src}
 		caps = &capability.Service{Catalog: cat, Suggester: &capability.Suggester{File: filepath.Join(project.Dir, "capability.json")},
 			Validator: &capability.Validator{}, Outcomes: &capability.Outcomes{File: filepath.Join(dataDir, "catalog", "outcomes.jsonl")},
 			Detector: &capability.Detector{
@@ -579,16 +590,6 @@ func run() int {
 					return out, err
 				}}}
 		defer cat.Close()
-		go func() { // the catalog refreshes daily, in the background (the first time takes a few minutes)
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(10 * time.Second):
-			}
-			if (fc.CatalogSources == nil || !fc.CatalogSources.Offline) && cat.Due(24*time.Hour) {
-				_ = cat.Refresh(ctx, nil)
-			}
-		}()
 	}
 	for _, p := range func() []plugins.Installed {
 		if prt == nil {
@@ -684,7 +685,19 @@ func run() int {
 		return code
 	}
 
-	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Discover: func() ([]*discover.Model, []string) {
+	if router.V2() && shouldAsk(fc, os.Getenv, isTerminal(os.Stdin) && isTerminal(os.Stderr)) { // once, before the UI takes the terminal (ADR 031)
+		on, _, err := askBackgroundEval(filepath.Join(cfgDir, "config.json"), os.Stdin, os.Stderr)
+		if err != nil {
+			notes = append(notes, "background evaluations: answer not saved: "+err.Error())
+		}
+		fc.Routing.BackgroundEval.Enabled = &on
+	}
+	frame := tui.ChooseProfile(tui.DetectEnv(), fc.UI.FPS)
+	leader, note := tui.ParseLeader(fc.Keys.Leader)
+	if note != "" {
+		notes = append(notes, "config.json: "+note)
+	}
+	app := &tui.App{Agent: ag, Router: router, Reg: reg, Access: accessFrom(*accessible), Leader: leader, Frame: frame, Discover: func() ([]*discover.Model, []string) {
 		ms, w := discoverFn()
 		if pin != "" {
 			router.SetModels(ms)
@@ -703,7 +716,9 @@ func run() int {
 			return append(lines, status.Lines(stc.Snapshot().Connections, discover.FindCLIs(), time.Now())...)
 		}}
 	m := tui.New(app, darkTerminal()) // a first guess; the terminal's own answer arrives as a message
-	p := tea.NewProgram(m, tea.WithContext(ctx))
+	// background work runs while idle (no turn, no input for idle.After) and on AC power (ADR 031)
+	gate := idle.New(ag.Running)
+	p := tea.NewProgram(activity{Model: m, touch: gate.Touch}, append(tui.ProgramOptions(frame.FPS), tea.WithContext(ctx))...)
 	emit = func(e agent.Event) { stc.Observe(e); p.Send(tuiMsg(e)) }
 	pol.Ask = tui.Asker(p)
 	pol.Review = tui.Reviewer(p) // edits that ask are reviewed per hunk (ADR 021 amendment 1)
@@ -711,6 +726,10 @@ func run() int {
 		prt.Changed = func() { p.Send(tui.PluginsChanged()) }
 	}
 	background()
+	if cat != nil && (fc.CatalogSources == nil || !fc.CatalogSources.Offline) {
+		bgWG.Add(1)
+		go func() { defer bgWG.Done(); refreshCatalog(bgCtx, cat, gate, 24*time.Hour) }()
+	}
 	if router.V2() && !inEval && os.Getenv("TERNLY_BACKGROUND_EVAL") != "1" && os.Getenv("TERNLY_HARNESS") != "1" {
 		remeasure := func() { // a new measurement: discovery reads it, routing uses it
 			o := dopts
@@ -719,7 +738,11 @@ func run() int {
 				router.SetModels(ms)
 			}
 		}
-		sched := backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, router, ag.Running, remeasure)
+		var balance func(context.Context) (*discover.Quota, error)
+		if k := keys["OLLAMA_API_KEY"]; k != "" && !*noNet && !*localOnly { // the documented balance, asked before any evaluation
+			balance = func(ctx context.Context) (*discover.Quota, error) { return discover.OllamaBalance(ctx, k) }
+		}
+		sched := backgroundEvals(fc.Routing.BackgroundEval, *localOnly, dataDir, router, gate, quotaGate(quotaLog, router, balance), remeasure)
 		router.SetEvalStatus(sched.Status)
 		bgWG.Add(1) // waited for at exit: the evaluation's process group is stopped first
 		go func() { defer bgWG.Done(); sched.Loop(bgCtx) }()

@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+   func (c *Cache) evictOne() {
+   if len(c.items) > c.cap {
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turn
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stop
+  ternly 0.1.0
+  session    20261011-182129-c6426c “Scripted Title”
+  workspace  /var/tmp/ternly-layout-4236391360/home/proj-lru
+  model      auto-routing · last used fake/m1
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1                               ctx 3.4k/131.1k  ↑4.2k ↓123  $0.0000

@@ -234,12 +234,13 @@ func TestV2QuotaSignals(t *testing.T) {
 		name, retryAfter, body string
 		status                 int
 		cooldown               time.Duration // 0: not exhausted
+		estimated              bool          // the cooldown is ours (no Retry-After), not the provider's
 	}{
-		{"429 with Retry-After", "120", `{"error":"you have reached your weekly usage limit"}`, 429, 2 * time.Minute},
-		{"429 without", "", `{"error":"too many requests"}`, 429, quotaCooldown},
-		{"in-stream usage limit", "", `{"error":"you have reached your usage limit, upgrade for more"}`, 200, quotaCooldown},
-		{"503 overloaded", "90", `{"error":"server overloaded"}`, 503, 0},
-		{"402 out of credits", "", `{"error":"insufficient balance: out of credits"}`, 402, quotaCooldown}, // not retryable, still a quota
+		{"429 with Retry-After", "120", `{"error":"you have reached your weekly usage limit"}`, 429, 2 * time.Minute, false},
+		{"429 without", "", `{"error":"too many requests"}`, 429, quotaCooldown, true},
+		{"in-stream usage limit", "", `{"error":"you have reached your usage limit, upgrade for more"}`, 200, quotaCooldown, true},
+		{"503 overloaded", "90", `{"error":"server overloaded"}`, 503, 0, false},
+		{"402 out of credits", "", `{"error":"insufficient balance: out of credits"}`, 402, quotaCooldown, true}, // not retryable, still a quota
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			backup := newFake(t, reply{text: "done locally"})
@@ -251,7 +252,10 @@ func TestV2QuotaSignals(t *testing.T) {
 			if len(backup.requests()) == 0 || !strings.Contains(rec.text(EvStatus), "failing over") || rec.text(EvError) != "" {
 				t.Fatalf("no failover: local %d, status %q, errors %q", len(backup.requests()), rec.text(EvStatus), rec.text(EvError))
 			}
-			until := a.Router.ExhaustedUntil(g.Key())
+			until, estimated := a.Router.Exhausted(g.Key())
+			if estimated != c.estimated {
+				t.Fatalf("estimated = %v, want %v (only a time without Retry-After is ternly's estimate)", estimated, c.estimated)
+			}
 			switch {
 			case c.cooldown == 0 && !until.IsZero():
 				t.Fatalf("a transient error took the model out until %v", until)

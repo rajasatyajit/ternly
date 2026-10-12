@@ -1,0 +1,39 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) …
+  ternly 0.1.0
+  session    20261011-223615-4e2f52 “Scripted Title”
+  workspace  /var/tmp/ternly-layout-96802752/home/proj-lru
+  model      auto-routing · last used ollama/m1
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ Ollama (local) — the Ollama daemon at 127.0.0.1:44741 · 0 models · free (this machine)
+    ✓ Ollama Cloud — the signed-in Ollama daemon (`ollama signin`) · 1 model · usage unknown (Ollama reports it only to…
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 22:36 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  agent   lexer                            Reads the code and reports on lexer. (~13 tok)
+  agent   tests                            Reads the code and reports on tests. (~13 tok)
+  listings cost ~26 tokens per request; bodies load only when used (use_skill, task)
+
+❯ check the cache from two angles
+  ↻ memory: 1 note recalled (/memory to review)
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T2 task → est. 15 s, quota, p≥0.15
+  ● task tests: Say which tests cover Resize.  2.8s
+  ● task lexer: Find every caller of the eviction helpers.  2.4s
+  ↻ subagent 1/4 started: tests
+  ↻ subagent 2/4 started: lexer
+
+  Both agents reported back: the callers are fixed and no test covers Resize yet.
+  -> turn 8.0k^ 178v | $0.0000 | 2.9s
+
+ ok tests | ollama/m1 | step 1 | 1.8k^ 30v | $0.0000 | 2.8s
+ ok lexer | ollama/m1 | step 1 | 2.0k^ 38v | $0.0000 | 2.4s
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.7k/131.1k | $0.0000 | turn 8.0k^ 178v | 2.9s | verify ok | undo 2

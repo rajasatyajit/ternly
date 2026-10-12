@@ -216,11 +216,11 @@ func TestQuotaExhausted(t *testing.T) {
 	q := measured(local("qwen3.6:latest", 3, 0.16, "loaded"), 0.85)
 	cl := cloud("glm-5.3:cloud", 3)
 	r := router(v2, q, cl)
-	r.MarkExhausted(cl.Key(), time.Now().Add(time.Hour))
+	r.MarkExhausted(cl.Key(), time.Now().Add(time.Hour), false)
 	if m, _ := r.PickFor(3, 20000, 36000, nil); m != q {
 		t.Fatalf("exhausted cloud picked: %s", m.ID)
 	}
-	r.MarkExhausted(cl.Key(), time.Now().Add(-time.Second))
+	r.MarkExhausted(cl.Key(), time.Now().Add(-time.Second), false)
 	if m, _ := r.PickFor(3, 20000, 36000, nil); m != cl {
 		t.Fatalf("quota back: %s", m.ID)
 	}
@@ -349,5 +349,32 @@ func BenchmarkPick(b *testing.B) {
 				r.PickFor(2, 20000, 36000, ms[4])
 			}
 		})
+	}
+}
+
+func TestAbout(t *testing.T) {
+	for d, want := range map[time.Duration]string{
+		time.Hour: "about 1h", 59*time.Minute + 50*time.Second: "about 1h", 50 * time.Minute: "about 1h",
+		100 * time.Minute: "about 2h", 40 * time.Minute: "about 40m", 23 * time.Minute: "about 25m",
+		5 * time.Minute: "about 5m", 4 * time.Minute: "a few minutes", 0: "a few minutes",
+	} {
+		if got := About(d); got != want {
+			t.Errorf("About(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+// With nowhere to escalate, the hint names a provider's reset time as a
+// clock time and ternly's estimate only roughly.
+func TestNowhereQuotaHint(t *testing.T) {
+	cl := cloud("glm-5.3:cloud", 3)
+	r := router(v2, cl)
+	r.MarkExhausted(cl.Key(), time.Now().Add(time.Hour), true)
+	if h := r.nowhere(nil); !strings.Contains(h, "may be back in about 1h (estimated)") || strings.Contains(h, "resets at") {
+		t.Errorf("estimated: %s", h)
+	}
+	r.MarkExhausted(cl.Key(), time.Now().Add(time.Hour), false)
+	if h := r.nowhere(nil); !strings.Contains(h, "a cloud quota resets at ") || strings.Contains(h, "estimated") {
+		t.Errorf("provider's time: %s", h)
 	}
 }

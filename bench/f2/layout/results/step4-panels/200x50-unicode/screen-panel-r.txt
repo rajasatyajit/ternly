@@ -1,0 +1,49 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                                                                                                   Scripted Title · bwrap · yolo
+    ✓ Ollama (local) — the Ollama daemon at 127.0.0.1:43671 · 0 models · free (this machine)                                           │Routing  Ctrl+X r · esc · pgup/pgdn
+    ✓ Ollama Cloud — the signed-in Ollama daemon (`ollama signin`) · 1 model · usage unknown (Ollama reports it only to OLLAMA_API_KEY…│  this turn: ollama/m1 — T1 task → est. 5 s, quota, p≥0.30
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)                                                           │
+   1 20:52 ●  Resize evicts one entry. find the cause and fix it                                                                       │  routing for ~3.9k tokens of context
+  verify: go build ./... && go vet ./... + coverage checks of changed files                                                            │  model                                   p     time     money…
+  agent   lexer                            Reads the code and reports on lexer. (~13 tok)                                              │  ollama/m1                          — quota exhausted (rate l…
+  agent   tests                            Reads the code and reports on tests. (~13 tok)                                              │
+  listings cost ~26 tokens per request; bodies load only when used (use_skill, task)                                                   │
+                                                                                                                                       │
+❯ check the cache from two angles                                                                                                      │
+  ↻ memory: 1 note recalled (/memory to review)                                                                                        │
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T2 task → est. 15 s, quota, p≥0.15                             │
+  ● task tests: Say which tests cover Resize.  2.8s                                                                                    │
+  ● task lexer: Find every caller of the eviction helpers.  2.4s                                                                       │
+  ↻ subagent 1/4 started: tests                                                                                                        │
+  ↻ subagent 2/4 started: lexer                                                                                                        │
+                                                                                                                                       │
+  Both agents reported back: the callers are fixed and no test covers Resize yet.                                                      │
+  ↳ turn 8.0k↑ 178↓ · $0.0000 · 2.9s                                                                                                   │
+  permission mode: ask                                                                                                                 │
+                                                                                                                                       │
+❯ rename the first-eviction helper                                                                                                     │
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 5 s, quota, p≥0.30                              │
+  ● Edit lru.go  (-1 +1 lines)  761ms                                                                                                  │
+    - func (c *Cache) evictOne()                                                                                                       │
+    + func (c *Cache) evictFirst()                                                                                                     │
+  applied 1 of 1 hunks to lru.go                                                                                                       │
+                                                                                                                                       │
+  Edited after your yes.                                                                                                               │
+  ● Verify go build ./... && go vet ./...  108ms                                                                                       │
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered                │
+  ↳ turn 5.1k↑ 62↓ · $0.0000 · 0.9s · verified ✓ · 1 file changed (lru.go)                                                             │
+  permission mode: yolo                                                                                                                │
+                                                                                                                                       │
+❯ summarise what changed                                                                                                               │
+  ↻ memory: 1 note recalled (/memory to review)                                                                                        │
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 5 s, quota, p≥0.30                              │
+  ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮  │
+  │ ✗ the provider's rate limit or quota ran out                                                                                    │  │
+  │ HTTP 429: {"error":{"message":"SCRIPTED-FAILURE: rate limit reached for m1; try again in an hour"}}                             │  │
+  │ next: wait for the reset, or /model to pick another                                                                             │  │
+  ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯  │
+  ↳ turn 0↑ 0↓ · $0.0000 · 0.0s                                                                                                        │
+                                                                                                                                       │
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                                                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.9k/131.1k · $0.0000 · ⚠ 1 error · quota out until 21:53 · turn 0↑ 0↓ · 0.0s · verify ✓ · undo 4

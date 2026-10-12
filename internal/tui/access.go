@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -15,12 +17,17 @@ type Access struct {
 	ReducedMotion bool // TERNLY_REDUCED_MOTION=1
 	ScreenReader  bool // TERNLY_SCREEN_READER=1 (implies ReducedMotion)
 	Mouse         bool // TERNLY_MOUSE=1: wheel scrolls the transcript
+	ASCII         bool // the locale isn't UTF-8 (LC_ALL, LC_CTYPE, LANG), or TERNLY_ASCII=1: ASCII glyphs
 }
 
 // AccessFromEnv reads the settings from the environment.
 func AccessFromEnv() Access {
 	on := func(k string) bool { v := os.Getenv(k); return v != "" && v != "0" && v != "false" }
 	a := Access{ReducedMotion: on("TERNLY_REDUCED_MOTION"), ScreenReader: on("TERNLY_SCREEN_READER"), Mouse: on("TERNLY_MOUSE")}
+	a.ASCII = !utf8Locale()
+	if _, ok := os.LookupEnv("TERNLY_ASCII"); ok { // an explicit choice wins over the locale
+		a.ASCII = on("TERNLY_ASCII")
+	}
 	if a.ScreenReader {
 		a.ReducedMotion = true
 	}
@@ -43,15 +50,32 @@ func (m *Model) toolIcon(state int) string {
 	if m.App.Access.ReducedMotion || m.perm != nil || m.review != nil { // still while the user decides
 		return sDim.Render("◌")
 	}
-	return spinFrames[m.frame%len(spinFrames)]
+	return m.spinner()
 }
 
-// moving renders text that would shimmer; static under reduced motion.
+// spinner is the spinner's current glyph. It advances every spinEvery ticks
+// (about 3.5 a second at the 70 ms tick): only that one cell redraws.
+func (m *Model) spinner() string {
+	frames := spinFrames
+	if m.App.Access.ASCII {
+		frames = asciiSpin
+	}
+	return sAccent.Render(frames[(m.frame/spinEvery)%len(frames)])
+}
+
+const spinEvery = 4
+
+var asciiSpin = []string{"|", "/", "-", "\\"}
+
+// moving is text that's in progress: a spinner, then the text, static.
+// It was a colour sweep over every letter on every 70 ms tick, which
+// rewrote the whole line each time: the largest share of a streamed answer's
+// bytes (ADR 030, F2.1). Under reduced motion, the text alone.
 func (m *Model) moving(text string) string {
 	if m.App.Access.ReducedMotion {
 		return sAccent.Render(text)
 	}
-	return shine(text, m.frame)
+	return m.spinner() + " " + sAccent.Render(text)
 }
 
 // linear: the accessible mode (ADR 023), inside the same renderer — no
@@ -139,4 +163,71 @@ func (m *Model) renderLinear() (string, int) {
 	sb.WriteString("> " + m.ta.View() + "\n")
 	sb.WriteString(m.statusBar())
 	return sb.String(), row
+}
+
+// utf8Locale reports whether the locale's character set is UTF-8: the first
+// of LC_ALL, LC_CTYPE and LANG that is set decides, as in C.
+func utf8Locale() bool {
+	for _, k := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
+		if v := os.Getenv(k); v != "" {
+			v = strings.ToLower(v)
+			return strings.Contains(v, "utf-8") || strings.Contains(v, "utf8")
+		}
+	}
+	return false
+}
+
+// asciiStandIns are ASCII characters of the same width for the glyphs ternly
+// draws; asciiFrame uses them in the ASCII mode.
+var asciiStandIns = map[rune]byte{
+	'◆': '*', '◇': '*', '●': '*', '○': 'o', '◌': 'o', '◉': '*', '•': '*', '▣': '#', '■': '#', '□': '#',
+	'✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '⚠': '!', '⏹': '#', '⎿': '`', '↳': '`', '↻': '~',
+	'▸': '>', '▶': '>', '›': '>', '‹': '<', '»': '>', '«': '<', '→': '>', '←': '<', '↑': '^', '↓': 'v',
+	'…': '.', '·': '.', '—': '-', '–': '-', '“': '"', '”': '"', '‘': '\'', '’': '\'', '≥': '>', '≤': '<',
+	'⏎': '/', '×': 'x', '█': '#', '▏': '|', '▕': '|', '¦': '|', '\u00a0': ' ',
+}
+
+// asciiFrame makes a frame ASCII for a terminal that can't show UTF-8 (the
+// ASCII mode: a non-UTF-8 locale, or TERNLY_ASCII): ternly's glyphs become
+// their stand-ins, box drawing becomes + - |, and anything else outside
+// ASCII (a model's text in another script) becomes ? per column it takes.
+// Every replacement keeps the width, so the layout stays as computed.
+func asciiFrame(s string) string {
+	i := 0
+	for i < len(s) && s[i] < 0x80 {
+		i++
+	}
+	if i == len(s) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	b.WriteString(s[:i])
+	for _, r := range s[i:] {
+		switch {
+		case r < 0x80:
+			b.WriteRune(r)
+		case asciiStandIns[r] != 0:
+			b.WriteByte(asciiStandIns[r])
+		case r >= 0x2500 && r <= 0x257f: // box drawing
+			b.WriteByte(boxASCII(r))
+		case r >= 0x2580 && r <= 0x259f, r >= 0x2800 && r <= 0x28ff: // blocks, braille (spinners)
+			b.WriteByte('#')
+		default:
+			b.WriteString(strings.Repeat("?", max(1, ansi.StringWidth(string(r)))))
+		}
+	}
+	return b.String()
+}
+
+// boxASCII is a box-drawing character's ASCII stand-in: a horizontal line
+// '-', a vertical one '|', a corner or a junction '+'.
+func boxASCII(r rune) byte {
+	switch r {
+	case '─', '━', '┄', '┅', '┈', '┉', '╌', '╍', '═', '╴', '╶', '╸', '╺', '╼', '╾':
+		return '-'
+	case '│', '┃', '┆', '┇', '┊', '┋', '╎', '╏', '║', '╵', '╷', '╹', '╻', '╽', '╿':
+		return '|'
+	}
+	return '+'
 }

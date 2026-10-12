@@ -404,6 +404,7 @@ func TestIdleRebuild(t *testing.T) {
 	shape := filepath.Join(root, "shapes", "shape.go")
 	b, _ := os.ReadFile(shape)
 	_ = os.WriteFile(shape, append(b, []byte("\nfunc Triple(s Shape) float64 { return 3 * s.Area() }\n")...), 0o644)
+	seen(t, s, "shapes/shape.go") // a query before the watcher reports the edit doesn't see it (issue #12)
 	_, _, _ = s.Graph(bg, time.Second)
 	s.mu.Lock()
 	inexact := s.inexact

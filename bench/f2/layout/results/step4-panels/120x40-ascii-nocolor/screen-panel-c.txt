@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+Changes  Ctrl+X c · esc · pgup/pgdn
+1 file changed by ternly this session:
+  lru.go
+
+working tree
+  lru.go | 4 ++--
+   1 file changed, 2 insertions(+), 2 deletions(-)
+  untracked: NOTES.md
+  diff --git a/lru.go b/lru.go
+  index 1ff30a4..8c4199e 100644
+  --- a/lru.go
+  +++ b/lru.go
+  @@ -7,9 +7,9 @@ type Cache struct {
+   }
+
+   // Resize changes the capacity, evicting the oldest items that no longer fit.
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+  -func (c *Cache) evictOne() {
+  +func (c *Cache) evictFirst() {
+   if len(c.items) > c.cap {
+   c.items = c.items[1:]
+   }
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.9k/131.1k | $0.0000 | ! 1 error | quota out until 21:58
+ turn 0^ 0v | 0.0s | verify ok | undo 4

@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch                                               summarise the cache · bwrap · yolo
+
+  ◆ ternly  0.1.0 · Code, ternly.
+  ● ollama      1 models, 1 with tools · api
+  /help or Ctrl+K for commands · @ for files
+  tasks are routed to the cheapest capable model and escalated only on failure
+
+❯ summarise the cache
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 28 s, quota, p≥0.30
+  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ ✗ the provider's rate limit or quota ran out                                                                     │
+  │ HTTP 429: {"error":{"message":"SCRIPTED-FAILURE: rate limit reached for m1"}}                                    │
+  │ next: wait for the reset, or /model to pick another                                                              │
+  ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ↳ turn 0↑ 0↓ · $0.0000 · 11s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.2k/131.1k · $0.0000 · ⚠ 1 error · quota out, retry in about 1h (estimated)
+ turn 0↑ 0↓ · 11s · undo 1

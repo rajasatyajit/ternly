@@ -1,0 +1,23 @@
+◆ ternly  ~/proj-lru  fix-resize-branch                             bwrap · yolo
+
+  ◆ ternly  0.1.0 · Code, ternly.
+  ● fake        1 models, 1 with tools · api
+  /help or Ctrl+K for commands · @ for files
+  tasks are routed to the cheapest capable model and escalated only on failure
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ auto-routing · $0.0000

@@ -27,7 +27,10 @@ var allowed = map[string]string{
 	"internal/mcpauth/store.go Indexed.index":            "remote MCP credential index",
 	"internal/mcpauth/store.go writeAtomic":              "writes ternly's credential files",
 	"internal/mcpremote/remote.go Manager.grants":        "remote MCP network grants",
-	"internal/capability/catalog.go Catalog.open":        "catalog cache",
+	"internal/capability/catalog.go Catalog.loadState":   "catalog refresh state and validators (ADR 031)",
+	"background.go setBackgroundEval":                    "~/.config/ternly/config.json (the first-run answer, ADR 031)",
+	"internal/discover/quota.go QuotaLog.read":           "quota hits (ADR 031)",
+	"internal/idle/power.go sysfsPower":                  "/sys/class/power_supply (AC or battery, ADR 031)",
 	"internal/capability/rank.go Suggester.load":         "suggestion state",
 	"internal/capability/validate.go Outcomes.load":      "outcome log",
 	"internal/capability/validate.go Outcomes.Precision": "outcome log",
@@ -67,6 +70,8 @@ var allowed = map[string]string{
 	"internal/plugins/store.go OpenStore":                "plugin store index",
 	"internal/plugins/marketplace.go Store.Marketplaces": "plugin store index",
 	"internal/tui/commands.go Model.cmdEditor":           "the temp file the user's editor wrote",
+	"internal/tui/profile.go DetectEnv":                  "/sys cpufreq: the CPU's top clock, for the frame-rate profile",
+	"internal/tui/profile.go linuxPower":                 "/sys power_supply: AC or battery, for the frame-rate profile",
 
 	// the tool layer: already confined (os.Root)
 	"internal/tools/tools.go Registry.builtin": "fs.WalkDir over the registry's os.Root",

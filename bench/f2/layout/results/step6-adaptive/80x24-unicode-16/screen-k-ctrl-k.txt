@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    - c.cap = n; c.evictOne()
+    + c.cap = n; c.evictUntilFits()
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  161ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
+  ↳ turn 4.2k↑ 123↓ · $0.0000 · 0.4s · verified ✓ · 1 file changed (lru.go)
+  the sidebar needs 100 columns (this window has 80); /resume lists sessions
+
+› /help [command]                  list commands, or explain one
+  /clear                           new conversation in this session (files unto…
+  /new                             start a new session in place
+  /resume [id]                     pick a saved session, or switch to one
+  /fork [n|id]                     new session from this one (optionally before…
+  /rename <title>                  rename the session
+  /delete <id>                     delete a session and its checkpoints
+  /export [md|json] [file]         export the conversation
+   1/64 · ↑↓ to scroll
+╭────────────────────────────────────────────────────────────────────────────╮
+│ /                                                                          │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.5k/131.1k · $0.0000 · 4.2k↑ · 0.4s · ✓ · u1

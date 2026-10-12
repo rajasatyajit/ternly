@@ -1,0 +1,50 @@
+◆ ternly  ~/proj-lru                                                                                                                                                       Scripted Title · bwrap · yolo
+  ◆ fake/m1  T1 · free · T1 task → est. 28 s, free, p≥0.30
+  ● Read lru.go  0ms
+  ● Edit lru.go  (-1 +1 lines)  0ms
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  147ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+  routing for ~3.4k tokens of context
+  model                                   p     time     money     quota  score
+  fake/m1                              0.15      15s        $0        $0  0.556
+  lru.go | 2 +-
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  untracked: NOTES.md
+  diff --git a/lru.go b/lru.go
+  index 1ff30a4..7c40271 100644
+  --- a/lru.go
+  +++ b/lru.go
+  @@ -7,7 +7,7 @@ type Cache struct {
+   }
+
+   // Resize changes the capacity, evicting the oldest items that no longer fit.
+  -func (c *Cache) Resize(n int) { c.cap = n; c.evictOne() }
+  +func (c *Cache) Resize(n int) { c.cap = n; c.evictUntilFits() }
+
+   func (c *Cache) evictOne() {
+   if len(c.items) > c.cap {
+  session: $0.0000  in 4.2k · out 123 · cache read 0 / write 0 (0% hit) · 1 turns
+  guards: 0 invalid calls rejected · 0 denied · 0 injection flags · 0 loops stopped · 0 claims challenged (0 unbacked) · 1 checkpoints · 0 failovers · 0 empty answers asked again
+  ternly 0.1.0
+  session    20261011-181537-86cc50 “Scripted Title”
+  workspace  /var/tmp/ternly-layout-3001255639/home/proj-lru
+  model      auto-routing · last used fake/m1
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 18:15 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agents, rules from .cursor/rules, or /plugin add
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                                                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1                                                                                                                                                       ctx 3.4k/131.1k  ↑4.2k ↓123  $0.0000

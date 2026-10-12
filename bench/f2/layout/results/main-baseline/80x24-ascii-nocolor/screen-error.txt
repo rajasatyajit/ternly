@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
+  mode       yolo · sandbox bwrap
+  verify     go build ./... && go vet ./... + coverage checks of changed files
+  limits     60 steps · 30m0s · $2.00 per turn · budget $0.00
+  checkpoints on
+  memory     1 project · 0 user items · lexical · 600 tokens/turn
+  code graph on (Go): find_symbol, references, callers, … for the model
+  connections:
+    ✓ fake — FAKE_KEY · 1 model · pay per token (prices in the model list)
+  /rewind <n> [both|code|chat] restores to before turn n (● = changed files)
+   1 18:21 ●  Resize evicts one entry. find the cause and fix it
+  verify: go build ./... && go vet ./... + coverage checks of changed files
+  none — skills from ~/.claude/skills, .claude/skills, agents from .claude/agent
+
+❯ summarise what changed
+  ↻ memory: 1 note recalled (/memory to review)
+  ◆ fake/m1  T1 · free · T1 task → est. 6 s, free, p≥0.30
+  ✗ HTTP 500: {"error":{"message":"SCRIPTED-FAILURE: the upstream model is
+overloaded"}}
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1                               ctx 3.5k/131.1k  ↑4.2k ↓123  $0.0000

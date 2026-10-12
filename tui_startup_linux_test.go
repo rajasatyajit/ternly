@@ -62,8 +62,9 @@ func TestTUIStartupBudget(t *testing.T) {
 }
 
 // TestTUIIdleCPU (ADR 023): an idle TUI uses ~0% CPU. What remains is
-// Bubble Tea's renderer checking for changes at 60 fps: 0.3–0.65% over 20 s
-// on the development machine, up to 0.95% on a 4-vCPU CI runner — the
+// Bubble Tea's renderer checking for changes at ternly's 120 fps (ADR 032):
+// 0.45–0.55% over 20 s on the development machine (0.25–0.35% at the default
+// 60), and at 60 fps up to 0.95% on a 4-vCPU CI runner — the
 // same range the old always-on 70 ms ticker read, so this live test is a
 // gross guard (a busy loop, a redraw storm) at 2%, and
 // TestTickerStopsWhenIdle is the exact guard on the ticker. Background services

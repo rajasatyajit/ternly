@@ -40,6 +40,7 @@ const (
 	EvDone
 	EvError
 	EvProgress // the model is producing tool arguments or reasoning (N chunks so far this step); at most every 5 s
+	EvSubagent // a subagent started, moved on or finished: Sub has its state (for live lanes)
 )
 
 type Event struct {
@@ -53,7 +54,25 @@ type Event struct {
 	Elapsed time.Duration
 	Ledger  Ledger
 	N       int
-	Verdict string // verify's EvToolEnd: verified, failed or unverified
+	Verdict string    // verify's EvToolEnd: verified, failed or unverified
+	Args    string    // EvToolStart: the call's arguments (JSON, the model's text), so a UI can show an edit
+	Sub     *SubState // EvSubagent: the subagent's state (a copy)
+}
+
+// SubState is one subagent as a UI shows it in a lane: who it is, its model,
+// how far it got and what it costs. Name and Doing are outside text (the
+// agent definition's name, a tool summary).
+type SubState struct {
+	ID      int    // 1, 2, … within the turn
+	Name    string // the agent definition it runs
+	State   string // "queued" (waiting for a slot), "running", "done", "failed"
+	Model   string // the model it runs on, once chosen
+	Step    int    // tool calls so far
+	Doing   string // the current or last tool call
+	In, Out int    // its tokens
+	Cost    float64
+	Started time.Time     // when it got a slot
+	Took    time.Duration // when finished
 }
 
 type Ledger struct {
@@ -378,11 +397,15 @@ func (a *Agent) RunWith(ctx context.Context, prompt, extra string) {
 				return
 			}
 			hit, wait := llm.QuotaHit(err)
-			if hit && model.Cloud { // a subscription's quota or rate limit
-				if wait <= 0 {
-					wait = quotaCooldown
-				}
-				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait))
+			estimated := wait <= 0 // no Retry-After: the time is ours, shown as approximate
+			if estimated {
+				wait = quotaCooldown
+			}
+			switch {
+			case hit && model.Cloud: // a subscription's quota or rate limit
+				a.Router.MarkExhausted(model.Key(), time.Now().Add(wait), estimated)
+			case hit: // a pay-per-token API's: routing keeps it; background work doesn't (ADR 031)
+				a.Router.NoteQuotaHit(model.Key(), time.Now().Add(wait))
 			}
 			// a quota hit fails over whatever its status (402/403 "out of credits" aren't retryable)
 			if alt, ok := a.Router.FailoverFor(model, st.diff, st.ctx, need, st.tried); ok && (llm.IsRetryable(err) || hit) {
@@ -774,7 +797,7 @@ func (a *Agent) runTools(ctx context.Context, calls []llm.ToolCall, st *turnStat
 			blocked[i] = true
 			return
 		}
-		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary})
+		a.Emit(Event{Kind: EvToolStart, ToolID: tc.ID, Tool: tc.Name, Text: summary, Args: tc.Args})
 		t0 := time.Now()
 		if !blocked[i] {
 			manifest, before := a.manifestBefore(tc)
@@ -1174,6 +1197,12 @@ var (
 )
 
 func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(name string) bool) (string, error) {
+	return a.SubagentNamed(ctx, "subagent", system, prompt, allow)
+}
+
+// SubagentNamed is Subagent for a named agent definition: its lane (EvSubagent)
+// carries the name.
+func (a *Agent) SubagentNamed(ctx context.Context, name, system, prompt string, allow func(name string) bool) (string, error) {
 	n := a.subs.Add(1)
 	if int(n) > MaxSubagentsPerTurn {
 		return "", fmt.Errorf("fan-out limit: at most %d subagents per turn — do the rest yourself or in a later turn", MaxSubagentsPerTurn)
@@ -1199,21 +1228,41 @@ func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(
 			return "", fmt.Errorf("the session budget ($%.2f) is used up — no subagent started", budget)
 		}
 	}
+	// the lane: queued until a slot is free, then running; every change is
+	// sent as a copy (the UI keeps it; this goroutine keeps changing st)
+	st := SubState{ID: int(n), Name: name, State: "queued"}
+	var stMu sync.Mutex
+	lane := func(change func(*SubState)) {
+		stMu.Lock()
+		change(&st)
+		cp := st
+		stMu.Unlock()
+		a.Emit(Event{Kind: EvSubagent, Sub: &cp})
+	}
+	lane(func(*SubState) {})
 	select {
 	case sem <- struct{}{}:
 		defer func() { <-sem }()
 	case <-ctx.Done():
+		lane(func(s *SubState) { s.State = "failed"; s.Doing = "cancelled" })
 		return "", ctx.Err()
 	}
-	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("subagent %d/%d started", n, MaxSubagentsPerTurn)})
+	lane(func(s *SubState) { s.State, s.Started = "running", time.Now() })
+	a.Emit(Event{Kind: EvStatus, Text: fmt.Sprintf("subagent %d/%d started: %s", n, MaxSubagentsPerTurn, name)})
 	reg := a.Reg.Subset(func(n string) bool { return n != "task" && allow(n) })
 	child := &Agent{Reg: reg, Router: a.Router, Limits: childLim, Budget: childBudget, CP: a.CP, parent: a}
 	child.Emit = func(e Event) {
 		switch e.Kind {
+		case EvModel:
+			lane(func(s *SubState) { s.Model = e.Model.Key() })
 		case EvToolStart:
-			a.Emit(Event{Kind: EvStatus, Text: "subagent → " + e.Tool + " " + e.Text})
+			lane(func(s *SubState) { s.Step++; s.Doing = e.Tool + " " + e.Text })
+		case EvUsage, EvDone:
+			lane(func(s *SubState) {
+				s.In, s.Out, s.Cost = e.Ledger.Usage.In+e.Ledger.Usage.CacheRead+e.Ledger.Usage.CacheWrite, e.Ledger.Usage.Out, e.Ledger.Cost
+			})
 		case EvError:
-			a.Emit(Event{Kind: EvStatus, Text: "subagent: " + e.Text})
+			a.Emit(Event{Kind: EvStatus, Text: "subagent " + name + ": " + e.Text})
 		}
 	}
 	child.system = systemPrompt(a.Reg.Root) + "\n\n# Your role (a subagent)\n" + system + "\n\nWhen done, reply with your findings or result: it is returned to the agent that delegated this task.\n"
@@ -1221,9 +1270,11 @@ func (a *Agent) Subagent(ctx context.Context, system, prompt string, allow func(
 	h := child.Export().History
 	for i := len(h) - 1; i >= 0; i-- {
 		if h[i].Role == "assistant" && strings.TrimSpace(h[i].Content) != "" {
+			lane(func(s *SubState) { s.State, s.Took = "done", time.Since(s.Started) })
 			return h[i].Content, nil
 		}
 	}
+	lane(func(s *SubState) { s.State, s.Took = "failed", time.Since(s.Started) })
 	return "", errors.New("the subagent finished without an answer")
 }
 

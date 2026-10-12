@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*           Scripted Title · bwrap · yolo
+
+  Edited after your yes.
+  ● Verify go build ./... && go vet ./...  189ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
+  ↳ turn 5.1k↑ 62↓ · $0.0000 · 1.0s · verified ✓ · 1 file changed (lru.go)
+  permission mode: yolo
+
+❯ summarise what changed
+  ↻ memory: 1 note recalled (/memory to review)
+  ◆ ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task…
+  ╭──────────────────────────────────────────────────────────────────────────╮
+  │ ✗ the provider's rate limit or quota ran out                             │
+  │ HTTP 429: {"error":{"message":"SCRIPTED-FAILURE: rate limit reached for  │
+  │ m1; try again in an hour"}}                                              │
+  │ next: wait for the reset, or /model to pick another                      │
+  ╰──────────────────────────────────────────────────────────────────────────╯
+  ↳ turn 0↑ 0↓ · $0.0000 · 0.0s
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.9k/131.1k · $0.0000 · ⚠ 1 error · quota✗
+ turn 0↑ 0↓ · 0.0s · verify ✓ · undo 4

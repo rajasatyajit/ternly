@@ -47,7 +47,7 @@ jobs:
       - name: staticcheck (linux, darwin, e2e)
         run: |
           # installed, not "go run": GOOS=darwin would cross-compile staticcheck itself
-          GOBIN="$RUNNER_TEMP/bin" go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
+          GOBIN="$RUNNER_TEMP/bin" go install honnef.co/go/tools/cmd/staticcheck@v0.7.0-0.dev.0.20261009230814-452d5bb86b45 # master: v0.8.1 cannot read go1.27.2 export data (v5); back to a release once one ships
           sc="$RUNNER_TEMP/bin/staticcheck"
           $sc ./...
           GOOS=darwin $sc ./...
@@ -64,10 +64,10 @@ jobs:
         # sentinel repository, as a hook in a worktree would set them; the
         # sentinel must be unchanged
         run: bench/gitenv-sentinel.sh
-      - name: TUI budgets — startup, idle CPU, frame times (ADR 023; without -race, which distorts timing)
+      - name: TUI budgets — startup, idle CPU, frame times (ADR 023), keystroke echo (ADR 032; without -race, which distorts timing)
         run: |
           go test -count=1 -run '^(TestTUIStartupBudget|TestTUIIdleCPU)$' -v .
-          go test -count=1 -run '^(TestFrameBudgets|TestSidebarFrameBudget)$' -v ./internal/tui
+          go test -count=1 -run '^(TestFrameBudgets|TestSidebarFrameBudget|TestKeystrokeEcho)$' -v ./internal/tui
       - name: static build
         run: |
           CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ternly .

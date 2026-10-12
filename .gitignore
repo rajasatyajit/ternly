@@ -8,3 +8,9 @@ bench/dogfood/
 .perf-work-*/
 bench/baseline.json.new
 /fakeprovider
+
+# F2 survey raw recordings: other harnesses' screens and this machine's environment (local only)
+bench/f2/probe/results/
+bench/f2/probe/results-*/
+bench/f2/scenarios/results/
+bench/f2/reach/results/

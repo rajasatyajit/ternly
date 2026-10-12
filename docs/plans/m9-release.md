@@ -26,8 +26,8 @@ Status: approved 2026-10-06 with decisions; executed in M9 — see docs/adr/016-
      script, so **they need a manual search**.
    - "Turnly" (a queue-management SaaS, turnly.app) sounds the same; in Class 9/42 that's a
      similarity risk to weigh.
-3. **The AUR maintainer line** in the PKGBUILD reads `satyajit.rajaraman@gmail.com`, which isn't
-   the account address. Confirm which one you want public.
+3. **The AUR maintainer line** in the PKGBUILD reads `maintainer at ternly dot sh`: no personal
+   address is published.
 
 ## Work
 ### A. Release pipeline (goreleaser)

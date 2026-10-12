@@ -67,7 +67,11 @@ type Quota struct {
 	Unit           string  // "requests", "tokens", "USD", "%"
 	ResetsAt       time.Time
 	ExhaustedUntil time.Time // set while routing skips this source (failover, ADR 018)
-	Source         string    // the official signal, e.g. "x-ratelimit-remaining header", "claude /status"
+	// UntilEstimated: ExhaustedUntil is ternly's estimate (the provider gave
+	// no Retry-After and no reset time), so it is shown as "about 1h", never
+	// as a clock time.
+	UntilEstimated bool
+	Source         string // the official signal, e.g. "x-ratelimit-remaining header", "claude /status"
 }
 
 // Model is one routable model.

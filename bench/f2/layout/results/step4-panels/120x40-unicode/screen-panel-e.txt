@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+Last error  Ctrl+X e · esc · pgup/pgdn
+✗ the provider's rate limit or quota ran out
+at 20:56:27 · ollama/m1
+
+HTTP 429: {"error":{"message":"SCRIPTED-FAILURE: rate limit reached for m1; try again in an hour"}}
+
+before it, this turn
+  memory: 1 note recalled (/memory to review)
+
+next: wait for the reset, or /model to pick another
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ◆ ollama/m1 T1 ▸ cheapest · ctx 3.9k/131.1k · $0.0000 · ⚠ 1 error · quota out until 21:56
+ turn 0↑ 0↓ · 0.0s · verify ✓ · undo 4

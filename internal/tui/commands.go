@@ -18,6 +18,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
@@ -38,7 +40,7 @@ type command struct {
 	run     func(m *Model, arg string) tea.Cmd // nil: handled by legacyCommand
 }
 
-var sections = []string{"Session", "Models & cost", "Setup", "Changes", "Planning & modes", "Files & shell", "Extensions"}
+var sections = []string{"Session", "Panels", "Models & cost", "Setup", "Changes", "Planning & modes", "Files & shell", "Extensions"}
 
 // builtins is filled in init: the table refers to methods of Model.
 var builtins []*command
@@ -61,6 +63,10 @@ func init() {
 		{name: "pause", section: "Session", desc: "stop at a safe point and save"},
 		{name: "stop", section: "Session", desc: "save as stopped and exit"},
 		{name: "exit", aliases: []string{"quit", "q"}, section: "Session", desc: "exit (the session is saved)"},
+
+		{name: "panel", args: "agents|changes|error|plan|routing", section: "Panels", desc: "open or close a panel (the leader key, then its letter)", run: (*Model).cmdPanel},
+		{name: "output", section: "Panels", desc: "show tool output in full, or collapse it again", run: func(m *Model, _ string) tea.Cmd { m.toggleExpanded(); return nil }},
+		{name: "sidebar", section: "Panels", desc: "the session list beside the transcript (100 columns or more)", run: func(m *Model, _ string) tea.Cmd { m.toggleSidebar(); return nil }},
 
 		{name: "model", args: "[id|auto]", section: "Models & cost", desc: "pin a model, or return to cost-aware routing"},
 		{name: "models", args: "[filter | why [model]]", section: "Models & cost", desc: "list models: tier, price, context; routing v2: rank and why"},
@@ -165,12 +171,14 @@ func (m *Model) dispatch(v string) tea.Cmd {
 	name, arg, _ := strings.Cut(strings.TrimPrefix(v, "/"), " ")
 	arg = strings.TrimSpace(arg)
 	if c := lookup(name); c != nil {
+		m.noteRecent(c.name, arg)
 		if c.run != nil {
 			return c.run(m, arg)
 		}
 		return m.legacyCommand("/"+c.name, arg, v)
 	}
 	if u := m.userCommand(name); u != nil {
+		m.noteRecent(u.Name, "")
 		return m.runUser(u, arg)
 	}
 	m.addInfo(sErr.Render("  unknown command /" + name + " — /help"))
@@ -250,7 +258,9 @@ func (m *Model) cmdHelp(arg string) tea.Cmd {
 			b.WriteString(fmt.Sprintf("    %-34s %s\n", "/"+u.Name+" "+u.ArgHint, sDim.Render(u.Description)))
 		}
 	}
-	b.WriteString(sDim.Render("  @path includes a file · !cmd runs a command · Tab completes · Enter send · Shift/Alt+Enter newline · Esc interrupt · PgUp/PgDn scroll · ↑↓ history · Ctrl+K commands · Ctrl+O tool output · Ctrl+B sessions"))
+	b.WriteString(wrapList(sDim, []string{"@path includes a file", "!cmd runs a command", "Tab completes", "Enter sends",
+		"Shift/Alt+Enter newline", "Esc clears the input, then interrupts", "Ctrl+U deletes to the line start",
+		"PgUp/PgDn scroll", "↑↓ history", "Ctrl+K commands", keyName(m.leader()) + " then a letter: panels", "Ctrl+O tool output", "Ctrl+B sessions"}, m.cw()))
 	m.addInfo(b.String())
 	return nil
 }
@@ -522,6 +532,12 @@ func (m *Model) cmdDoctor(string) tea.Cmd {
 		} else {
 			line(ok, "models", fmt.Sprintf("%d from %d providers (%d local, %d with tools)", len(ms), len(provs), local, tools))
 		}
+		if f := m.App.Frame; f.FPS > 0 {
+			line(ok, "frame rate", fmt.Sprintf("%d fps, the %s profile: %s (ui.fps in config.json overrides)", f.FPS, f.Name, f.Why))
+			if w := f.EchoWarning(); w != "" {
+				line(warn, "", w)
+			}
+		}
 		if m.App.Agent.CP != nil {
 			line(ok, "checkpoints", "on (/undo, /rewind restore files)")
 		} else {
@@ -619,31 +635,36 @@ func colorDiff(d string, maxLines int) string {
 }
 
 func (m *Model) cmdDiff(string) tea.Cmd {
-	return func() tea.Msg {
-		ctx := context.Background()
-		if !m.isGit(ctx) {
-			p, err := m.App.Agent.PlanRewind(ctx, 1, agent.RewindCode)
-			if err != nil || len(p.Changes) == 0 {
-				return infoMsg(sDim.Render("  not a git repository, and no checkpointed changes in this session"))
-			}
-			return infoMsg("  changed in this session (not a git repository; contents via /rewind):\n  " + checkpoint.Describe(p.Changes, 50))
+	return func() tea.Msg { return infoMsg(m.diffText(200)) }
+}
+
+// diffText is /diff: the working tree's changes (git diff and untracked
+// files), or outside git the files this session's checkpoints changed; at
+// most maxLines diff lines. It runs git: call it off the UI goroutine.
+func (m *Model) diffText(maxLines int) string {
+	ctx := context.Background()
+	if !m.isGit(ctx) {
+		p, err := m.App.Agent.PlanRewind(ctx, 1, agent.RewindCode)
+		if err != nil || len(p.Changes) == 0 {
+			return sDim.Render("  not a git repository, and no checkpointed changes in this session")
 		}
-		stat, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "--stat", "HEAD")
-		d, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "HEAD")
-		un, _ := m.git(ctx, "ls-files", "--others", "--exclude-standard")
-		if strings.TrimSpace(d) == "" && strings.TrimSpace(un) == "" {
-			return infoMsg(sDim.Render("  no changes"))
-		}
-		var b strings.Builder
-		if s := strings.TrimSpace(stat); s != "" {
-			b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
-		}
-		if u := strings.TrimSpace(un); u != "" {
-			b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
-		}
-		b.WriteString(colorDiff(d, 200))
-		return infoMsg(b.String())
+		return "  changed in this session (not a git repository; contents via /rewind):\n  " + checkpoint.Describe(p.Changes, 50)
 	}
+	stat, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "--stat", "HEAD")
+	d, _ := m.git(ctx, "diff", "--no-ext-diff", "--no-textconv", "HEAD")
+	un, _ := m.git(ctx, "ls-files", "--others", "--exclude-standard")
+	if strings.TrimSpace(d) == "" && strings.TrimSpace(un) == "" {
+		return sDim.Render("  no changes")
+	}
+	var b strings.Builder
+	if s := strings.TrimSpace(stat); s != "" {
+		b.WriteString(sDim.Render("  "+strings.ReplaceAll(s, "\n", "\n  ")) + "\n")
+	}
+	if u := strings.TrimSpace(un); u != "" {
+		b.WriteString(sWarn.Render("  untracked: ") + untrusted(strings.ReplaceAll(u, "\n", ", ")) + "\n")
+	}
+	b.WriteString(colorDiff(d, maxLines))
+	return b.String()
 }
 
 func (m *Model) cmdGit(arg string) tea.Cmd {
@@ -1318,6 +1339,7 @@ func (m *Model) cmdCommands(arg string) tea.Cmd {
 
 type compItem struct {
 	name, hint, desc string
+	keys             string // the keys that do the same, shown at the right
 	project          bool
 }
 
@@ -1378,17 +1400,42 @@ func (m *Model) updateCompletion() {
 		s int
 	}
 	var all []scored
-	for _, c := range builtins {
-		best := fuzzyScore(q, c.name)
-		for _, a := range c.aliases {
+	// score: a name match first; else the query in the description (lowest);
+	// with nothing typed, the recently used first
+	score := func(name string, names []string, desc string) int {
+		best := fuzzyScore(q, name)
+		for _, a := range names {
 			best = max(best, fuzzyScore(q, a)-5)
 		}
-		if best >= 0 {
-			all = append(all, scored{compItem{name: c.name, hint: c.args, desc: c.desc}, best})
+		if best < 0 && len(q) >= 3 && strings.Contains(strings.ToLower(desc), q) {
+			best = 0
+		}
+		if q == "" {
+			for i, r := range m.recent {
+				if r == name {
+					best = 2000 - i
+				}
+			}
+		}
+		return best
+	}
+	for _, c := range builtins {
+		if s := score(c.name, c.aliases, c.desc); s >= 0 {
+			all = append(all, scored{compItem{name: c.name, hint: c.args, desc: c.desc, keys: m.commandKeys(c.name)}, s})
+		}
+	}
+	for i := range keyActions { // every panel, with its keys
+		a := &keyActions[i]
+		if a.panel == "" {
+			continue
+		}
+		name := "panel " + string(a.panel)
+		if s := score(name, []string{string(a.panel)}, panelDescs[a.panel]); s >= 0 {
+			all = append(all, scored{compItem{name: name, desc: panelDescs[a.panel], keys: m.actionKeys(a)}, s})
 		}
 	}
 	for _, u := range m.userCmds {
-		if s := fuzzyScore(q, strings.ToLower(u.Name)); s >= 0 {
+		if s := score(strings.ToLower(u.Name), nil, u.Description); s >= 0 {
 			all = append(all, scored{compItem{name: u.Name, hint: u.ArgHint, desc: u.Description, project: u.Project}, s})
 		}
 	}
@@ -1463,26 +1510,49 @@ func (m *Model) compKey(k tea.KeyPressMsg) (tea.Cmd, bool) {
 func (m *Model) compView() string {
 	var b strings.Builder
 	first := min(max(0, m.comp.sel-compRows/2), max(0, len(m.comp.items)-compRows))
+	sigil := "/"
+	if m.comp.file {
+		sigil = "@"
+	}
+	// one name column for the whole list (it scrolls), as wide as the widest
+	// name and hint, at most 40 columns and 2/5 of the screen; padded and cut
+	// by what shows, not by bytes (a hint's styling has none)
+	col := 0
+	for _, it := range m.comp.items {
+		w := ansi.StringWidth(sigil + it.name)
+		if it.hint != "" {
+			w += 1 + ansi.StringWidth(it.hint)
+		}
+		col = max(col, w)
+	}
+	col = min(col, 40, max(12, m.w*2/5))
 	for i, it := range m.comp.items {
 		if i < first || i >= first+compRows {
 			continue
 		}
-		name := "/" + it.name
-		if m.comp.file {
-			name = "@" + it.name
+		text := ansi.Truncate(sigil+it.name, col, "…")
+		if room := col - ansi.StringWidth(text) - 1; it.hint != "" && room >= 4 {
+			text += " " + sDim.Render(ansi.Truncate(it.hint, room, "…"))
 		}
-		if it.hint != "" {
-			name += " " + sDim.Render(it.hint)
-		}
+		text += strings.Repeat(" ", max(0, col-lipgloss.Width(text)))
 		desc := it.desc
 		if it.project {
 			desc += " (project)"
 		}
-		line := fmt.Sprintf(" %-40s %s", name, sDim.Render(truncate(desc, max(10, m.w-48))))
+		keys, descW := it.keys, m.w-col-3
+		if kw := ansi.StringWidth(keys); keys != "" && descW-kw-3 >= 16 { // keys at the right, if the description keeps room
+			descW -= kw + 3
+		} else {
+			keys = ""
+		}
+		line := " " + text + " " + sDim.Render(truncate(desc, max(8, descW)))
 		if i == m.comp.sel {
 			line = sAccent.Render("›") + line
 		} else {
 			line = " " + line
+		}
+		if keys != "" {
+			line += strings.Repeat(" ", max(2, m.w-1-lipgloss.Width(line)-ansi.StringWidth(keys))) + sAccent.Render(keys)
 		}
 		b.WriteString(line + "\n")
 	}

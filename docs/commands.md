@@ -42,6 +42,13 @@ agents, hooks), **no** (a reason is given).
 | `/exit` (`/quit`, `/q`) | CC CX GM AI OC | exit (the session is saved as paused) | yes |
 | `/pause`, `/stop` | ternly (requirement 10) | stop at a safe point and save / save as stopped and exit. CC's and CX's `/stop` stop background work, which ternly doesn't run | yes |
 
+## Panels
+| ternly | sources | semantics in ternly | status |
+|---|---|---|---|
+| `/panel agents\|changes\|error\|plan\|routing` | ternly (ADR 030); panels as in OC (leader key) and CX | open or close a panel: agents (each subagent in full), changes (files ternly changed this session, and the working tree's diff), the last error (cause, message, the retries and failover before it), the plan (no plan data until Phase C), routing (why this model, and `/why`'s ranking). The palette lists each with its keys | yes |
+| `/output` | ternly (ADR 030); Ctrl+O as in CC | show tool output in full, or collapse it again (also Ctrl+O, Ctrl+X o) | yes |
+| `/sidebar` | ternly (ADR 023) | the session list beside the transcript, 100 columns or more (also Ctrl+B, Ctrl+X s) | yes |
+
 ## Models, cost and context
 | ternly | sources | semantics in ternly | status |
 |---|---|---|---|
@@ -137,8 +144,24 @@ Markdown files become commands. The file name gives the name, and subdirectories
 Typing `/` opens a list of commands (built-in and user-defined) with descriptions. It filters by
 fuzzy match as you type; Tab completes and ↑/↓ choose.
 
-## Keys (ADR 023)
-- **Ctrl+K:** every command, fuzzy-filtered.
+## Keys (ADR 023, ADR 030)
+- **Ctrl+X, then a letter:** a panel or an action, with a popup listing the letters while it waits:
+  a agents, c changes, e last error, p plan, r why (routing), s sessions, o tool output, k commands.
+  The leader is set in config.json, `"keys": {"leader": "f2"}` (a Ctrl or Alt letter, or an
+  F-key; not one of the keys below, nor one the input uses). At 160 columns or more a panel docks
+  beside the transcript; narrower, it takes the transcript's place. Esc closes it, PgUp/PgDn
+  scroll it. Where the terminal disambiguates keys (the kitty keyboard protocol), Alt+letter opens
+  the same directly, except for the letters the input uses with Alt (b, c, d, f, l, u).
+- **Ctrl+K:** every command, fuzzy-filtered. Panels are listed too (`/panel …`), with their keys. Each row shows, at the right, the keys that do the same; a
+  query of three letters or more also matches descriptions ("diff" finds the changes panel); with
+  nothing typed, the five most recently used come first.
+- **Esc:** clears what's typed; with nothing typed, interrupts a running turn. (Before ADR 030 it
+  only interrupted.) In a list or a question, Esc closes it, as before.
+- **Ctrl+U:** deletes from the cursor to the start of the line, as in a shell. (Before ADR 030 it
+  scrolled up half a page.)
+- **PgUp/PgDn:** scroll the transcript half a page. Ctrl+D no longer scrolls (nor deletes
+  forward: Delete does): ternly binds none of Ctrl+D, Ctrl+R, Ctrl+S, Ctrl+Q and Ctrl+Z, which
+  terminals and shells already use.
 - **`@`:** pick a workspace file.
 - **Ctrl+O:** a tool's full output.
 - **Ctrl+B:** the session sidebar. ↑↓ select, Enter switches, Esc returns to the input, and Ctrl+B
@@ -146,7 +169,15 @@ fuzzy match as you type; Tab completes and ↑/↓ choose.
 - **Edit review:** when an edit asks, ↑↓ move between hunks, Space toggles one, y applies the
   selected hunks, a also stops asking, and n or Esc declines.
 - **`--accessible`** (or `TERNLY_SCREEN_READER=1`): linear output in the terminal's scrollback,
-  plain text, nothing animates.
+  plain text, nothing animates. Subagents are announced when their state changes ("[agent lexer] done:
+  …").
+- **The frame rate** is chosen at startup (Bubble Tea can't change it while running): 120 fps on AC
+  power in a local terminal on a capable CPU (4+ CPUs, 2 GHz+); 30 on battery, on a smaller CPU, or
+  over SSH (where the spinner also stops). A key shows at the next frame: within about 9 ms at 120
+  fps and 33 ms at 30 (p95). Below 30 fps `/doctor` says how long a key can wait. `"ui": {"fps": N}` in config.json overrides it; `/doctor`
+  shows the profile and why.
+- **ASCII mode** (a non-UTF-8 locale, or `TERNLY_ASCII=1`): every frame is ASCII, boxes and the
+  input box included; other scripts show as `?` per column.
 
 ## Out of scope (account, cloud and vendor-app features)
 - **CC:** `/login`, `/logout`, `/upgrade`, `/usage-credits`, `/passes`, `/mobile`, `/desktop`,

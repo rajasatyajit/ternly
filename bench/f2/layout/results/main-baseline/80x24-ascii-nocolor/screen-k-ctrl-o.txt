@@ -1,0 +1,24 @@
+◆ ternly  ~/proj-lru                               Scripted Title · bwrap · yolo
+    ⎿     15        }
+    ⎿     16    }
+    ⎿     17
+    ⎿     18    func (c *Cache) evictUntilFits() {
+    ⎿     19        for len(c.items) > c.cap {
+    ⎿     20            c.items = c.items[1:]
+    ⎿     21        }
+    ⎿     22    }
+    ⎿ ctrl+o collapses
+  ● Edit lru.go  (-1 +1 lines)  0ms
+    ⎿ edited lru.go (1 replacement(s))
+    ⎿ ctrl+o collapses
+
+  Fixed: Resize now evicts until the cache fits, not just one entry.
+  ● Verify go build ./... && go vet ./...  149ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: …
+    ⎿ ctrl+o collapses
+  the sidebar needs 100 columns (this window has 80); /resume lists sessions
+
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                              │
+╰────────────────────────────────────────────────────────────────────────────╯
+ ◆ fake/m1 T1                               ctx 3.4k/131.1k  ↑4.2k ↓123  $0.0000

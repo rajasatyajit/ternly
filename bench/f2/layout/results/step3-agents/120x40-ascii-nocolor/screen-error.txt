@@ -1,0 +1,40 @@
+◆ ternly  ~/proj-lru  fix-resize-branch*                                                   Scripted Title · bwrap · yolo
+  ↻ memory: 1 note recalled (/memory to review)
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T2 task → est. 15 s, quota, p≥0.15
+  ● task tests: Say which tests cover Resize.  2.8s
+  ● task lexer: Find every caller of the eviction helpers.  2.4s
+  ↻ subagent 1/4 started: tests
+  ↻ subagent 2/4 started: lexer
+
+  Both agents reported back: the callers are fixed and no test covers Resize yet.
+  -> turn 8.0k^ 178v | $0.0000 | 2.9s
+  permission mode: ask
+
+❯ rename the first-eviction helper
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 5 s, quota, p≥0.30
+  ● Edit lru.go  (-1 +1 lines)  774ms
+    - func (c *Cache) evictOne()
+    + func (c *Cache) evictFirst()
+  applied 1 of 1 hunks to lru.go
+
+  Edited after your yes.
+  ● Verify go build ./... && go vet ./...  116ms
+    ⎿ go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) cov…
+  -> turn 5.1k^ 62v | $0.0000 | 0.9s | verified ok | 1 file changed (lru.go)
+  permission mode: yolo
+
+❯ summarise what changed
+  ↻ memory: 1 note recalled (/memory to review)
+  * ollama/m1  T1 · cloud·quota · chosen as the cheapest capable model: T1 task → est. 5 s, quota, p≥0.30
+  +------------------------------------------------------------------------------------------------------------------+
+  | x the provider's rate limit or quota ran out                                                                     |
+  | HTTP 429: {"error":{"message":"SCRIPTED-FAILURE: rate limit reached for m1; try again in an hour"}}              |
+  | next: wait for the reset, or /model to pick another                                                              |
+  +------------------------------------------------------------------------------------------------------------------+
+  -> turn 0^ 0v | $0.0000 | 0.0s
+
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Ask ternly to build, fix or explain…  (/help)                                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ * ollama/m1 T1 > cheapest | ctx 3.9k/131.1k | $0.0000 | ! 1 error | quota out until 20:27
+ turn 0^ 0v | 0.0s | verify ok | undo 4
