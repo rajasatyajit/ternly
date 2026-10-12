@@ -100,6 +100,9 @@ These records are **not yet merged** into `internal/eval/defaults.json`.
 6. **Delegation by weaker models** (added 2026-10-12, docs/plans/v0.2.md item 4): measure how often each local
    model calls the subagent (`task`) tool on S3-style tasks; if rarely, improve the tool's description and
    A/B it.
+   **Built:** the `general_agent` lever (a built-in "general" sub-agent when no agents are defined, so the
+   `task` tool exists), `suite -suffix` (with `\s` for spaces in plan files) and the "delegated in k of n"
+   count. **To run:** plan-next steps E1 (suffix only) and E2 (suffix + `general_agent`) on four feature tasks.
 7. **The plan panel** (ADR 030): the core's plan steps (PlanFirst) reach the snapshot; the TUI's plan panel and
    status line should show them (facts 9 and 10), measured with the layout harness.
 8. **The report:**
