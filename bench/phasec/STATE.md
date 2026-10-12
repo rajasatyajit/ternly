@@ -37,8 +37,9 @@ stand as measured.
 
 ## New local model set (installed now)
 qwen3.8 (dense, 27.3B), gemma4:latest (7.5B; the same weights as today's e4b), gemma4:26b,
-granite4.2 (8.8B), and gemma4:31b, **still the old build**. Its update is paused at 83% by the
-owner; resume with `ollama pull gemma4:31b`. IDs are in `models/local-models-ids.txt`.
+granite4.2 (8.8B), and gemma4:31b, **still the old build**. Pulled on 2026-10-13: now
+17ba34c06c80. The evals stop at gemma4:latest and gemma4:26b (owner, 2026-10-13); granite4.2, qwen3.8 and
+gemma4:31b route without a measurement. IDs are in `models/local-models-ids.txt`.
 
 Speed in Ollama, warm, from `models/modelload-new.txt`:
 
@@ -105,6 +106,12 @@ These records are **not yet merged** into `internal/eval/defaults.json`.
    count. **To run:** plan-next steps E1 (suffix only) and E2 (suffix + `general_agent`) on four feature tasks.
 7. **The plan panel** (ADR 030): the core's plan steps (PlanFirst) reach the snapshot; the TUI's plan panel and
    status line should show them (facts 9 and 10), measured with the layout harness.
+9. **Ollama context (found 2026-10-13):** a plain `ollama serve` runs each model at 4096 tokens while ternly
+   budgets for the trained context it reads from `/api/show` (128k for gemma4), so the server silently drops
+   what doesn't fit. `/v1/chat/completions` ignores `num_ctx` (top level or in `options`); `/api/chat` honours
+   it (checked on Ollama 0.40.3). Fix (own PR, not Phase C): read the loaded context from `/api/ps`, budget to
+   it, and warn in `/doctor`; or talk to Ollama through `/api/chat` with `num_ctx`. Phase C's runs use the
+   service's settings (OLLAMA_CONTEXT_LENGTH=131072, flash attention, q8_0 KV cache).
 8. **The report:**
    - ADR 029's Results section (routing fix, levers keep/drop, reproducibility, cost and time per
      successful task);
