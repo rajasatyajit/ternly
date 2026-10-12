@@ -555,12 +555,13 @@ func (s *suite) runCmd(args []string) error {
 	extra := fl.String("args", "", "extra ternly arguments, space-separated")
 	resume := fl.Bool("resume", true, "skip task×model×arm×run already in results.jsonl for this binary (rows without a binary hash are attributed to <out>/ternly)")
 	stable := fl.Bool("stable-ws", false, "one workspace path per task×model×arm, reused run after run (identical requests, so a response cache can answer them); forces -parallel 1")
-	fl.StringVar(&promptSuffix, "suffix", "", "text appended to every task's prompt in this arm (needs -arm), e.g. \"Use parallel sub-agents if you can.\"")
+	fl.StringVar(&promptSuffix, "suffix", "", "text appended to every task's prompt in this arm (needs -arm; \\s is a space, for plan files), e.g. Use\\sparallel\\ssub-agents\\sif\\syou\\scan.")
 	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
 	if promptSuffix != "" && *arm == "" {
 		return errors.New("-suffix changes the prompt: give the arm a name with -arm")
 	}
+	promptSuffix = strings.ReplaceAll(promptSuffix, `\s`, " ") // plan.sh splits on spaces: write them as \s
 	if _, err := lookBwrap(); err != nil && !unsafeNoSandbox {
 		return errNoSandbox // before spending any model quota
 	}

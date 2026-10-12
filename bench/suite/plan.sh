@@ -49,7 +49,7 @@ while read -r name args; do
   echo "[$(date -u +%FT%TZ)] step $n/$total $name: suite run $args"
   args=${args//\{OUT\}/$out}; args=${args//\{BIN\}/$out/ternly}
   # shellcheck disable=SC2086
-  if flock "$LOCK" "$out/suite" run $args; then
+  if flock -o "$LOCK" "$out/suite" run $args; then # -o: nothing the run starts inherits the lock
     date -u +%FT%TZ >"$out/steps/$name.done"
     echo "[$(date -u +%FT%TZ)] step $n/$total $name: done"
   else

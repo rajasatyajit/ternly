@@ -13,3 +13,7 @@ C6-nofactcheck   -models auto -args --local-only -parallel 1 -timeout 15m -runs 
 D1-sampled       -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -arm sampled -bin {BIN} -out {OUT}/repro
 D2-det           -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -arm det -env TERNLY_DETERMINISTIC=1,TERNLY_RESPONSE_CACHE=0 -bin {BIN} -out {OUT}/repro
 D3-det-cache     -models auto -args --local-only -parallel 1 -timeout 15m -runs 5 -tasks ^(lru-resize|mitt-emit-count|mi-rstrip|ternly-retry-after)$ -stable-ws -arm det-cache -env TERNLY_DETERMINISTIC=1,TERNLY_RESPONSE_CACHE_DIR={OUT}/cache -bin {BIN} -out {OUT}/repro
+# Step 6, delegation (S3 of F2): the same prompt suffix in both arms; general adds
+# the built-in "general" sub-agent, so the task tool exists without agent files.
+E1-deleg-control -models auto -args --local-only -parallel 1 -timeout 15m -runs 2 -tasks ^(mitt-once|mitt-emit-count|lru-peek-expiry|mi-chunk-weight)$ -arm deleg-control -suffix Use\sparallel\ssub-agents\sif\syou\scan. -bin {BIN} -out {OUT}/deleg
+E2-deleg-general -models auto -args --local-only -parallel 1 -timeout 15m -runs 2 -tasks ^(mitt-once|mitt-emit-count|lru-peek-expiry|mi-chunk-weight)$ -arm deleg-general -suffix Use\sparallel\ssub-agents\sif\syou\scan. -env TERNLY_LEVERS=general_agent -bin {BIN} -out {OUT}/deleg
