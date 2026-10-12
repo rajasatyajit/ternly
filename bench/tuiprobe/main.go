@@ -585,7 +585,18 @@ func main() {
 	flag.BoolVar(&syncCapable, "sync-capable", true, "emulate a terminal that supports synchronized output (DECRQM 2026 answers recognized)")
 	reapHome := flag.String("reap", "", "only reap: stop every process whose environment has HOME=<this>, report, exit (1 if any survive)")
 	sumDir := flag.String("summarize", "", "only summarise: print markdown tables of the matrix results in this directory")
+	rowRaw := flag.String("rowbytes", "", "only analyse: which screen rows a raw recording (-raw) wrote its bytes to (-rows sets the height)")
+	flag.IntVar(&dumpRow, "rowbytes-dump", 0, "-rowbytes: also print the text written to this row")
 	flag.Parse()
+	if *rowRaw != "" {
+		all, _, err := readRaw(*rowRaw)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "tuiprobe:", err)
+			os.Exit(1)
+		}
+		rowBytes(all, *rows, os.Stdout)
+		return
+	}
 	if *sumDir != "" {
 		if err := summarize(os.Stdout, *sumDir); err != nil {
 			fmt.Fprintln(os.Stderr, "tuiprobe:", err)

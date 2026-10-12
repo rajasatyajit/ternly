@@ -520,8 +520,15 @@ interval, half of one on average). The owner's decision (2026-10-12) is **low-po
 | Profile | When | fps | Idle CPU: budget / measured | Echo p95: budget / measured |
 |---|---|---|---|---|
 | full | AC power, local terminal, ≥ 4 CPUs at ≥ 2 GHz | 120 | pending upstream #1858 / 0.70–1.55 % | ≤ 16 ms / 9.2–9.5 ms: **met** |
-| low-power | on battery, or < 4 CPUs, or < 2 GHz | 30 | ≤ 0.5 % / 0.30 % (AMD 9V45), 0.45–0.50 % (Intel 8370C), 0.70–0.85 % (AMD 7763): **unmet on the slowest runner; pending upstream #1858** | ≤ 16 ms / 33.1–33.7 ms: **unmet** |
+| low-power | on battery, or < 4 CPUs, or < 2 GHz | 30 | ≤ 0.5 % / 0.30 % (AMD 9V45), 0.45–0.50 % (Intel 8370C), 0.70–0.85 % (AMD 7763): **unmet on the slowest runner; pending upstream #1858** | ≤ 40 ms (a deliberate trade, below) / 33.1–33.7 ms: **met** |
 | remote | over SSH (also stops the spinner) | 30 | as low-power | as low-power |
+
+**Echo budgets by profile (the owner's decision, 2026-10-12):**
+- **full:** ≤ 16 ms p95.
+- **low-power and remote:** ≤ 40 ms p95. This is a deliberate trade, not "within budget":
+  - over SSH the network's latency comes on top of every keystroke and dominates it;
+  - on battery the lower frame rate is an explicit trade for power.
+- **When upstream #1858 lands** (a frame written as soon as input arrives), every profile returns to ≤ 16 ms.
 
 **The echo measurement was wrong until now, and is fixed.**
 - **The flaw:** tuiprobe sent each key 150 ms after the previous frame went quiet. Frames come on a ticker, so every
@@ -626,16 +633,16 @@ interleaved; budget checks on idle and echo come from CI (ADR 030 step 6).
 |---|---|---|---|
 | Startup to input ≤ 60 ms (desktop, 120×40) | 72 ms | 56 ms | **met** |
 | Echo p95 ≤ 16 ms: full profile, 120 fps (CI) | 14.1 ms (biased probe) | 9.2–9.5 ms (CI), 10.6 ms (desktop) | **met** |
-| Echo p95 ≤ 16 ms: low-power and remote, 30 fps (CI) | — | 33.1–33.7 ms | **unmet** |
+| Echo p95 ≤ 40 ms: low-power and remote, 30 fps (CI; a deliberate trade, returning to ≤ 16 ms with upstream #1858) | — | 33.1–33.7 ms | **met** |
 | Idle CPU ≤ 0.5 %: full, 120 fps | 3.20 % (desktop) | 0.70–1.55 % (CI), 0.93 % (desktop) | **pending upstream #1858** |
 | Idle CPU ≤ 0.5 %: low-power, 30 fps | — | 0.30 % (AMD 9V45), 0.45–0.50 % (Intel 8370C), 0.70–0.85 % (AMD 7763) | **unmet on the slowest runner; pending upstream #1858** |
 | Bytes per key ≤ 19 | 19 | 19 | **met** |
 | RSS ≤ 96 MiB (base) | 96 | 71 | **met** |
 | RSS growth over 10 turns | 211 → 239 MiB | 90 → 62 MiB | **met** (no growth) |
 | Non-ASCII bytes in the ASCII tier: 0 | 745 | 0 | **met** |
-| S1 compressed bytes ≤ 8.6 KB (the survey's best, ternly's own) | 8.6 KB | 10.9 KB | **unmet** (a regression; cause not yet investigated: the routing card, the receipt and the 2-line status are candidates) |
-| Bytes per frame while streaming ≤ the best measured (57 B, Claude Code) | 151 | 155 | **unmet** |
-| Long session, compressed bytes over 10 turns | 20.9 KB | 43.1 KB | no budget set; **doubled** (cause not yet investigated: the elapsed time redrawing the status line each second is a candidate) |
+| S1 compressed bytes ≤ 8.6 KB (the survey's best, ternly's own) | 8.6 KB | 10.9 KB | **unmet** here; **met after F2.1** (3.7–4.2 KB, below) |
+| Bytes per frame while streaming ≤ the best measured (57 B, Claude Code) | 151 | 155 | **unmet** here; **met after F2.1** (55 B) |
+| Long session, compressed bytes over 10 turns | 20.9 KB | 43.1 KB | no budget set; **doubled** here; **4.9–5.4 KB after F2.1** (below) |
 
 **Where ternly is not best, as measured in this run:**
 - **echo:** Codex 0.5 / 6.9 ms (p50 / p95) vs ternly 5.6 / 10.6. Codex writes on input; ternly waits for a frame.
@@ -662,3 +669,54 @@ Nothing here is claimed beyond these three harnesses and this run.
 - the streaming and long-session byte regressions: an issue to file after review;
 - the plan facts (9, 10): Phase C;
 - kitty, WezTerm and SSH terminal checks.
+
+## F2.1: output bytes, and the two fact counts (2026-10-12)
+**The two fact counts measure different sessions, and both stand.**
+
+| Count | Instrument and session | What it covers |
+|---|---|---|
+| **18 of 20 at 0 keys** (steps 3–6) | `bench/f2/layout`: ternly alone, against a scripted provider (`bench/fakeprovider`), at 200×50, 120×40 and 80×24 in every tier. The session runs four turns written to reach every state: an edit with verification, two parallel subagents, an approval in ask mode, and a 429 that exhausts the quota | every fact a session can produce today; only the plan (9, 10) is unobservable, until Phase C |
+| **15 of 20 at ≤ 1 key** (the final comparison) | `bench/f2/reach`: ternly, Claude Code and Codex alike, against the real model (gemma4), at 120×40, after one real turn on the S2 fixture | only what that one turn produced. Agents (11), approval (16) and the plan (9, 10) never happened in it (n/o), and the quota (4) doesn't apply to a free local model (n/a) |
+
+The 3 facts between them are 4, 11 and 16:
+- the scripted session reaches their states;
+- the real one-turn session doesn't, for any of the three harnesses;
+- none of the three is "missing" in either count: ternly has 0 ∞ cells in both.
+
+The final comparison uses the reach session because it's the same for all three harnesses. The layout harness is how
+ternly's own steps are proven. Neither count is a claim about the other's sessions.
+
+**Output bytes: the cause, found by row.** `tuiprobe -rowbytes` attributes a recording's output to the screen rows it
+was written to, by following the cursor. In the final comparison's recordings:
+- **The long session:** the status line (row 39) took 59 % of all bytes, entered 2,428 times. It was rewritten whole,
+  for two reasons:
+  - its cache field was `⚡`, a wide character. Lines holding one are re-sent on every frame by the renderer (the
+    ultraviolet behaviour recorded earlier for 006e29f);
+  - the running elapsed time counted tenths of a second, so the line changed about ten times a second.
+- **The activity line** ("Thinking…", row 34 here, row 14 in S1): 18 % of the long session and 32 % of S1. Its shimmer
+  recoloured every letter on each 70 ms tick.
+- **The lanes:** these sessions had no subagents, so their cost wasn't measured here. They now follow the same 1 Hz
+  rule.
+
+**Fixes:**
+- the cache field is `cache 35%`;
+- elapsed times, on the status line and the lanes, count whole seconds while running (at most one change a second),
+  and keep the tenth once done;
+- the activity line is a spinner cell (advancing every 4th tick, about 3.5 a second) and static text.
+- Tests cover each change; the 9 mutants are all killed.
+
+**Re-measured as a paired A/B** (`bench/f2/probe/ab.sh`): main 25e930b against F2.1, alternating, in the final comparison's
+cells (S1 stream × 3, the 10-turn long session × 2, 120×40 truecolor, gemma4). Every run answered, with answers of
+similar length (29–34 lines).
+
+| Budget | Final comparison | main (this A/B) | F2.1 (this A/B) | Met? |
+|---|---|---|---|---|
+| S1 compressed bytes ≤ 8.6 KB | 10.9 KB | 10.2–17.4 KB | **3.7–4.2 KB** | **met** |
+| Bytes per streaming frame ≤ 57 B (Claude Code's best in the final comparison) | 155 B | 151–373 B | **55 B** | **met** |
+| Long session, whole output compressed (survey before: 20.9 KB) | 43.1 KB | 49.5–58.8 KB | **4.9–5.4 KB** | down 10×; below the survey's 20.9 KB |
+| Long session, whole output raw | 931 KB | 1.11–1.37 MB | **68–83 KB** | |
+| S1 frames | 726 | 743–902 | 339–414 | |
+
+The main rows vary with the answers' length (S1 total 122–302 KB); the F2.1 rows vary much less, because the bytes
+now follow the content rather than the timers. Claude Code's long session was 10.0 KB compressed in the final
+comparison, a different run; the two aren't compared here as a paired measurement.

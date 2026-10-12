@@ -32,7 +32,7 @@ type statusField struct {
 type glyphs struct{ model, routed, pinned, escalated, failover, in, out, ok, fail, unknown, cache, sep string }
 
 var (
-	unicodeGlyphs = glyphs{"◆", "▸", "◆", "↑", "⇄", "↑", "↓", "✓", "✗", "?", "⚡", " · "}
+	unicodeGlyphs = glyphs{"◆", "▸", "◆", "↑", "⇄", "↑", "↓", "✓", "✗", "?", "cache ", " · "}
 	asciiGlyphs   = glyphs{"*", ">", "*", "^", "~", "^", "v", "ok", "x", "?", "cache ", " | "}
 )
 
@@ -119,7 +119,7 @@ func (m *Model) statusFields() []statusField {
 		add(1, sDim.Render(fmt.Sprintf("turn %s%s %s%s", kfmt(in), g.in, kfmt(out), g.out)), sDim.Render(kfmt(in)+g.in))
 	}
 	if d, ok := m.turnElapsed(); ok {
-		s := sDim.Render(durShort(d))
+		s := sDim.Render(m.elapsedText(d))
 		add(1, s, s)
 	}
 	switch m.verify {
@@ -243,13 +243,13 @@ func (m *Model) statusBar() string {
 }
 
 // statusKey is everything statusFields and the layout read; the elapsed time
-// is in it as shown (to the tenth of a second, or the second).
+// is in it as shown (whole seconds while a turn runs: it changes at most once a second).
 func (m *Model) statusKey() statusKey {
 	k := statusKey{w: m.w, lines: m.statusLines(), discovering: m.discovering, model: m.model, reason: m.reason,
 		ledger: m.ledger, turnCost0: m.turnCost0, turnUsage0: m.turnUsage0, snapGen: m.snapGen, ascii: m.App.Access.ASCII,
 		verify: m.verify, errors: m.errors, turns: m.App.Agent.TurnCount(), started: !m.turnStart.IsZero()}
 	if d, ok := m.turnElapsed(); ok {
-		k.elapsed = durShort(d)
+		k.elapsed = m.elapsedText(d)
 	}
 	if _, c := m.currentSurfaceModel(); c != nil && c.Quota != nil { // a quota runs out, or comes back, as time passes
 		if now := time.Now(); now.Before(c.Quota.ExhaustedUntil) {
@@ -349,4 +349,23 @@ func (m *Model) shortFlag(word string) string {
 		return word + ":" + asciiGlyphs.fail
 	}
 	return word + unicodeGlyphs.fail
+}
+
+// elapsedText is the turn's time as the status line shows it: whole seconds
+// while the turn runs, so the line changes at most once a second (a
+// redraw a tenth of a second rewrote the whole line ten times as often; ADR
+// 030, F2.1); to the tenth once it's done.
+func (m *Model) elapsedText(d time.Duration) string {
+	if m.busy {
+		return durLive(d)
+	}
+	return durShort(d)
+}
+
+// durLive is durShort in whole seconds, for a time that's still counting.
+func durLive(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	return durShort(d)
 }
