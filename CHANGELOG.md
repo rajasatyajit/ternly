@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### F2 closed: the final comparison (ADR 030)
+- **ternly's final build compared with Claude Code and Codex**: the same scenarios, reach session,
+  perf matrix and model as the survey (`bench/f2/final/`). ADR 030 records the scores, every
+  budget per profile as met or unmet, and where ternly is not best.
+- **The model proxy closes Ollama's side when a harness goes away**: requests left behind by killed
+  harnesses had piled up until they held every slot.
+- `batch.sh` and `reach-all.sh` take a subset of harnesses from `F2_ONLY`.
+
 ### TUI layout, steps 5 and 6: the palette, and adapting to the environment (ADR 030 (d))
 - **The Ctrl+K palette shows each row's keys at the right** (`/panel error … Ctrl+X e`), matches
   descriptions from three letters (`diff` finds the changes panel), and lists the five most recently
