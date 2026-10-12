@@ -607,7 +607,7 @@ survey's model. Ollama is 0.40.3 now (0.35.1 in the survey).
 
 Notes on the extended lines:
 - **ternly's parallel-agent score rests on the scripted recordings.** They show lanes at 0 keys (model, step, call,
-  tokens, cost, time) and the agents panel at 2 keys. gemma4 never delegated in the live S3, so it wasn't seen live;
+  tokens, cost, time) and the agents panel at 2 keys. ternly couldn't delegate in the live S3: its subagent tool (`task`) is offered only when agent definitions exist, and the S3 fixture had none (see the correction below);
   Claude Code's was.
 - **Render cost** uses this run's desktop medians: ready ms, echo p95, bytes per key, idle CPU, RSS, S1 gzip bytes and
   bytes per frame.
@@ -652,7 +652,7 @@ interleaved; budget checks on idle and echo come from CI (ADR 030 step 6).
 - **long-session bytes:** Claude Code 10.0 KB vs ternly 43.1 KB compressed.
 - **task outcomes:** S2 (Claude Code passed) and S4 (Codex named both bugs, ternly none). These are model-bound, with
   the same model everywhere.
-- **live parallel work:** only Claude Code delegated in S3.
+- **live parallel work:** only Claude Code delegated in S3. ternly had no subagent tool to offer there (no agent definitions in the fixture); a built-in general subagent is Phase C's item 6.
 
 **Where it is best, among these three in this run:**
 - reach (15 facts at ≤ 1 key, vs 5 and 5);
@@ -720,3 +720,12 @@ similar length (29–34 lines).
 The main rows vary with the answers' length (S1 total 122–302 KB); the F2.1 rows vary much less, because the bytes
 now follow the content rather than the timers. Claude Code's long session was 10.0 KB compressed in the final
 comparison, a different run; the two aren't compared here as a paired measurement.
+
+**Correction (2026-10-12): ternly couldn't delegate in S3.** The final comparison said gemma4 "never delegated" in
+ternly's live S3. That was the wrong reading:
+- ternly offers its subagent tool (`task`) only when agent definitions exist (`plugins.Runtime.stageAgents`), and
+  the S3 fixture (mitt, a fresh HOME) has none, so the tool wasn't there to call;
+- Claude Code ships a built-in general-purpose agent, which is what it used.
+
+The gap is ternly's, not the model's. Phase C's item 6 becomes: a built-in general subagent when no agents are
+defined, then a measurement of how often each local model delegates with it, against today's behaviour.

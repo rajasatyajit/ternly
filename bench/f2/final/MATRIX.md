@@ -26,7 +26,7 @@
 | 8 | the diff of a change | 0 inline `-`/`+` under the edit | n/o | n/o |
 | 9 | current plan step | n/o (no plan data until Phase C) | n/o (a plan document, without step states) | n/o |
 | 10 | the whole plan | n/o | 0 "Here is Claude's plan" at the approval prompt | n/o (Plan mode entered, no plan) |
-| 11 | running agents | n/o (the model didn't delegate) | n/o (`← for agents` cue, none running) | n/o (`←` agent centre, none running) |
+| 11 | running agents | n/o (no subagent tool offered: the fixture has no agent definitions; ADR 030 correction) | n/o (`← for agents` cue, none running) | n/o (`←` agent centre, none running) |
 | 12 | last error | 0 framed box "✗ the provider can't be reached" and `⚠ 1 error` (S5) | 0 inline "API Error: Connection refused" (S5) | 0 inline "Reconnecting… Connection failed" (S5); 1 `F2` warning pane |
 | 13 | verify / test status | 0 `verify ✓` and `● Verify go build … go vet` | ∞ | ∞ |
 | 14 | session name / id | 0 header title | 8 `/status⏎` name and id | 8 `/status⏎` id |
