@@ -11,7 +11,7 @@ pidf=$R/reach-proxy.pid
 # the model proxy on :11435 may already run for the scenario batch; start one only if the port is free
 if ! (exec 3<>/dev/tcp/127.0.0.1/11435) 2>/dev/null; then setsid nohup "$R/bin/proxy" >/dev/null 2>&1 < /dev/null & echo $! > "$pidf"; sleep 0.5; fi
 trap '[ -f "$pidf" ] && kill "$(cat "$pidf")" 2>/dev/null; rm -f "$pidf"; tmux -L f2reach kill-server 2>/dev/null' EXIT
-for hn in ${HARNESSES:-ternly claude codex crush opencode pi codewhale}; do
+for hn in ${F2_ONLY:-ternly claude codex crush opencode pi codewhale}; do # F2_ONLY: a subset (HARNESSES is the install directory)
   [ -f "$R/reach/$hn/final.txt" ] && { echo "skip $hn"; continue; }
   echo "== $hn $(date -u +%FT%TZ)"
   flock -o "$LOCK" timeout --kill-after=30 1800 "$D/reach.sh" "$hn" 2>&1 | tail -3

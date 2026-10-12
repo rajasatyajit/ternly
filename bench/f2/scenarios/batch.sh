@@ -10,13 +10,14 @@ set -u
 R=${R:-${F2_RUNTIME:-${TMPDIR:-/var/tmp}/ternly-f2}/reach}; export R
 D=$(cd "$(dirname "$0")" && pwd)
 LOCK=${LOCK:-${F2_RUNTIME:-${TMPDIR:-/var/tmp}/ternly-f2}/heavy.lock}
-HARNESSES=${HARNESSES:-"ternly claude codex crush opencode pi codewhale"}
+# F2_ONLY: the harnesses to run (HARNESSES is launch.sh's install directory)
+LIST=${F2_ONLY:-"ternly claude codex crush opencode pi codewhale"}
 SCENARIOS=${SCENARIOS:-"S1 S2 S4 S3 S5"}
 mkdir -p "$R/out"; echo $$ > "$R/batch.pid"
 setsid nohup "$R/bin/proxy" >/dev/null 2>&1 < /dev/null & echo $! > "$R/proxy.pid"; sleep 0.5
 trap 'kill "$(cat "$R/proxy.pid")" 2>/dev/null; tmux -L f2rec kill-server 2>/dev/null; "$R/bin/homekill" "$R/homes" >/dev/null 2>&1' EXIT
 state() { echo "$(date -u +%FT%TZ) $*" >> "$R/out/state.txt"; }
-for sc in $SCENARIOS; do for hn in $HARNESSES; do
+for sc in $SCENARIOS; do for hn in $LIST; do
   r=$R/out/$hn/$sc/result.txt
   if [ -f "$r" ]; then echo "skip $hn $sc: $(cat "$r")"; continue; fi
   case $sc in S5) lim=4500 ;; S3) lim=1800 ;; *) lim=1200 ;; esac
