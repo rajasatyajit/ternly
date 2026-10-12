@@ -28,7 +28,8 @@ type Levers struct {
 }
 
 // ParseLevers reads a comma-separated list: plan_first, best_of=N,
-// no_verify_escalation; tool levers (outline_reads, no_schema_repair) are
+// no_verify_escalation; tool levers (outline_reads, no_schema_repair,
+// general_agent) are
 // returned in tools for the caller to set on the registry. Unknown names
 // are an error.
 func ParseLevers(s string) (l Levers, tools []string, err error) {
@@ -47,10 +48,10 @@ func ParseLevers(s string) (l Levers, tools []string, err error) {
 			l.BestOf = n
 		case "no_verify_escalation":
 			l.NoVerifyEscalation = true
-		case "outline_reads", "no_schema_repair":
+		case "outline_reads", "no_schema_repair", "general_agent":
 			tools = append(tools, name)
 		default:
-			return l, nil, fmt.Errorf("unknown lever %q (plan_first, best_of=N, no_verify_escalation, outline_reads, no_schema_repair)", name)
+			return l, nil, fmt.Errorf("unknown lever %q (plan_first, best_of=N, no_verify_escalation, outline_reads, no_schema_repair, general_agent)", name)
 		}
 	}
 	return l, tools, nil

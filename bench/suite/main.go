@@ -79,33 +79,34 @@ type suite struct {
 
 // Result is one run: a task, a model (or "auto": routed) and its outcome.
 type Result struct {
-	Suite     string   `json:"suite_version"`
-	Task      string   `json:"task"`
-	Class     string   `json:"class"`
-	Lang      string   `json:"lang"`
-	Model     string   `json:"model"` // as asked: "auto" or a pinned key
-	Arm       string   `json:"arm,omitempty"`
-	Run       int      `json:"run"`
-	Pass      bool     `json:"pass"`
-	Outcome   string   `json:"outcome"` // pass | oracle-fail | timeout | error | no-change | infra (no model ran: not a measurement)
-	Seconds   float64  `json:"seconds"`
-	CostUSD   float64  `json:"cost_usd"`
-	TokensIn  int      `json:"tokens_in"`
-	TokensOut int      `json:"tokens_out"`
-	Models    []string `json:"models"`             // every model the turn used, in order
-	Switches  []string `json:"switches,omitempty"` // routing reasons after the first (escalation, failover)
-	Verified  string   `json:"verified,omitempty"` // ternly's own verify verdict: verified | failed | unverified | ""
-	Quota     bool     `json:"quota,omitempty"`    // a usage limit was hit during the run
-	Error     string   `json:"error,omitempty"`    // ternly's error line, if any
-	Oracle    string   `json:"oracle,omitempty"`   // the oracle's last lines when it failed
-	Diff      string   `json:"diff"`               // the model's change (git diff of the workspace)
-	DiffLines int      `json:"diff_lines"`         // changed lines
-	At        string   `json:"at"`
-	Env       []string `json:"env_flags,omitempty"`      // TERNLY_* toggles for this arm (levers)
-	Prompt    string   `json:"prompt_version,omitempty"` // ternly's prompt version (ADR 029)
-	CacheHits int      `json:"cache_hits,omitempty"`     // deterministic mode: responses answered from the cache
-	Plans     int      `json:"plans,omitempty"`          // PlanFirst planning turns
-	Retries   int      `json:"retries,omitempty"`        // BestOf retries from scratch
+	Suite       string   `json:"suite_version"`
+	Task        string   `json:"task"`
+	Class       string   `json:"class"`
+	Lang        string   `json:"lang"`
+	Model       string   `json:"model"` // as asked: "auto" or a pinned key
+	Arm         string   `json:"arm,omitempty"`
+	Run         int      `json:"run"`
+	Pass        bool     `json:"pass"`
+	Outcome     string   `json:"outcome"` // pass | oracle-fail | timeout | error | no-change | infra (no model ran: not a measurement)
+	Seconds     float64  `json:"seconds"`
+	CostUSD     float64  `json:"cost_usd"`
+	TokensIn    int      `json:"tokens_in"`
+	TokensOut   int      `json:"tokens_out"`
+	Models      []string `json:"models"`                // every model the turn used, in order
+	Switches    []string `json:"switches,omitempty"`    // routing reasons after the first (escalation, failover)
+	Verified    string   `json:"verified,omitempty"`    // ternly's own verify verdict: verified | failed | unverified | ""
+	Quota       bool     `json:"quota,omitempty"`       // a usage limit was hit during the run
+	Error       string   `json:"error,omitempty"`       // ternly's error line, if any
+	Oracle      string   `json:"oracle,omitempty"`      // the oracle's last lines when it failed
+	Diff        string   `json:"diff"`                  // the model's change (git diff of the workspace)
+	Delegations int      `json:"delegations,omitempty"` // calls of the subagent (task) tool in the run
+	DiffLines   int      `json:"diff_lines"`            // changed lines
+	At          string   `json:"at"`
+	Env         []string `json:"env_flags,omitempty"`      // TERNLY_* toggles for this arm (levers)
+	Prompt      string   `json:"prompt_version,omitempty"` // ternly's prompt version (ADR 029)
+	CacheHits   int      `json:"cache_hits,omitempty"`     // deterministic mode: responses answered from the cache
+	Plans       int      `json:"plans,omitempty"`          // PlanFirst planning turns
+	Retries     int      `json:"retries,omitempty"`        // BestOf retries from scratch
 	// Provenance: what produced this row. Commit is the checkout the suite
 	// built ternly from ("" when -bin was given); Dirty: it had uncommitted
 	// changes; Binary is the ternly binary's SHA-256 (the resume key).
@@ -362,6 +363,9 @@ func copyTree(src, dst string) error {
 // execution of repository code).
 var unsafeNoSandbox bool
 
+// promptSuffix is appended to every task's prompt in a run (-suffix).
+var promptSuffix string
+
 // lookBwrap finds bubblewrap (a variable so tests can take it away).
 var lookBwrap = func() (string, error) { return exec.LookPath("bwrap") }
 
@@ -551,8 +555,12 @@ func (s *suite) runCmd(args []string) error {
 	extra := fl.String("args", "", "extra ternly arguments, space-separated")
 	resume := fl.Bool("resume", true, "skip task×model×arm×run already in results.jsonl for this binary (rows without a binary hash are attributed to <out>/ternly)")
 	stable := fl.Bool("stable-ws", false, "one workspace path per task×model×arm, reused run after run (identical requests, so a response cache can answer them); forces -parallel 1")
+	fl.StringVar(&promptSuffix, "suffix", "", "text appended to every task's prompt in this arm (needs -arm), e.g. \"Use parallel sub-agents if you can.\"")
 	fl.BoolVar(&unsafeNoSandbox, "unsafe-no-sandbox", false, "run oracles (untrusted repository code) without bubblewrap")
 	_ = fl.Parse(args)
+	if promptSuffix != "" && *arm == "" {
+		return errors.New("-suffix changes the prompt: give the arm a name with -arm")
+	}
 	if _, err := lookBwrap(); err != nil && !unsafeNoSandbox {
 		return errNoSandbox // before spending any model quota
 	}
@@ -778,6 +786,7 @@ func (st *runState) save() {
 
 var (
 	reModel  = regexp.MustCompile(`(?m)^◆ (\S+) \(T\d+, [^)]*\) — (.*)$`)
+	reTask   = regexp.MustCompile(`(?m)^  → task\b`) // a delegation to a subagent (docs/plans/v0.2.md, Phase C item 4)
 	reCost   = regexp.MustCompile(`(?m)^\$([0-9.]+) · [0-9]+% cache hits · ([0-9]+) tokens in, ([0-9]+) out$`)
 	reError  = regexp.MustCompile(`(?m)^error: (.*)$`)
 	reQuota  = regexp.MustCompile(`(?i)usage limit|quota|rate.?limit|too many requests|exhausted`)
@@ -810,7 +819,11 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 	if j.model != "auto" {
 		a = append(a, "--model", j.model)
 	}
-	a = append(append(a, extra...), "-p", j.t.Prompt)
+	prompt := j.t.Prompt
+	if promptSuffix != "" {
+		prompt += " " + promptSuffix
+	}
+	a = append(append(a, extra...), "-p", prompt)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	c := exec.CommandContext(ctx, bin, a...)
@@ -823,6 +836,7 @@ func (s *suite) one(j job, bin, out string, timeout time.Duration, extra []strin
 	err := c.Run()
 	res.Seconds = time.Since(t0).Seconds()
 	trace := se.String()
+	res.Delegations = len(reTask.FindAllStringIndex(trace, -1))
 	for _, m := range reModel.FindAllStringSubmatch(trace, -1) {
 		if len(res.Models) == 0 || res.Models[len(res.Models)-1] != m[1] {
 			res.Models = append(res.Models, m[1])
@@ -1016,6 +1030,7 @@ type agg struct {
 	outcomes   map[string]int
 	quota, esc int
 	firstModel map[string]int
+	delegated  int // runs that called the subagent (task) tool at least once
 }
 
 func report(w *os.File, paths []string) error {
@@ -1057,6 +1072,9 @@ func report(w *os.File, paths []string) error {
 			if len(r.Models) > 1 {
 				a.esc++
 			}
+			if r.Delegations > 0 {
+				a.delegated++
+			}
 			if len(r.Models) > 0 {
 				a.firstModel[r.Models[0]]++
 			}
@@ -1083,6 +1101,9 @@ func report(w *os.File, paths []string) error {
 		}
 		if a.esc > 0 {
 			extra += fmt.Sprintf("; switched model %d", a.esc)
+		}
+		if a.delegated > 0 || strings.Contains(f[1], "deleg") {
+			extra += fmt.Sprintf("; delegated in %d of %d", a.delegated, a.n)
 		}
 		if a.pinBroken > 0 {
 			extra += fmt.Sprintf("; %d run(s) excluded: failed over away from the pin", a.pinBroken)

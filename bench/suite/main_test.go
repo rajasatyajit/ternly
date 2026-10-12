@@ -99,3 +99,11 @@ func TestOracleNoAgentSocket(t *testing.T) {
 		t.Fatalf("the runtime directory is visible in the sandbox:\n%s", b)
 	}
 }
+
+// A delegation is a call of the task tool in ternly's trace, nothing else.
+func TestDelegationCount(t *testing.T) {
+	trace := "◆ ollama/gemma4:latest (T2, local) — x\n  → read_file a.go\n  → task lexer: find the callers\n  → taskify x\n  → task tests\n  ▸ verify: ok\n"
+	if n := len(reTask.FindAllStringIndex(trace, -1)); n != 2 {
+		t.Fatalf("delegations: %d, want 2", n)
+	}
+}

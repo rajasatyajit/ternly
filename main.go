@@ -401,6 +401,7 @@ func run() int {
 	if v, ok := os.LookupEnv("TERNLY_LEVERS"); ok { // the task suite's A/B arms
 		levers = v
 	}
+	generalAgent := false // the general_agent lever, for the plugin runtime below
 	if lv, toolLevers, err := agent.ParseLevers(levers); err != nil {
 		fmt.Fprintln(os.Stderr, "levers:", err)
 		return 2
@@ -422,6 +423,7 @@ func run() int {
 		}
 		for _, t := range toolLevers {
 			reg.OutlineReads = reg.OutlineReads || t == "outline_reads"
+			generalAgent = generalAgent || t == "general_agent"
 			reg.NoSchemaRepair = reg.NoSchemaRepair || t == "no_schema_repair"
 		}
 	}
@@ -532,7 +534,7 @@ func run() int {
 		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
 			notes = append(notes, "plugins off: "+err.Error())
 		} else {
-			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, NoCode: noCodeReason(pol),
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, GeneralAgent: generalAgent, NoCode: noCodeReason(pol),
 				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
 				SessionID: func() string {
 					if s := mgr.Current(); s != nil {
