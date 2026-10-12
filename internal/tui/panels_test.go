@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rajasatyajit/ternly/internal/agent"
+	"github.com/rajasatyajit/ternly/internal/surface"
 )
 
 // keyp sends a key by its name: "ctrl+x", "alt+a", "esc", "pgdown", "a".
@@ -155,7 +156,7 @@ func TestPanelPlacement(t *testing.T) {
 		m.togglePanel(pPlan)
 		v := strings.Join(fits(t, m.View().Content, s[0]), "\n")
 		docked := s[0] >= panelRailMinW
-		if !strings.Contains(v, "Plan") || !strings.Contains(v, "no plan data") {
+		if !strings.Contains(v, "Plan") || !strings.Contains(v, "no plan in this session") {
 			t.Errorf("%dx%d: no plan panel:\n%s", s[0], s[1], v)
 		}
 		if strings.Contains(v, "TRANSCRIPT-MARKER") != docked {
@@ -292,7 +293,7 @@ func TestPanelsLinear(t *testing.T) {
 		t.Fatalf("linear leader: %q", m.blocks[len(m.blocks)-1].text)
 	}
 	keyp(m, "p")
-	if m.panel != nil || !strings.Contains(stripANSI(m.blocks[len(m.blocks)-1].text), "no plan data") {
+	if m.panel != nil || !strings.Contains(stripANSI(m.blocks[len(m.blocks)-1].text), "no plan in this session") {
 		t.Fatalf("linear panel: open %v, printed %q", m.panel, m.blocks[len(m.blocks)-1].text)
 	}
 }
@@ -343,5 +344,21 @@ func TestAgentsPanelKeepsLastSubagents(t *testing.T) {
 	v := stripANSI(strings.Join(m.panel.lines, "\n"))
 	if !strings.Contains(v, "none in this turn; the last ones, in turn") || !strings.Contains(v, "lexer") {
 		t.Fatalf("agents panel in the next turn:\n%s", v)
+	}
+}
+
+// The core's plan (the plan_first lever) shows in the plan panel, each step
+// with its state, and the panel follows the snapshot.
+func TestPlanPanelFromSnapshot(t *testing.T) {
+	m := sized(t, 120, 40)
+	m.togglePanel(pPlan)
+	m.snap = surface.Snapshot{Plan: []surface.PlanItem{{Text: "edit lru.go Resize", State: "done"}, {Text: "run go test ./simplelru/", State: "pending"}}}
+	m.snapGen++
+	m.refreshPanel(pPlan)
+	v := stripANSI(strings.Join(m.panel.lines, "\n"))
+	for _, want := range []string{"1 of 2 steps done", "1. edit lru.go Resize  done", "2. run go test ./simplelru/  pending"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("plan panel lacks %q:\n%s", want, v)
+		}
 	}
 }
