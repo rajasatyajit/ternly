@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/odvcencio/gotreesitter v0.55.1
-	golang.org/x/sys v0.48.0
+	golang.org/x/sys v0.49.0
 	mvdan.cc/sh/v3 v3.14.1
 )
 
