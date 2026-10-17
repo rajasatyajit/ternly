@@ -32,6 +32,10 @@ type Runtime struct {
 	Root, Home string
 	// Subagent runs an agent's task, named for its lane (agent.Agent.SubagentNamed).
 	Subagent func(ctx context.Context, name, system, prompt string, allow func(string) bool) (string, error)
+	// GeneralAgent (Phase C's general_agent lever, ADR 029): with no agent
+	// definitions, the task tool offers a built-in general subagent instead of
+	// not existing at all.
+	GeneralAgent bool
 	// Notify shows a status line; Note queues a line for the model's next turn.
 	Notify, Note func(string)
 	// SessionID and Mode describe the session to hooks.
@@ -341,6 +345,10 @@ var ternlyToCC = map[string]string{"read_file": "Read", "write_file": "Write", "
 
 func (r *Runtime) stageAgents(agents []Component) {
 	r.Reg.Remove("task")
+	if len(agents) == 0 && r.GeneralAgent { // the lever: a subagent to delegate to even with none defined
+		agents = []Component{generalAgent}
+		r.byName[generalAgent.Name] = generalAgent // under r.mu (apply)
+	}
 	if len(agents) == 0 || r.Subagent == nil {
 		return
 	}
@@ -389,7 +397,11 @@ func (r *Runtime) stageAgents(agents []Component) {
 				}
 				allow = func(n string) bool { return names[n] }
 			}
-			return r.Subagent(ctx, x.Agent, r.body(c, ""), x.Prompt, allow)
+			system := r.body(c, "")
+			if c.Path == "" { // built in: no file
+				system = generalPrompt
+			}
+			return r.Subagent(ctx, x.Agent, system, x.Prompt, allow)
 		}})
 }
 
@@ -850,3 +862,12 @@ func contentSum(p string) [32]byte {
 	copy(out[:], h.Sum(nil))
 	return out
 }
+
+// generalAgent is the built-in subagent the general_agent lever offers when
+// no agent is defined: Claude Code ships one like it, and without it ternly
+// had no task tool at all (ADR 030's correction). It has every tool, so its
+// edits are checkpointed and confirmed like any edit.
+var generalAgent = Component{Kind: KAgent, Name: "general", Origin: "ternly",
+	Description: "a general-purpose agent for one self-contained part of the task: it reads, searches, edits and runs commands with the same tools and permissions as you, and reports what it did and found"}
+
+const generalPrompt = "You are a general-purpose subagent working on one part of a larger task. Do exactly the part you were given, with the tools you have, and don't start other work. When you're done, reply with a short report: what you did, what you found, and anything left undone."

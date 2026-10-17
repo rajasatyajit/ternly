@@ -67,6 +67,14 @@ type Registry struct {
 	held bool
 
 	Hooks HookRunner // plugin hooks around tool calls (nil: none)
+
+	// Phase C levers (ADR 029), feature flags for A/B on the task suite:
+	// OutlineReads makes read_file return an outline of a large file when
+	// no range is given (retrieval instead of whole-file reads);
+	// NoSchemaRepair turns off the coercion of tool arguments that almost
+	// match their schema (the control arm for schema validation).
+	OutlineReads   bool
+	NoSchemaRepair bool
 }
 
 // HookRunner runs plugin hooks around tool calls. PreTool can only deny:
@@ -239,6 +247,9 @@ func (r *Registry) Call(ctx context.Context, tc llm.ToolCall) Result {
 		errs, fixed := t.schema.validate(args)
 		if len(errs) > 0 {
 			return Result{Out: fmt.Sprintf("error: invalid arguments for %s:\n- %s\nSchema: %s\nFix the arguments and call the tool again.", tc.Name, strings.Join(errs, "\n- "), Cap(compactJSON(t.Spec.Schema), 1500)), IsErr: true, Rejected: true}
+		}
+		if fixed != nil && r.NoSchemaRepair {
+			return Result{Out: fmt.Sprintf("error: invalid arguments for %s: a value has the wrong type for the schema.\nSchema: %s\nFix the arguments and call the tool again.", tc.Name, Cap(compactJSON(t.Spec.Schema), 1500)), IsErr: true, Rejected: true}
 		}
 		if fixed != nil {
 			args = fixed
@@ -455,6 +466,12 @@ func (r *Registry) builtin() {
 				return "", errors.New("binary file")
 			}
 			_, _ = f.Seek(0, 0)
+			if r.OutlineReads && v.Offset == 0 && v.Limit == 0 {
+				if out, ok := outline(f, v.Path); ok {
+					return out, nil
+				}
+				_, _ = f.Seek(0, 0)
+			}
 			if v.Offset < 1 {
 				v.Offset = 1
 			}

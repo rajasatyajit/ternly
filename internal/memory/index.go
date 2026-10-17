@@ -14,10 +14,16 @@ import (
 // for structural matching. Removal is lazy (slots go nil) with a rebuild once
 // half the slots are dead.
 type index struct {
-	docs  []*Item
-	slot  map[*Item]uint32
-	dl    []uint16 // document length in tokens, by slot
-	post  map[string][]posting
+	docs []*Item
+	slot map[*Item]uint32
+	dl   []uint16 // document length in tokens, by slot
+	post map[string][]posting
+	// df is each term's live document frequency. post keeps a removed
+	// document's postings until the next rebuild, so len(post[t]) counted
+	// dead versions too: after many revisions a common term's idf went
+	// negative and rankings drifted from an exact index (ADR 028's finding;
+	// measured and fixed in ADR 029).
+	df    map[string]int
 	keys  map[string][]uint32 // normalised key (and "~"+its last segment) → slots
 	live  int
 	total int               // sum of live document lengths
@@ -37,7 +43,7 @@ type posting struct {
 }
 
 func newIndex() *index {
-	return &index{post: map[string][]posting{}, keys: map[string][]uint32{}, slot: map[*Item]uint32{}}
+	return &index{post: map[string][]posting{}, df: map[string]int{}, keys: map[string][]uint32{}, slot: map[*Item]uint32{}}
 }
 
 // nearest returns about k slots whose sign bits are closest to q's.
@@ -109,6 +115,7 @@ func (x *index) add(it *Item, toks []string) {
 	}
 	for t, c := range tf {
 		x.post[t] = append(x.post[t], posting{slot, c})
+		x.df[t]++
 	}
 	if it.Kind == "pref" {
 		x.keys["kind:pref"] = append(x.keys["kind:pref"], slot)
@@ -141,6 +148,15 @@ func (x *index) remove(it *Item) {
 	}
 	delete(x.slot, it)
 	x.docs[slot] = nil
+	seen := map[string]bool{} // an indexed item is never changed in place: its tokens are those it was added with
+	for _, t := range docTokens(it) {
+		if !seen[t] {
+			seen[t] = true
+			if x.df[t]--; x.df[t] <= 0 {
+				delete(x.df, t)
+			}
+		}
+	}
 	x.live--
 	if x.hasV[slot] {
 		x.nvec--
@@ -210,7 +226,7 @@ func (x *index) rarest(q []string, k int) []string {
 		return q
 	}
 	r := append([]string(nil), q...)
-	sort.SliceStable(r, func(i, j int) bool { return len(x.post[r[i]]) < len(x.post[r[j]]) })
+	sort.SliceStable(r, func(i, j int) bool { return x.df[r[i]] < x.df[r[j]] }) // live frequency: dead versions' postings don't count
 	return r[:k]
 }
 
@@ -275,18 +291,18 @@ func (x *index) lexical(q []string, seeds []uint32, gate float32, visit func(slo
 	shares := make([]float32, len(q))
 	var mass float64
 	for _, t := range q {
-		df := float64(len(x.post[t]))
+		df := float64(x.df[t])
 		mass += math.Log(1 + (N-max(df, 1)+0.5)/(max(df, 1)+0.5)) // an unseen word weighs as a rare one, not more
 	}
 	idf := func(df float64) float64 { return math.Log(1 + (N-df+0.5)/(df+0.5)) }
 	for i, t := range q {
-		p := x.post[t]
-		shares[i] = float32(idf(max(float64(len(p)), 1)) / mass)
-		if len(p) > 0 {
-			ts = append(ts, term{post: p, idf: idf(float64(len(p))), share: shares[i], bit: 1 << i})
+		p, df := x.post[t], x.df[t]
+		shares[i] = float32(idf(max(float64(df), 1)) / mass)
+		if df > 0 {
+			ts = append(ts, term{post: p, idf: idf(float64(df)), share: shares[i], bit: 1 << i})
 		}
-		if pa := x.post[altPrefix+t]; len(pa) > 0 {
-			ts = append(ts, term{post: pa, idf: altWeight * idf(float64(len(pa))), share: altWeight * shares[i], bit: 1 << i, alt: true})
+		if pa, dfa := x.post[altPrefix+t], x.df[altPrefix+t]; dfa > 0 {
+			ts = append(ts, term{post: pa, idf: altWeight * idf(float64(dfa)), share: altWeight * shares[i], bit: 1 << i, alt: true})
 		}
 	}
 	sort.Slice(ts, func(i, j int) bool { return len(ts[i].post) < len(ts[j].post) })

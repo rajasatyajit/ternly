@@ -1,0 +1,40 @@
+◆ ollama/gpt-oss:120b-cloud (T2, cloud·quota) — pinned · reasoning low
+  ↻ ollama/gpt-oss:120b-cloud ended its turn without an answer — asking it once more
+  → glob split_at
+  ✗ glob failed: error: invalid arguments for glob:
+  → glob **/*split_at*
+  → grep split_at
+  → read_file more_itertools/more.py
+  → edit_file more_itertools/more.py  (-13 +13 lines)
+  ↻ ollama/gpt-oss:120b-cloud ended its turn without an answer again — failing over to ollama/llama3.1:8b
+◆ ollama/llama3.1:8b (T1, local) — failover
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 207ms: python3 -m compileall -q . · python compile: 1 file(s) · ruff format: not run, formatting unchecked · 1 changed source file(s) covered
+
+$0.0000 · 69% cache hits · 17673 tokens in, 1016 out
+done in 50.375s
+
+--- answer ---
+The issue is caused by the loop in the `split_at` function. When `maxsplit` is 1, the loop continues to split the iterable as many times as possible, rather than stopping after one split. To fix this, we need to modify the loop so that it only splits the iterable once when `maxsplit` is 1.
+
+The changed code is as follows:
+```python
+def split_at(iterable, pred, maxsplit=-1, keep_separator=False):
+    ...
+
+    for item in it:
+        if pred(item) and maxsplit != 0:
+            # Perform a split
+            yield buf
+            if keep_separator:
+                yield [item]
+            buf = []
+            maxsplit -= 1
+        else:
+            # Either no split needed or maxsplit exhausted; accumulate items
+            buf.append(item)
+    # After iteration, yield the remaining buffer
+    yield buf
+```
+
+This code will iterate over the iterable `one time` even if `maxsplit` is 1, and it will skip the split operation when `maxsplit` is exhausted.

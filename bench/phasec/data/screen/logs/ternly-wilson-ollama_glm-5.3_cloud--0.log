@@ -1,0 +1,26 @@
+◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
+  ↻ ollama/glm-5.3:cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (31s)
+  … waiting for the model (1m6s)
+  … waiting for the model (1m36s)
+  … waiting for the model (2m11s)
+  … waiting for the model (2m41s)
+  … waiting for the model (3m16s)
+  … waiting for the model (3m51s)
+
+$0.0000 · 25% cache hits · 2678 tokens in, 60 out
+done in 4m18.695s
+
+--- answer ---
+Here's a function call that answers the question:
+
+{
+  "name": "impact",
+  "parameters": {
+    "depth": 1,
+    "limit": 100,
+    "path": "internal/eval",
+    "symbol": "Counts.Wilson"
+  }
+}

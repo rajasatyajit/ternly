@@ -1,0 +1,65 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep func \(c \*LRU\[K, V\]\) Peek
+  → read_file expirable/expirable_lru.go
+  → edit_file expirable/expirable_lru.go  (-1 +18 lines)
+  → grep TestLRU.*Peek|PeakNoExpire  expirable
+  → grep Peek  expirable/expirable_lru_test.go
+  → read_file expirable/expirable_lru_test.go
+  → bash tail -30 expirable/expirable_lru_test.go
+  → bash cat >> expirable/expirable_lru_test.go <<'EOF'
+
+func TestLRUPeekWithExpiry(t *testing.T) {
+	lc := NewLRU[string, string](10, nil, time.Minute)
+
+	start := time.Now()
+	lc.Add("key1", "val1")
+
+	v, expiresAt, ok := lc.PeekWithExpiry("key1")
+	if !ok {
+		t.Fatalf("should be true")
+	}
+	if v != "val1" {
+		t.Fatalf("value differs from expected")
+	}
+	if expiresAt.Before(start.Add(time.Minute)) || expiresAt.After(time.Now().Add(time.Minute)) {
+		t.Fatalf("expiry differs from expected")
+	}
+
+	// Missing key
+	v, expiresAt, ok = lc.PeekWithExpiry("key2")
+	if ok {
+		t.Fatalf("should be false")
+	}
+	if v != "" || !expiresAt.IsZero() {
+		t.Fatalf("zero values expected")
+	}
+
+	// Expired entry
+	lc2 := NewLRU[string, string](10, nil, time.Nanosecond)
+	lc2.Add("key1", "val1")
+	time.Sleep(time.Millisecond)
+	v, expiresAt, ok = lc2.PeekWithExpiry("key1")
+	if ok {
+		t.Fatalf("should be false for expired entry")
+	}
+	if v != "" || !expiresAt.IsZero() {
+		t.Fatalf("zero values expected for expired entry")
+	}
+}
+EOF
+go build ./... && go vet ./... && go test ./expirable/ -run TestLRUPeekWithExpiry -v
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → edit_file expirable/expirable_lru_test.go  (-1 +40 lines)
+  → bash go build ./... && go vet ./... && go test ./expirable/ -run TestLRUPeekWithExpiry -v
+  ✗ bash failed: error: command exited with status 1
+  → edit_file expirable/expirable_lru_test.go  (-3 +3 lines)
+  → bash go build ./... && go vet ./... && go test ./expirable/ -run TestLRUPeekWithExpiry -v
+  → bash go test ./expirable/
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 145ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered
+
+$0.0000 · 90% cache hits · 77368 tokens in, 2018 out
+done in 56.718s
+
+--- answer ---
+Added `PeekWithExpiry` after `Peek` in expirable/expirable_lru.go:214 — it mirrors `Peek`'s lock/expiry logic but also returns `ent.ExpiresAt`, giving zero value, zero time and `false` for missing or expired entries. Added `TestLRUPeekWithExpiry` in expirable/expirable_lru_test.go covering hit, miss, and expired cases; `go build`, `go vet`, and the full `expirable` test suite all pass.

@@ -1,0 +1,29 @@
+◆ ollama/gpt-oss:120b-cloud (T2, cloud·quota) — pinned · reasoning low
+  → glob **/simplelru*
+  ✗ glob failed: error: invalid arguments for glob:
+  → glob **/simplelru*
+  → bash ls -R
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go test ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 179ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 87% cache hits · 24036 tokens in, 497 out
+done in 9.203s
+
+--- answer ---
+The bug was due to an off‑by‑one loop in `Resize` that evicted one extra entry when the new capacity was equal to or larger than the current number of items.
+
+**Fix implemented**
+- Adjusted the loop condition in `simplelru/lru.go` to iterate only `diff` times (`i < diff`) instead of `i <= diff`.
+
+All tests now pass.
+
+```go
+// simplelru/lru.go
+- for i := 0; i <= diff; i++ {
++ for i := 0; i < diff; i++ {
+```
+
+This ensures `Resize` correctly retains all entries when the capacity is not reduced.

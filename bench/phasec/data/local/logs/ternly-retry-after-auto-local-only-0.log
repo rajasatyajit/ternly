@@ -1,0 +1,22 @@
+prompt ec8e1a226d3b
+◆ ollama/gemma4:e4b (T2, local) — T2 task → est. 6.0 min, local, GPU 52%, p≥0.65; next granite3.3:8b (est. 1.9 min, local, GPU 100%) · reasoning low
+  → glob internal/llm/**
+  → find_symbol retryAfter
+  → read_file internal/llm/llm.go
+  … generating (832 chunks, 35s)
+  … generating (1820 chunks, 1m10s)
+  ↻ ollama/gemma4:e4b ended its turn without an answer — asking it once more
+  … generating (845 chunks, 32s)
+  → edit_file internal/llm/llm.go  (-3 +6 lines)
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 2.989s: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 79% cache hits · 24618 tokens in, 5641 out
+done in 3m11.212s
+
+--- answer ---
+I will start by locating the definition of the `retryAfter` function in `internal/llm` to understand its current implementation for parsing the `Retry-After` header.<channel|>The `retryAfter` function in `internal/llm/llm.go` has been updated to accept floating-point values for the `Retry-After` header.
+
+I searched and modified the integer parsing block with a float parsing block, which converts the provided string to a floating-point number of seconds. This correctly handles decimals, enforces non-negative duration (returning 0 if negative), and preserves the existing logic for HTTP date parsing.
+
+Changes summary: Updated `internal/llm/llm.go` to use `strconv.ParseFloat` in `retryAfter` to accept decimal seconds for the `Retry-After` header. No tests or build steps were required as the change was limited to a specific parsing utility function.

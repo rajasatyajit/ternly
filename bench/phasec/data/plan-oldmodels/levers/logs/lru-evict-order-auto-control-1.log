@@ -1,0 +1,13 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T2 task → est. 1.9 min, local, GPU 100%, p≥0.22; next gemma4:e4b (est. 6.0 min, local, GPU 52%)
+  → find_symbol EvictLFU.List EvictLRR.List
+  ✗ find_symbol failed: error: invalid arguments for find_symbol:
+  → find_symbol EvictLFU.List EvictLRR.List
+
+$0.0000 · 43% cache hits · 5405 tokens in, 153 out
+done in 22.257s
+
+--- answer ---
+The tool showed us the function NewList from package github.com/hashicorp/golang-lru/v2/internal. The function seems to create a new instance of *LruList[K, V].
+
+Next, we shall call the package graph tool to see the call graph of the function EvictLFU.List.

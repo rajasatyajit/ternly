@@ -1,0 +1,21 @@
+lru-evict-order          auto                         run 0  no-change      231s  ollama/llama3.1:8b
+lru-resize               auto                         run 0  no-change       25s  ollama/llama3.1:8b
+lru-peek-expiry          auto                         run 0  pass           391s  ollama/gemma4:e4b
+mi-split-maxsplit        auto                         run 0  no-change       32s  ollama/llama3.1:8b
+mi-rstrip                auto                         run 0  no-change       65s  ollama/llama3.1:8b
+mi-chunk-weight          auto                         run 0  oracle-fail    605s  ollama/gemma4:e4b
+mitt-once                auto                         run 0  no-change       25s  ollama/llama3.1:8b
+mitt-off                 auto                         run 0  no-change      219s  ollama/granite3.3:8b
+mitt-emit-count          auto                         run 0  no-change       33s  ollama/llama3.1:8b
+semver-caret             auto                         run 0  no-change      352s  ollama/granite3.3:8b
+semver-tilde             auto                         run 0  no-change       18s  ollama/llama3.1:8b
+semver-bump              auto                         run 0  pass           700s  ollama/gemma4:e4b → ollama/qwen3.6:latest
+ternly-wilson            auto                         run 0  no-change      102s  ollama/llama3.1:8b
+ternly-retry-after       auto                         run 0  pass           197s  ollama/gemma4:e4b
+ternly-gitenv-without    auto                         run 0  no-change       75s  ollama/llama3.1:8b
+semver-pre-order         auto                         run 0  no-change      138s  ollama/granite3.3:8b
+mi-windowed-step         auto                         run 0  no-change       26s  ollama/llama3.1:8b
+lru-2q-promote           auto                         run 0  no-change      131s  ollama/granite3.3:8b
+ternly-finaljson         auto                         run 0  no-change      258s  ollama/llama3.1:8b
+mitt-emit-async          auto                         run 0  pass           423s  ollama/gemma4:e4b → ollama/qwen3.6:latest → ollama/granite3.3:2b
+exit=0

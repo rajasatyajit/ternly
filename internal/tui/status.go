@@ -41,6 +41,7 @@ func (m *Model) startSurface() tea.Cmd {
 
 func (m *Model) onSurface() tea.Cmd {
 	m.snap, m.snapGen = m.App.Surface.Snapshot(), m.snapGen+1
+	m.refreshPanel(pPlan) // the plan comes from the snapshot
 	return m.watchSurface(m.surfaceCh)
 }
 

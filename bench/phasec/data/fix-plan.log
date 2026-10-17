@@ -1,0 +1,14 @@
+lru-evict-order          auto                         run 0  no-change       21s  ollama/llama3.1:8b
+lru-resize               auto                         run 0  no-change       49s  ollama/llama3.1:8b
+mi-split-maxsplit        auto                         run 0  oracle-fail    392s  ollama/gemma4:e4b
+mi-rstrip                auto                         run 0  no-change       71s  ollama/llama3.1:8b
+mitt-off                 auto                         run 0  pass           401s  ollama/gemma4:e4b → ollama/qwen3.6:latest → ollama/granite3.3:2b
+semver-caret             auto                         run 0  no-change      104s  ollama/llama3.1:8b
+semver-tilde             auto                         run 0  no-change       48s  ollama/llama3.1:8b
+ternly-wilson            auto                         run 0  pass           642s  ollama/gemma4:e4b → ollama/qwen3.6:latest
+lru-evict-order          auto                         run 0  pass           160s  ollama/llama3.1:8b → ollama/gemma4:e4b
+lru-resize               auto                         run 0  no-change      165s  ollama/llama3.1:8b → ollama/gemma4:e4b
+mi-split-maxsplit        auto                         run 0  oracle-fail    583s  ollama/llama3.1:8b → ollama/gemma4:e4b
+mi-rstrip                auto                         run 0  pass           230s  ollama/llama3.1:8b → ollama/gemma4:e4b
+mitt-off                 auto                         run 0  no-change       20s  ollama/llama3.1:8b
+semver-caret             auto                         run 0  no-change      310s  ollama/llama3.1:8b → ollama/gemma4:e4b

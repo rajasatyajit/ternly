@@ -1,0 +1,25 @@
+◆ ollama/deepseek-v4-pro:cloud (T3, cloud·quota) — pinned · reasoning low
+  ↻ ollama/deepseek-v4-pro:cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+
+$0.0000 · 24% cache hits · 2672 tokens in, 260 out
+done in 1m6.697s
+
+--- answer ---
+To accomplish this task, the `edit_file` function can be used. The `edit_file` function allows for replacing a specific, unique snippet in a file. In this case, we want to add a new function `Without` to the internal/gitenv package.
+
+To create the `Without` function, we'll follow the original function's signature and logic as a model. Since the function only involves filtering and returning a new slice, we'll not need any complex operations like in other scenarios.
+
+Here's the Go function and its parameters in the format requested:
+
+```json
+{
+  "name": "edit_file",
+  "parameters": {
+    "path": "internal/gitenv/gitenv.go",
+    "new_string": "func (g *GitEnv) Without(base []string, keys ...string) []string {\n\tresult := base[:0]\n\tfor _, entry := range base {\n\t\tsplit := strings.Split(entry, '=')\n\t\tif !inSlice(keys, strings.ToLower(split[0])) {\n\t\t\tnet.Write(result, &result[len(result)], entry)\n\t\t}\n\t}\n\treturn result\n",
+    "old_string": "",
+    "replace_all": false
+  }
+}
+```

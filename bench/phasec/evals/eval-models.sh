@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Capability evals (ternly --eval, eval v4) of the local models, one model per
+# bench/run.sh call so each record is saved as soon as it is done; a rerun skips
+# finished models and resumes a stopped one from its journal (ternly --eval keeps
+# each trap as it finishes). flock -o: nothing started inherits the lock;
+# --line-buffered: a trap's line reaches the log when it happens.
+# Detached: survives the session.
+cd "$(dirname "$0")/../../.." || exit 1
+T=${T:-${TMPDIR:-/var/tmp}/ternly-phasec}; mkdir -p "$T" # holds eval-models.started
+LOCK=${HEAVY_LOCK:-${TMPDIR:-/var/tmp}/ternly-heavy.lock} # the lock every timing harness shares
+R=bench/results/fabrication
+# SPECS: model:runs … (default: every local model in the plan)
+for spec in ${SPECS:-gemma4:latest:3 gemma4:26b:3 granite4.2:latest:3 qwen3.8:latest:1 gemma4:31b:1}; do
+  m=${spec%:*}; runs=${spec##*:}; f=$R/ollama_${m//:/_}.json
+  if [ -f "$f" ] && [ "$f" -nt "$T/eval-models.started" ]; then echo "== $m: done already ($f)"; continue; fi
+  echo "== $m runs=$runs $(date -u +%FT%TZ)"
+  MODELS=$m RUNS=$runs flock -o "$LOCK" bench/run.sh fabrication 2>&1 | grep --line-buffered -E "^[✓·✗!■] |fabrication |capability:|trust:|E2E-METRIC|^==|error" 
+  st=${PIPESTATUS[0]}
+  if [ "$st" = 69 ]; then echo "== $m: the model is unavailable (is the server running?); stopping, rerun to resume"; exit 69; fi
+  echo "== $m finished $(date -u +%FT%TZ); record: $f ($(wc -c <"$f" 2>/dev/null || echo none) bytes)"
+done
+echo "EVALS DONE $(date -u +%FT%TZ)"

@@ -74,6 +74,8 @@ type fileConfig struct {
 		TurnUSD     *float64 `json:"turn_usd"`
 	} `json:"limits"`
 	Checkpoints     *bool         `json:"checkpoints"`
+	Levers          string        `json:"levers"`        // Phase C levers, comma-separated (ADR 029); TERNLY_LEVERS overrides
+	Deterministic   *bool         `json:"deterministic"` // temperature 0 + a seed, and a response cache (ADR 029); TERNLY_DETERMINISTIC=1
 	CheckpointCapMB *int          `json:"checkpoint_cap_mb"`
 	AutoResume      *bool         `json:"auto_resume"`
 	CodeGraph       *bool         `json:"code_graph"`
@@ -409,6 +411,36 @@ func run() int {
 	mgr := &session.Manager{Project: project, Agent: ag, Repo: repo, Policy: pol, Router: router}
 	factChecks := os.Getenv("TERNLY_NO_FACT_CHECKS") != "1" // measurement only: the eval's A/B of these checks
 	ag.NoFactChecks = !factChecks
+	levers := fc.Levers
+	if v, ok := os.LookupEnv("TERNLY_LEVERS"); ok { // the task suite's A/B arms
+		levers = v
+	}
+	generalAgent := false // the general_agent lever, for the plugin runtime below
+	if lv, toolLevers, err := agent.ParseLevers(levers); err != nil {
+		fmt.Fprintln(os.Stderr, "levers:", err)
+		return 2
+	} else {
+		ag.Levers = lv
+		// Routing fixes (ADR 029), on by default; TERNLY_ROUTING_FIX names the
+		// ones to keep, only to measure them ("none", "classifier", "textcall").
+		if fix, ok := os.LookupEnv("TERNLY_ROUTING_FIX"); ok {
+			discover.ClassifyV1 = !strings.Contains(fix, "classifier")
+			ag.NoTextCallEscalation = !strings.Contains(fix, "textcall")
+		}
+		ag.Deterministic = (fc.Deterministic != nil && *fc.Deterministic) || os.Getenv("TERNLY_DETERMINISTIC") == "1"
+		if ag.Deterministic && os.Getenv("TERNLY_RESPONSE_CACHE") != "0" {
+			dir := os.Getenv("TERNLY_RESPONSE_CACHE_DIR")
+			if dir == "" {
+				dir = filepath.Join(cacheDir, "responses")
+			}
+			ag.Responses = &llm.Cache{Dir: dir}
+		}
+		for _, t := range toolLevers {
+			reg.OutlineReads = reg.OutlineReads || t == "outline_reads"
+			generalAgent = generalAgent || t == "general_agent"
+			reg.NoSchemaRepair = reg.NoSchemaRepair || t == "no_schema_repair"
+		}
+	}
 	if !*noNet && factChecks { // packages and versions the model adds are looked up (ADR 012)
 		ag.DepCheck = &deps.Checker{HTTP: llm.HTTP}
 	}
@@ -516,7 +548,7 @@ func run() int {
 		if st, err := plugins.OpenStore(filepath.Join(dataDir, "plugins")); err != nil {
 			notes = append(notes, "plugins off: "+err.Error())
 		} else {
-			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, NoCode: noCodeReason(pol),
+			prt = &plugins.Runtime{Store: st, Reg: reg, Root: reg.Root, Home: home, Subagent: ag.SubagentNamed, GeneralAgent: generalAgent, NoCode: noCodeReason(pol),
 				Notify: func(s string) { ag.Emit(agent.Event{Kind: agent.EvStatus, Text: s}) }, Note: ag.SetNote, Mode: pol.Mode,
 				SessionID: func() string {
 					if s := mgr.Current(); s != nil {
@@ -909,7 +941,14 @@ func headless(ctx context.Context, ag *agent.Agent, router *discover.Router, dis
 	ictx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 	t0 := time.Now()
-	ag.Run(ictx, prompt)
+	fmt.Fprintf(os.Stderr, "prompt %s\n", ag.PromptVersion())
+	ag.RunTask(ictx, prompt) // Run, plus the levers that are on (ADR 029)
+	if c := ag.Responses; c != nil {
+		fmt.Fprintf(os.Stderr, "response cache: %d hit(s), %d miss(es)\n", c.Hits.Load(), c.Misses.Load())
+	}
+	if st := ag.Stats(); st.Plans > 0 || st.Retries > 0 {
+		fmt.Fprintf(os.Stderr, "levers: %d plan(s), %d retry(ies) from scratch\n", st.Plans, st.Retries)
+	}
 	fmt.Fprintf(os.Stderr, "done in %s\n", time.Since(t0).Round(time.Millisecond))
 	if failed {
 		return 1

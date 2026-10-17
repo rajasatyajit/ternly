@@ -1,0 +1,10 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T1 task → est. 33 s, local, GPU 100%, p≥0.45; next granite3.3:8b (est. 33 s, local, GPU 100%)
+
+$0.0000 · 0% cache hits · 2672 tokens in, 78 out
+done in 15.286s
+
+--- answer ---
+To find the cause and fix the issue with the `Counts.Wilson` function in `internal/eval`, we can start by using the `grep` function to search for the function name and look for related code changes.
+
+{"name": "grep", "parameters": {"pattern": "^Counts\\.Wilson$", "ignore_case": true, "path": "internal/eval"}}

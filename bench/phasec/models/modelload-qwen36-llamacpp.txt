@@ -1,0 +1,9 @@
+llama-server -ngl 99 --cpu-moe state   total s     load s prompt t/s    gen t/s prompt tok
+llama-server did not become healthy
+13 MiB
+llama-server -ngl 99 --n-cpu-moe 30 state   total s     load s prompt t/s    gen t/s prompt tok
+llama-server did not become healthy
+13 MiB
+llama-server -ngl 99 --n-cpu-moe 20 state   total s     load s prompt t/s    gen t/s prompt tok
+llama-server did not become healthy
+13 MiB

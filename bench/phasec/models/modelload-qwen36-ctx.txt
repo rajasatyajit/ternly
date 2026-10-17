@@ -1,0 +1,12 @@
+== num_ctx 8192
+endpoint                     state   total s     load s prompt t/s    gen t/s prompt tok
+http://127.0.0.1:11434       cold       38.2       27.0        394       40.1       3764
+http://127.0.0.1:11434       warm       11.2        0.0        398       40.0       3764
+== num_ctx 32768
+endpoint                     state   total s     load s prompt t/s    gen t/s prompt tok
+http://127.0.0.1:11434       cold       36.3       25.0        392       39.4       3764
+http://127.0.0.1:11434       warm       11.3        0.0        394       39.7       3764
+== num_ctx 131072
+endpoint                     state   total s     load s prompt t/s    gen t/s prompt tok
+http://127.0.0.1:11434       cold       34.6       23.0        377       37.8       3764
+http://127.0.0.1:11434       warm       11.7        0.0        379       38.1       3764

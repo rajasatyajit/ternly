@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rajasatyajit/ternly/internal/discover"
+	"github.com/rajasatyajit/ternly/internal/eval"
 )
 
 // quotaServer answers every chat with a monthly-limit 429.
@@ -55,8 +56,8 @@ func runBounded(t *testing.T, home string, extraEnv []string, args ...string) ([
 	return cmd.CombinedOutput()
 }
 
-// ADR 031: a 429 during an evaluation stops it (exit code exitQuota,
-// nothing saved) after the trap that hit it, and the provider's quota is
+// ADR 031: a 429 during an evaluation stops it (exit code exitQuota, no
+// record saved; the finished traps stay in its journal) after the trap that hit it, and the provider's quota is
 // recorded for every ternly process: the scheduler then leaves it alone.
 func TestEvalStopsOnQuota(t *testing.T) {
 	var chats atomic.Int32
@@ -77,7 +78,7 @@ func TestEvalStopsOnQuota(t *testing.T) {
 	if ok, q := log.Exhausted("fake", time.Now()); !ok || q.Model != "fake/m1" {
 		t.Fatalf("quota not recorded: %v %+v", ok, q)
 	}
-	if ms, _ := filepath.Glob(filepath.Join(data, "capability", "*")); len(ms) != 0 {
+	if ms, _ := filepath.Glob(filepath.Join(data, "capability", "*.json")); len(ms) != 0 { // a record; the journal (.partial.jsonl) may stay
 		t.Fatalf("a stopped evaluation saved a measurement: %v", ms)
 	}
 }
@@ -90,5 +91,162 @@ func TestEvalRefusedInTrapRun(t *testing.T) {
 	var ee *exec.ExitError
 	if !errors.As(err, &ee) || ee.ExitCode() != 2 || chats.Load() != 0 {
 		t.Fatalf("exit %v, %d chats\n%s", err, chats.Load(), out)
+	}
+}
+
+// trapLines counts an evaluation's per-trap result lines.
+func trapLines(out string) int {
+	n := 0
+	for _, l := range strings.Split(out, "\n") {
+		for _, m := range []string{"✓ ", "· ", "✗ ", "! "} {
+			if strings.HasPrefix(l, m) {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// An evaluation stopped part-way (here by a 429) keeps the traps it
+// finished; the next run resumes with the rest, saves the model's record
+// and removes the journal (Phase C: granite4.2's stopped run had left
+// nothing).
+func TestEvalResumesAfterStop(t *testing.T) {
+	var chats, limit atomic.Int32
+	limit.Store(4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+			return
+		}
+		if n, l := chats.Add(1), limit.Load(); l > 0 && n > l {
+			w.Header().Set("Retry-After", "3600")
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"error":"you have reached your monthly usage limit"}`)
+			return
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"I don't know that, and I won't guess.\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	t.Cleanup(srv.Close)
+	home := testHome(t, srv.URL)
+	data := filepath.Join(home, ".local", "share", "ternly")
+
+	out1, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != exitQuota {
+		t.Fatalf("first run: exit %v, want %d\n%s", err, exitQuota, out1)
+	}
+	kept := trapLines(string(out1))
+	journals, _ := filepath.Glob(filepath.Join(data, "capability", "*.partial.jsonl"))
+	if kept == 0 || len(journals) != 1 || !strings.Contains(string(out1), "the finished traps are kept") {
+		t.Fatalf("first run: %d traps finished, journals %v\n%s", kept, journals, out1)
+	}
+
+	limit.Store(0) // the quota is back
+	out2, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	if err != nil {
+		t.Fatalf("second run: %v\n%s", err, out2)
+	}
+	if want := fmt.Sprintf("↺ resuming: %d trap outcome(s)", kept); !strings.Contains(string(out2), want) {
+		t.Fatalf("second run doesn't say %q:\n%s", want, out2)
+	}
+	if again := trapLines(string(out2)); again != len(eval.Traps)-kept { // only the rest
+		t.Fatalf("second run ran %d traps; %d of %d were kept", again, kept, len(eval.Traps))
+	}
+	if !strings.Contains(string(out2), "1 run(s) in all") {
+		t.Fatalf("second run's summary:\n%s", out2)
+	}
+	if left, _ := filepath.Glob(filepath.Join(data, "capability", "*.partial.jsonl")); len(left) != 0 {
+		t.Fatalf("the journal outlived the saved record: %v", left)
+	}
+	if recs, _ := filepath.Glob(filepath.Join(data, "capability", "*.json")); len(recs) != 1 {
+		t.Fatalf("records: %v", recs)
+	}
+}
+
+// With TERNLY_EVAL_JOURNAL_DIR the journal lives outside HOME: bench/run.sh
+// gives every run a fresh temporary HOME, and a stopped model still resumes.
+func TestEvalResumesInAFreshHome(t *testing.T) {
+	var chats, limit atomic.Int32
+	limit.Store(4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+			return
+		}
+		if n, l := chats.Add(1), limit.Load(); l > 0 && n > l {
+			w.Header().Set("Retry-After", "3600")
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"error":"you have reached your monthly usage limit"}`)
+			return
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"I don't know that, and I won't guess.\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	t.Cleanup(srv.Close)
+	jdir := filepath.Join(t.TempDir(), "journals")
+	env := []string{"TERNLY_EVAL_JOURNAL_DIR=" + jdir}
+	out1, _ := runBounded(t, testHome(t, srv.URL), env, "--eval", "--model", "fake/m1")
+	kept := trapLines(string(out1))
+	if js, _ := filepath.Glob(filepath.Join(jdir, "*.partial.jsonl")); kept == 0 || len(js) != 1 {
+		t.Fatalf("first run: %d kept, journals %v\n%s", kept, js, out1)
+	}
+	limit.Store(0)
+	out2, err := runBounded(t, testHome(t, srv.URL), env, "--eval", "--model", "fake/m1") // a new HOME
+	if err != nil || !strings.Contains(string(out2), fmt.Sprintf("↺ resuming: %d trap outcome(s)", kept)) || trapLines(string(out2)) != len(eval.Traps)-kept {
+		t.Fatalf("second run in a fresh HOME: %v\n%s", err, out2)
+	}
+	if js, _ := filepath.Glob(filepath.Join(jdir, "*.partial.jsonl")); len(js) != 0 {
+		t.Fatalf("journal left after the record was saved: %v", js)
+	}
+}
+
+// A model that becomes unreachable part-way (on 2026-10-12 Ollama stopped
+// during granite4.2's evaluation) stops the evaluation with the journal kept
+// and no record saved, instead of scoring every remaining trap as an error.
+func TestEvalStopsWhenModelGone(t *testing.T) {
+	var chats, limit atomic.Int32
+	limit.Store(4)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gone := limit.Load() > 0 && chats.Load() >= limit.Load()
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			if gone {
+				fmt.Fprint(w, `{"data":[]}`)
+				return
+			}
+			fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+			return
+		}
+		if gone {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"error":"model \"m1\" not found"}`)
+			return
+		}
+		chats.Add(1)
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"I don't know that, and I won't guess.\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	t.Cleanup(srv.Close)
+	home := testHome(t, srv.URL)
+	data := filepath.Join(home, ".local", "share", "ternly")
+
+	out1, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != exitUnavailable {
+		t.Fatalf("first run: exit %v, want %d\n%s", err, exitUnavailable, out1)
+	}
+	if !strings.Contains(string(out1), "is unavailable") {
+		t.Fatalf("first run doesn't say the model is unavailable:\n%s", out1)
+	}
+	if recs, _ := filepath.Glob(filepath.Join(data, "capability", "*.json")); len(recs) != 0 {
+		t.Fatalf("a record was saved from a run whose model went away: %v", recs)
+	}
+	kept := trapLines(string(out1)) // the trap that found the model gone is neither printed nor kept
+	if js, _ := filepath.Glob(filepath.Join(data, "capability", "*.partial.jsonl")); len(js) != 1 {
+		t.Fatalf("journal: %v\n%s", js, out1)
+	}
+
+	limit.Store(0) // the model is back
+	out2, err := runBounded(t, home, nil, "--eval", "--model", "fake/m1")
+	if err != nil || !strings.Contains(string(out2), fmt.Sprintf("↺ resuming: %d trap outcome(s)", kept)) {
+		t.Fatalf("second run: %v\n%s", err, out2)
 	}
 }

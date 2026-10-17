@@ -1,0 +1,31 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep def rstrip
+  → read_file more_itertools/more.py
+  → edit_file more_itertools/more.py  (-3 +4 lines)
+  → bash python3 -c "
+from more_itertools import rstrip
+it = (1, None, 2, None, 3, None)
+print(list(rstrip(it, lambda x: x is None)))
+print(list(rstrip((None, False, None, 1, 2, None, 3, False, None), lambda x: x in {None, False, ''})))
+" && python3 -m pytest tests/test_more.py -k "rstrip or strip" -q 2>&1 | tail -3
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m pytest tests/ -k "rstrip or strip" -q
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → grep rstrip  tests/test_more.py
+  → read_file tests/test_more.py
+  → edit_file tests/test_more.py  (-3 +11 lines)
+  → bash python3 -m compileall -q .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 222ms: python3 -m compileall -q . · python compile: 2 file(s) · ruff format: not run, formatting unchecked · 2 changed source file(s) covered
+
+$0.0000 · 87% cache hits · 41798 tokens in, 1270 out
+done in 24.59s
+
+--- answer ---
+The bug is at more_itertools/more.py:2654 — after yielding the cached pred-matching items, the cache is never cleared, so those items are yielded again on the next non-matching item.Adding a regression test for the interspersed case:Test execution is denied by the sandbox policy, so I can't run the tests to verify — the fix itself is straightforward and matches the `cache_clear` setup already present in the function.
+
+**Summary:**
+- **Cause:** `rstrip` (more_itertools/more.py:2650) buffers trailing pred-matching items and yields them when a non-matching item arrives, but never cleared the cache — so cached items were re-yielded for every subsequent non-matching item, producing duplicates whenever pred-matching items appeared between non-matching ones.
+- **Fix:** added `cache_clear()` after `yield from cache` (more_itertools/more.py:2655).
+- Added regression test `test_rstrip_interspersed` in tests/test_more.py. I attempted to run tests and the project's compile check, but the sandbox denied all commands this turn — changes are unverified by execution.

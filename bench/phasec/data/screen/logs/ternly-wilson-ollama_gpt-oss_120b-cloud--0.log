@@ -1,0 +1,12 @@
+◆ ollama/gpt-oss:120b-cloud (T2, cloud·quota) — pinned · reasoning low
+  ↻ ollama/gpt-oss:120b-cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (31s)
+
+$0.0000 · 25% cache hits · 2679 tokens in, 77 out
+done in 59.113s
+
+--- answer ---
+To investigate the cause of the issue and find a solution, I will first use the `find_symbol` function to find the declaration of `Counts.Wilson` in the code graph.
+
+{"name": "find_symbol", "parameters": {"query": "Counts.Wilson", "include_deps": "false", "limit": "1", "kind": "func"}}

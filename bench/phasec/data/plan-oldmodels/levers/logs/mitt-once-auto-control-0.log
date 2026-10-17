@@ -1,0 +1,22 @@
+prompt ec8e1a226d3b
+◆ ollama/llama3.1:8b (T1, local) — T2 task → est. 1.9 min, local, GPU 100%, p≥0.22; next gemma4:e4b (est. 6.0 min, local, GPU 52%)
+
+$0.0000 · 0% cache hits · 2669 tokens in, 139 out
+done in 21.356s
+
+--- answer ---
+To best answer the given prompt, the following Go function call and dictionary of argument name and its value can fulfill the request:
+
+```json
+{
+  "name": "edit_file",
+  "parameters": {
+    "path": "src/index.ts",
+    "old_string": "emit(\\\"\\")",
+    "new_string": "once(type, handler) { emit(type); off(type, handler); }",
+    "replace_all": "false"
+  }
+}
+```
+
+This will replace the existing `emit()` function in `src/index.ts` with the new `once()` function that runs the handler on the next emit of that type only, then is removed.

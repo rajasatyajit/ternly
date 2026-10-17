@@ -1,0 +1,121 @@
+lru-evict-order          ollama/deepseek-v4-pro:cloud run 0  pass            12s  ollama/deepseek-v4-pro:cloud
+lru-evict-order          ollama/glm-5.3:cloud         run 0  pass            16s  ollama/glm-5.3:cloud
+lru-evict-order          ollama/kimi-k3:cloud         run 0  pass            19s  ollama/kimi-k3:cloud
+lru-evict-order          ollama/gpt-oss:120b-cloud    run 0  pass             9s  ollama/gpt-oss:120b-cloud
+lru-evict-order          ollama/mistral-large-3:675b-cloud run 0  pass            39s  ollama/mistral-large-3:675b-cloud
+lru-evict-order          ollama/minimax-m3:cloud      run 0  pass            39s  ollama/minimax-m3:cloud
+lru-evict-order          ollama/kimi-k2.7-code:cloud  run 0  pass            21s  ollama/kimi-k2.7-code:cloud
+lru-resize               ollama/deepseek-v4-pro:cloud run 0  pass            10s  ollama/deepseek-v4-pro:cloud
+lru-resize               ollama/kimi-k3:cloud         run 0  pass            30s  ollama/kimi-k3:cloud
+lru-resize               ollama/glm-5.3:cloud         run 0  pass            25s  ollama/glm-5.3:cloud
+lru-resize               ollama/mistral-large-3:675b-cloud run 0  pass            28s  ollama/mistral-large-3:675b-cloud
+lru-resize               ollama/gpt-oss:120b-cloud    run 0  pass            11s  ollama/gpt-oss:120b-cloud
+lru-evict-order          ollama/nemotron-3-ultra:cloud run 0  pass           124s  ollama/nemotron-3-ultra:cloud
+lru-resize               ollama/kimi-k2.7-code:cloud  run 0  pass            20s  ollama/kimi-k2.7-code:cloud
+lru-resize               ollama/nemotron-3-ultra:cloud run 0  pass            63s  ollama/nemotron-3-ultra:cloud
+lru-resize               ollama/minimax-m3:cloud      run 0  pass            52s  ollama/minimax-m3:cloud
+lru-peek-expiry          ollama/deepseek-v4-pro:cloud run 0  pass            22s  ollama/deepseek-v4-pro:cloud
+lru-peek-expiry          ollama/mistral-large-3:675b-cloud run 0  pass            24s  ollama/mistral-large-3:675b-cloud
+lru-peek-expiry          ollama/glm-5.3:cloud         run 0  pass            37s  ollama/glm-5.3:cloud
+lru-peek-expiry          ollama/kimi-k3:cloud         run 0  pass            80s  ollama/kimi-k3:cloud
+lru-peek-expiry          ollama/gpt-oss:120b-cloud    run 0  no-change       18s  ollama/gpt-oss:120b-cloud
+lru-peek-expiry          ollama/minimax-m3:cloud      run 0  pass            30s  ollama/minimax-m3:cloud
+lru-peek-expiry          ollama/kimi-k2.7-code:cloud  run 0  pass            54s  ollama/kimi-k2.7-code:cloud
+mi-split-maxsplit        ollama/kimi-k3:cloud         run 0  pass            34s  ollama/kimi-k3:cloud
+mi-split-maxsplit        ollama/deepseek-v4-pro:cloud run 0  pass            35s  ollama/deepseek-v4-pro:cloud
+lru-peek-expiry          ollama/nemotron-3-ultra:cloud run 0  pass           122s  ollama/nemotron-3-ultra:cloud
+mi-split-maxsplit        ollama/glm-5.3:cloud         run 0  pass            40s  ollama/glm-5.3:cloud
+mi-split-maxsplit        ollama/mistral-large-3:675b-cloud run 0  pass            61s  ollama/mistral-large-3:675b-cloud
+mi-split-maxsplit        ollama/gpt-oss:120b-cloud    run 0  pass            52s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+mi-split-maxsplit        ollama/kimi-k2.7-code:cloud  run 0  pass            84s  ollama/kimi-k2.7-code:cloud
+mi-split-maxsplit        ollama/minimax-m3:cloud      run 0  pass           102s  ollama/minimax-m3:cloud
+mi-rstrip                ollama/kimi-k3:cloud         run 0  pass            28s  ollama/kimi-k3:cloud
+mi-rstrip                ollama/glm-5.3:cloud         run 0  pass            26s  ollama/glm-5.3:cloud
+mi-rstrip                ollama/deepseek-v4-pro:cloud run 0  pass            58s  ollama/deepseek-v4-pro:cloud
+mi-rstrip                ollama/mistral-large-3:675b-cloud run 0  pass            51s  ollama/mistral-large-3:675b-cloud
+mi-rstrip                ollama/gpt-oss:120b-cloud    run 0  pass            10s  ollama/gpt-oss:120b-cloud
+mi-split-maxsplit        ollama/nemotron-3-ultra:cloud run 0  pass           288s  ollama/nemotron-3-ultra:cloud
+mi-rstrip                ollama/kimi-k2.7-code:cloud  run 0  pass            43s  ollama/kimi-k2.7-code:cloud
+mi-rstrip                ollama/minimax-m3:cloud      run 0  pass            79s  ollama/minimax-m3:cloud
+mi-chunk-weight          ollama/kimi-k3:cloud         run 0  pass            62s  ollama/kimi-k3:cloud
+mi-rstrip                ollama/nemotron-3-ultra:cloud run 0  pass           209s  ollama/nemotron-3-ultra:cloud
+mi-chunk-weight          ollama/glm-5.3:cloud         run 0  pass            38s  ollama/glm-5.3:cloud
+mi-chunk-weight          ollama/deepseek-v4-pro:cloud run 0  pass           127s  ollama/deepseek-v4-pro:cloud
+mi-chunk-weight          ollama/gpt-oss:120b-cloud    run 0  pass            64s  ollama/gpt-oss:120b-cloud
+mi-chunk-weight          ollama/mistral-large-3:675b-cloud run 0  oracle-fail    126s  ollama/mistral-large-3:675b-cloud
+mi-chunk-weight          ollama/kimi-k2.7-code:cloud  run 0  pass            94s  ollama/kimi-k2.7-code:cloud
+mi-chunk-weight          ollama/minimax-m3:cloud      run 0  pass           127s  ollama/minimax-m3:cloud
+mitt-once                ollama/kimi-k3:cloud         run 0  pass           144s  ollama/kimi-k3:cloud
+mitt-once                ollama/deepseek-v4-pro:cloud run 0  pass           225s  ollama/deepseek-v4-pro:cloud
+mitt-once                ollama/mistral-large-3:675b-cloud run 0  oracle-fail     58s  ollama/mistral-large-3:675b-cloud
+mitt-once                ollama/glm-5.3:cloud         run 0  pass           301s  ollama/glm-5.3:cloud
+mitt-once                ollama/gpt-oss:120b-cloud    run 0  oracle-fail     39s  ollama/gpt-oss:120b-cloud
+mi-chunk-weight          ollama/nemotron-3-ultra:cloud run 0  pass           720s  ollama/nemotron-3-ultra:cloud
+mitt-once                ollama/minimax-m3:cloud      run 0  pass           261s  ollama/minimax-m3:cloud
+mitt-once                ollama/kimi-k2.7-code:cloud  run 0  pass           312s  ollama/kimi-k2.7-code:cloud
+mitt-off                 ollama/kimi-k3:cloud         run 0  pass            96s  ollama/kimi-k3:cloud
+mitt-once                ollama/nemotron-3-ultra:cloud run 0  pass           574s  ollama/nemotron-3-ultra:cloud
+mitt-off                 ollama/mistral-large-3:675b-cloud run 0  no-change       33s  ollama/mistral-large-3:675b-cloud
+mitt-off                 ollama/glm-5.3:cloud         run 0  pass           195s  ollama/glm-5.3:cloud
+mitt-off                 ollama/gpt-oss:120b-cloud    run 0  pass            48s  ollama/gpt-oss:120b-cloud
+mitt-off                 ollama/nemotron-3-ultra:cloud run 0  pass           317s  ollama/nemotron-3-ultra:cloud
+mitt-off                 ollama/minimax-m3:cloud      run 0  pass           161s  ollama/minimax-m3:cloud
+mitt-off                 ollama/kimi-k2.7-code:cloud  run 0  pass            82s  ollama/kimi-k2.7-code:cloud
+mitt-emit-count          ollama/kimi-k3:cloud         run 0  pass           139s  ollama/kimi-k3:cloud
+mitt-emit-count          ollama/glm-5.3:cloud         run 0  pass            46s  ollama/glm-5.3:cloud
+mitt-emit-count          ollama/mistral-large-3:675b-cloud run 0  pass            90s  ollama/mistral-large-3:675b-cloud
+mitt-off                 ollama/deepseek-v4-pro:cloud run 0  pass           720s  ollama/deepseek-v4-pro:cloud
+mitt-emit-count          ollama/gpt-oss:120b-cloud    run 0  pass            28s  ollama/gpt-oss:120b-cloud
+mitt-emit-count          ollama/deepseek-v4-pro:cloud run 0  pass           720s  ollama/deepseek-v4-pro:cloud → ollama/llama3.1:8b
+mitt-emit-count          ollama/nemotron-3-ultra:cloud run 0  pass           582s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+mitt-emit-count          ollama/minimax-m3:cloud      run 0  timeout        720s  ollama/minimax-m3:cloud → ollama/llama3.1:8b
+semver-caret             ollama/kimi-k3:cloud         run 0  no-change      195s  ollama/kimi-k3:cloud → ollama/granite3.3:8b
+semver-caret             ollama/deepseek-v4-pro:cloud run 0  no-change       93s  ollama/deepseek-v4-pro:cloud → ollama/llama3.1:8b
+semver-caret             ollama/glm-5.3:cloud         run 0  no-change      112s  ollama/glm-5.3:cloud → ollama/llama3.1:8b
+mitt-emit-count          ollama/kimi-k2.7-code:cloud  run 0  timeout        720s  ollama/kimi-k2.7-code:cloud → ollama/gemma4:e4b
+semver-caret             ollama/mistral-large-3:675b-cloud run 0  no-change      367s  ollama/mistral-large-3:675b-cloud → ollama/granite3.3:8b
+semver-caret             ollama/nemotron-3-ultra:cloud run 0  no-change      362s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+semver-caret             ollama/gpt-oss:120b-cloud    run 0  no-change       81s  ollama/gpt-oss:120b-cloud → ollama/granite3.3:8b
+semver-caret             ollama/minimax-m3:cloud      run 0  no-change      127s  ollama/minimax-m3:cloud → ollama/llama3.1:8b
+semver-tilde             ollama/kimi-k3:cloud         run 0  no-change      136s  ollama/kimi-k3:cloud → ollama/granite3.3:8b
+semver-caret             ollama/kimi-k2.7-code:cloud  run 0  no-change      189s  ollama/kimi-k2.7-code:cloud → ollama/llama3.1:8b
+semver-tilde             ollama/deepseek-v4-pro:cloud run 0  no-change      111s  ollama/deepseek-v4-pro:cloud → ollama/llama3.1:8b
+semver-tilde             ollama/mistral-large-3:675b-cloud run 0  no-change      236s  ollama/mistral-large-3:675b-cloud → ollama/granite3.3:8b
+semver-tilde             ollama/glm-5.3:cloud         run 0  no-change      292s  ollama/glm-5.3:cloud → ollama/granite3.3:8b
+semver-tilde             ollama/gpt-oss:120b-cloud    run 0  no-change       80s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+semver-tilde             ollama/nemotron-3-ultra:cloud run 0  no-change      324s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+semver-tilde             ollama/minimax-m3:cloud      run 0  no-change      221s  ollama/minimax-m3:cloud → ollama/granite3.3:8b
+semver-tilde             ollama/kimi-k2.7-code:cloud  run 0  no-change      279s  ollama/kimi-k2.7-code:cloud → ollama/granite3.3:8b
+semver-bump              ollama/kimi-k3:cloud         run 0  no-change      294s  ollama/kimi-k3:cloud → ollama/llama3.1:8b
+semver-bump              ollama/mistral-large-3:675b-cloud run 0  no-change      107s  ollama/mistral-large-3:675b-cloud → ollama/llama3.1:8b
+semver-bump              ollama/deepseek-v4-pro:cloud run 0  oracle-fail    247s  ollama/deepseek-v4-pro:cloud → ollama/llama3.1:8b
+semver-bump              ollama/gpt-oss:120b-cloud    run 0  no-change       62s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+semver-bump              ollama/nemotron-3-ultra:cloud run 0  no-change      337s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+semver-bump              ollama/glm-5.3:cloud         run 0  no-change      538s  ollama/glm-5.3:cloud → ollama/gemma4:e4b → ollama/kimi-k3:cloud → ollama/granite3.3:8b
+ternly-wilson            ollama/kimi-k3:cloud         run 0  no-change       93s  ollama/kimi-k3:cloud → ollama/llama3.1:8b
+semver-bump              ollama/kimi-k2.7-code:cloud  run 0  no-change      165s  ollama/kimi-k2.7-code:cloud → ollama/llama3.1:8b
+semver-bump              ollama/minimax-m3:cloud      run 0  no-change      566s  ollama/minimax-m3:cloud → ollama/gemma4:e4b → ollama/kimi-k3:cloud → ollama/granite3.3:8b
+ternly-wilson            ollama/mistral-large-3:675b-cloud run 0  no-change      129s  ollama/mistral-large-3:675b-cloud → ollama/llama3.1:8b
+ternly-wilson            ollama/glm-5.3:cloud         run 0  no-change      273s  ollama/glm-5.3:cloud → ollama/llama3.1:8b
+ternly-wilson            ollama/deepseek-v4-pro:cloud run 0  no-change      347s  ollama/deepseek-v4-pro:cloud → ollama/granite3.3:8b
+ternly-wilson            ollama/gpt-oss:120b-cloud    run 0  no-change       73s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+ternly-wilson            ollama/nemotron-3-ultra:cloud run 0  no-change       88s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+ternly-wilson            ollama/minimax-m3:cloud      run 0  no-change       99s  ollama/minimax-m3:cloud → ollama/granite3.3:8b
+ternly-wilson            ollama/kimi-k2.7-code:cloud  run 0  no-change      109s  ollama/kimi-k2.7-code:cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/kimi-k3:cloud         run 0  no-change      125s  ollama/kimi-k3:cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/deepseek-v4-pro:cloud run 0  oracle-fail    675s  ollama/deepseek-v4-pro:cloud → ollama/gemma4:e4b
+ternly-retry-after       ollama/mistral-large-3:675b-cloud run 0  no-change      657s  ollama/mistral-large-3:675b-cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/glm-5.3:cloud         run 0  timeout        720s  ollama/glm-5.3:cloud → ollama/gemma4:e4b
+ternly-retry-after       ollama/gpt-oss:120b-cloud    run 0  no-change       86s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/nemotron-3-ultra:cloud run 0  no-change      129s  ollama/nemotron-3-ultra:cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/kimi-k2.7-code:cloud  run 0  pass           307s  ollama/kimi-k2.7-code:cloud → ollama/gemma4:e4b
+ternly-gitenv-without    ollama/deepseek-v4-pro:cloud run 0  no-change       83s  ollama/deepseek-v4-pro:cloud → ollama/llama3.1:8b
+ternly-retry-after       ollama/minimax-m3:cloud      run 0  no-change      439s  ollama/minimax-m3:cloud → ollama/llama3.1:8b
+ternly-gitenv-without    ollama/glm-5.3:cloud         run 0  no-change      103s  ollama/glm-5.3:cloud → ollama/llama3.1:8b
+ternly-gitenv-without    ollama/nemotron-3-ultra:cloud run 0  no-change      133s  ollama/nemotron-3-ultra:cloud → ollama/gemma4:e4b
+ternly-gitenv-without    ollama/kimi-k3:cloud         run 0  timeout        720s  ollama/kimi-k3:cloud → ollama/gemma4:e4b
+ternly-gitenv-without    ollama/mistral-large-3:675b-cloud run 0  no-change      335s  ollama/mistral-large-3:675b-cloud → ollama/llama3.1:8b
+ternly-gitenv-without    ollama/gpt-oss:120b-cloud    run 0  no-change      126s  ollama/gpt-oss:120b-cloud → ollama/llama3.1:8b
+ternly-gitenv-without    ollama/minimax-m3:cloud      run 0  no-change       61s  ollama/minimax-m3:cloud → ollama/llama3.1:8b
+ternly-gitenv-without    ollama/kimi-k2.7-code:cloud  run 0  no-change      118s  ollama/kimi-k2.7-code:cloud → ollama/llama3.1:8b
+exit=0

@@ -1,0 +1,28 @@
+package gitenv
+
+import (
+	"slices"
+	"testing"
+)
+
+func TestOracleWithout(t *testing.T) {
+	base := []string{"A=1", "B=2", "C=3", "BB=4", "B=5"}
+	orig := slices.Clone(base)
+	got := Without(base, "B", "C")
+	if want := []string{"A=1", "BB=4"}; !slices.Equal(got, want) {
+		t.Fatalf("Without = %q, want %q", got, want)
+	}
+	if !slices.Equal(base, orig) {
+		t.Fatalf("base modified: %q", base)
+	}
+	cp := Without(base)
+	if !slices.Equal(cp, base) {
+		t.Fatalf("no keys: %q", cp)
+	}
+	if len(base) > 0 && len(cp) > 0 && &cp[0] == &base[0] {
+		t.Fatal("no keys must return a copy, not base")
+	}
+	if got := Without(nil, "A"); len(got) != 0 {
+		t.Fatalf("nil base: %q", got)
+	}
+}

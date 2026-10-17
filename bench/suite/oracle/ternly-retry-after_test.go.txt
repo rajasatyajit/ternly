@@ -1,0 +1,24 @@
+package llm
+
+import (
+	"net/http"
+	"testing"
+	"time"
+)
+
+func TestOracleRetryAfter(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		in   string
+		want time.Duration
+	}{
+		{"", 0}, {"3", 3 * time.Second}, {"1.5", 1500 * time.Millisecond}, {"0.25", 250 * time.Millisecond},
+		{" 2.0 ", 2 * time.Second}, {"-1", 0}, {"-0.5", 0}, {"soon", 0},
+		{now.Add(90 * time.Second).Format(http.TimeFormat), 90 * time.Second},
+		{now.Add(-time.Minute).Format(http.TimeFormat), 0},
+	} {
+		if got := retryAfter(c.in, now); got != c.want {
+			t.Errorf("retryAfter(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

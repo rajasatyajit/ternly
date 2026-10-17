@@ -363,11 +363,32 @@ func (m *Model) errorPanel() []string {
 }
 
 func (m *Model) planPanel() []string {
-	return []string{
-		sDim.Render("no plan data in this session"),
-		sDim.Render("plans with their steps and states come from the core with Phase C (ADR 030);"),
-		sDim.Render("until then /plan is a read-only mode, and the plan is in the answer"),
+	p := m.snap.Plan
+	if len(p) == 0 {
+		return []string{
+			sDim.Render("no plan in this session"),
+			sDim.Render("a plan shows here when the core plans first (the plan_first lever, ADR 029);"),
+			sDim.Render("/plan is a read-only mode, whose plan is in the answer"),
+		}
 	}
+	done := 0
+	for _, it := range p {
+		if it.State == "done" {
+			done++
+		}
+	}
+	out := []string{fmt.Sprintf("%d of %d steps done", done, len(p)), ""}
+	for i, it := range p {
+		glyph, word := "queued", "pending" // the lanes' glyphs: ○ pending, ● running, ✓ done
+		switch it.State {
+		case "done":
+			glyph, word = "done", "done"
+		case "active":
+			glyph, word = "running", "running"
+		}
+		out = append(out, fmt.Sprintf("%s %d. %s", m.laneGlyph(glyph), i+1, untrusted(it.Text))+sDim.Render("  "+word))
+	}
+	return out
 }
 
 func (m *Model) routingPanel() []string {
