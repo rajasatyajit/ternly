@@ -1,7 +1,7 @@
 ◆ ollama/nemotron-3-ultra:cloud (T3, cloud·quota) — pinned · reasoning low
   → grep def split_at
   → read_file more_itertools/more.py
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 -c "
 from more_itertools import split_at
 # Test with maxsplit=1
 result = list(split_at('abcdcba', lambda x: x == 'b', maxsplit=1))
@@ -23,7 +23,7 @@ print('maxsplit=1:', result)
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash python3 -m compileall -q .
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 -m compileall -q .
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 -m compileall -q .
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash ls
   → bash python3 -c "from more_itertools import split_at; print(list(split_at('abcdcba', lambda x: x == 'b', maxsplit=1)))"
@@ -38,7 +38,7 @@ print('maxsplit=1:', result)
   → write_file test_split.py  (21 lines)
   → bash python3 test_split.py
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 test_split.py
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_nemotron-3-ultra_cloud--0-1791464417311459604/ws && python3 test_split.py
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash python3 test_split.py
   ✗ bash failed: error: refused — this exact bash call was already refused by the permission policy this turn, and the answer is the same. Don't repeat it: use a different tool (e.g. delete_file for rm), split the command, or say what you need the user to do.

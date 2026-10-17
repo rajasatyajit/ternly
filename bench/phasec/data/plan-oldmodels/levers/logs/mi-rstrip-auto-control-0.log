@@ -6,7 +6,7 @@ prompt ec8e1a226d3b
   → find_symbol more_itertools.r*
   → read_file 
   ✗ read_file failed: error: invalid arguments for read_file:
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/mi-rstrip-auto-control-0-1791490799515798822/ws/more_itertools/__init__.py
+  → read_file $JOB_TMP/phase-c/plan/levers/work/mi-rstrip-auto-control-0-1791490799515798822/ws/more_itertools/__init__.py
 
 $0.0000 · 68% cache hits · 9966 tokens in, 560 out
 done in 1m0.368s

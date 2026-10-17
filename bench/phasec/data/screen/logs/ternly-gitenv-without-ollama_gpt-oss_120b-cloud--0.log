@@ -2,10 +2,10 @@
   ↻ ollama/gpt-oss:120b-cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
 ◆ ollama/llama3.1:8b (T1, local) — failover
   … waiting for the model (30s)
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/ternly-gitenv-without-ollama_gpt-oss_120b-cloud--0-1791471133900115517/ws/internal/gitenv.go  (-1 +1 lines)
+  → edit_file $JOB_TMP/phase-c/screen/work/ternly-gitenv-without-ollama_gpt-oss_120b-cloud--0-1791471133900115517/ws/internal/gitenv.go  (-1 +1 lines)
   ✗ edit_file failed: error: invalid arguments for edit_file:
   … waiting for the model (31s)
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/ternly-gitenv-without-ollama_gpt-oss_120b-cloud--0-1791471133900115517/ws/internal/gitenv.go  (-1 +1 lines)
+  → edit_file $JOB_TMP/phase-c/screen/work/ternly-gitenv-without-ollama_gpt-oss_120b-cloud--0-1791471133900115517/ws/internal/gitenv.go  (-1 +1 lines)
   ✗ edit_file failed: error: openat internal/gitenv.go: no such file or directory
 
 $0.0000 · 31% cache hits · 5470 tokens in, 268 out

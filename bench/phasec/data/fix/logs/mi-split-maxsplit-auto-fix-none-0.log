@@ -110,7 +110,7 @@ Assuming tests have passed, the next step is to ensure the update was committed 
 3. Verify the edited file content:
 
 ```bash
-cat /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/mi-split-maxsplit-auto-fix-none-0-1791487171457088465/ws/more_itertools.go
+cat $JOB_TMP/phase-c/fix/work/mi-split-maxsplit-auto-fix-none-0-1791487171457088465/ws/more_itertools.go
 ```
 
 4. Confirm the updated function definition matches the intended fix.

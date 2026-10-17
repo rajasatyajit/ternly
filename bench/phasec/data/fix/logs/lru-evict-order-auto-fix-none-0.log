@@ -7,4 +7,4 @@ done in 15.374s
 --- answer ---
 Here is the function call with its proper arguments that best answers the given prompt:
 
-{"name": "grep", "parameters": {"pattern": "simplelru", "path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/lru-evict-order-auto-fix-none-0-1791487098748347274/ws/simplelru/", "pattern": "^\\s*when\\s+the\\s+cache\\s+is\\s+full,", "glob": "", "ignore_case": "false"}}
+{"name": "grep", "parameters": {"pattern": "simplelru", "path": "$JOB_TMP/phase-c/fix/work/lru-evict-order-auto-fix-none-0-1791487098748347274/ws/simplelru/", "pattern": "^\\s*when\\s+the\\s+cache\\s+is\\s+full,", "glob": "", "ignore_case": "false"}}

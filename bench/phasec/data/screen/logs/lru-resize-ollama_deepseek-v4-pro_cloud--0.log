@@ -1,8 +1,8 @@
 ◆ ollama/deepseek-v4-pro:cloud (T3, cloud·quota) — pinned · reasoning low
   → find_symbol Resize
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws/simplelru/lru.go
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws/simplelru/lru.go  (-1 +1 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws && go build ./... && go vet ./... && go test ./simplelru/
+  → read_file $JOB_TMP/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws/simplelru/lru.go
+  → edit_file $JOB_TMP/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws/simplelru/lru.go  (-1 +1 lines)
+  → bash cd $JOB_TMP/phase-c/screen/work/lru-resize-ollama_deepseek-v4-pro_cloud--0-1791464147924373164/ws && go build ./... && go vet ./... && go test ./simplelru/
   ▸ verify: go build ./... && go vet ./...
   ✓ verified in 147ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
 

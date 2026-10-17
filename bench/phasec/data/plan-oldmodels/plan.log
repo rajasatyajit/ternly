@@ -1,9 +1,9 @@
-[2026-10-08T19:04:23Z] step 1/13 A1-fix-textcall: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-textcall -env TERNLY_ROUTING_FIX=textcall -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+[2026-10-08T19:04:23Z] step 1/13 A1-fix-textcall: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-textcall -env TERNLY_ROUTING_FIX=textcall -bin $JOB_TMP/phase-c/fix/ternly -out $JOB_TMP/phase-c/fix
 suite run: 2 to run, 6 already done (binary a772bdecbbb4, commit )
 semver-tilde             auto                         run 0  no-change      164s  ollama/llama3.1:8b → ollama/granite3.3:8b
 ternly-wilson            auto                         run 0  oracle-fail    669s  ollama/llama3.1:8b → ollama/gemma4:e4b
 [2026-10-08T19:18:18Z] step 1/13 A1-fix-textcall: done
-[2026-10-08T19:18:18Z] step 2/13 A2-fix-none: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-none -env TERNLY_ROUTING_FIX=none -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+[2026-10-08T19:18:18Z] step 2/13 A2-fix-none: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-none -env TERNLY_ROUTING_FIX=none -bin $JOB_TMP/phase-c/fix/ternly -out $JOB_TMP/phase-c/fix
 suite run: 8 to run, 0 already done (binary a772bdecbbb4, commit )
 lru-evict-order          auto                         run 0  no-change       20s  ollama/llama3.1:8b
 lru-resize               auto                         run 0  no-change       52s  ollama/llama3.1:8b
@@ -14,7 +14,7 @@ semver-caret             auto                         run 0  no-change       15s
 semver-tilde             auto                         run 0  no-change      120s  ollama/granite3.3:8b
 ternly-wilson            auto                         run 0  no-change       18s  ollama/llama3.1:8b
 [2026-10-08T19:26:43Z] step 2/13 A2-fix-none: done
-[2026-10-08T19:26:43Z] step 3/13 A3-fix-both: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-both -bin /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/ternly -out /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix
+[2026-10-08T19:26:43Z] step 3/13 A3-fix-both: suite run -models auto -args --local-only -parallel 1 -timeout 15m -runs 1 -tasks ^(lru-evict-order|lru-resize|mi-split-maxsplit|mi-rstrip|mitt-off|semver-caret|semver-tilde|ternly-wilson)$ -arm fix-both -bin $JOB_TMP/phase-c/fix/ternly -out $JOB_TMP/phase-c/fix
 suite run: 8 to run, 0 already done (binary a772bdecbbb4, commit )
 lru-evict-order          auto                         run 0  no-change       94s  ollama/gemma4:e4b
 lru-resize               auto                         run 0  pass           221s  ollama/llama3.1:8b → ollama/qwen3.6:latest

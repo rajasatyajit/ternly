@@ -13,4 +13,4 @@ done in 25.783s
 --- answer ---
 The tool failed to read the file 'more_itertools.py'. This is likely because the file is not present in the current directory. Let me try and find the source of the problem by searching for any occurrences of the function within the project.
 
-{"name": "find_symbol", "parameters": {"path":"/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/local/work/mi-split-maxsplit-auto-local-only-0-1791477873786814228/ws","symbol":"more_itertools.split_at"}}
+{"name": "find_symbol", "parameters": {"path":"$JOB_TMP/phase-c/local/work/mi-split-maxsplit-auto-local-only-0-1791477873786814228/ws","symbol":"more_itertools.split_at"}}

@@ -16,7 +16,7 @@ prompt ec8e1a226d3b
   … generating (941 chunks, 33s)
   → bash go build ./... 2>&1; echo "---"; go vet ./... 2>&1; echo "---"; go test ./simplelru/... -run TestLRU_Resize -v 2>&1
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/lru-resize-auto-fix-both-0-1791487698112610664/ws && go test ./simplelru/... -run TestLRU_Resize -v
+  → bash cd $JOB_TMP/phase-c/fix/work/lru-resize-auto-fix-both-0-1791487698112610664/ws && go test ./simplelru/... -run TestLRU_Resize -v
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → bash echo hello
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.

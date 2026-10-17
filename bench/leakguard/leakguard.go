@@ -104,6 +104,9 @@ var patterns = []struct {
 	// A debug panel's or bug report's label: "OS  Linux …", "Kernel: …".
 	{"os label", regexp.MustCompile(`(?im)^[\s│┃|>*-]*(?:os|operating system|kernel|distro|distribution|host ?name|platform)\b[ \t]*[:=│]?[ \t]+\S`)},
 	{"os/distro", regexp.MustCompile(`(?i)\b(?:cachyos|ubuntu|debian|fedora|arch ?linux|manjaro|endeavouros|nixos|opensuse|centos|red hat|rhel|rocky linux|almalinux|gentoo|pop!?_os|linux ?mint|elementary os|void linux|alpine linux|macos \d+|mac os x|windows (?:1[01]|server))\b`)},
+	// Any machine's home directory: /home/<user>, /Users/<user>, C:\Users\<user>
+	// (placeholders such as /home/someone excepted, see homePlaceholder).
+	{"home path", regexp.MustCompile(`(?:^|[^A-Za-z0-9._~/-])(?:/home|/Users)/[A-Za-z0-9_][A-Za-z0-9._-]*|(?i)\b[a-z]:\\{1,2}Users\\{1,2}[^\\\s"']+`)},
 	// OpenCode ("ses_…"), Claude Code ("session_01…"), and a labelled one.
 	{"session id", regexp.MustCompile(`\b(?:ses|session)_[A-Za-z0-9]{16,}\b`)},
 	{"session id", regexp.MustCompile(`(?i)\bsession[ _-]?id\b["']?[ \t]*[:=│]?[ \t]*["']?[A-Za-z0-9_-]{8,}`)},
@@ -121,8 +124,17 @@ func (g *Guard) Scan(text string) []Finding {
 		}
 		for _, p := range patterns {
 			for _, m := range p.re.FindAllString(line, -1) {
+				if p.what == "kernel release" && semverPre.MatchString(m) {
+					continue // a version's pre-release (1.0.0-rc.11, 1.4.3-beta.5), not a kernel
+				}
 				if p.what == "kernel release" && archSuffix.MatchString(m) {
 					continue // a release archive (ternly-bin-0.1.0-x86_64), not a kernel
+				}
+				if p.what == "home path" {
+					m = strings.TrimLeft(m, " \t\"'`=:(<[{,;|") // the character before the path, matched in its place
+				}
+				if p.what == "home path" && homePlaceholder.MatchString(m) {
+					continue // an example in a doc or a test, not anyone's home
 				}
 				out = append(out, Finding{i + 1, p.what, strings.TrimSpace(m)})
 			}
@@ -177,3 +189,9 @@ func containsWord(line, s string) bool {
 func wordByte(b byte) bool {
 	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
 }
+
+// homePlaceholder matches the made-up homes that examples use.
+var homePlaceholder = regexp.MustCompile(`(?i)[/\\](?:someone|user|username|you|me|u|example|runner)$`)
+
+// semverPre matches a semantic version with a pre-release suffix.
+var semverPre = regexp.MustCompile(`^\d+\.\d+\.\d+-(?:alpha|beta|rc|pre|dev|preview|snapshot)(?:[.\d]|$)`)

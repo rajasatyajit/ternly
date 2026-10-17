@@ -3,11 +3,11 @@
   → read_file src/index.ts
   → read_file test/index_test.ts
   … waiting for the model (31s)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npm test
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npm test
   ✗ bash failed: error: command exited with status 127
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npm install
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npm install
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npx mocha test/index_test.ts
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_nemotron-3-ultra_cloud--0-1791465963100606516/ws && npx mocha test/index_test.ts
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm test
   ✗ bash failed: error: command exited with status 127

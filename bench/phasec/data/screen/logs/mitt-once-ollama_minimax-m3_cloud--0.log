@@ -20,7 +20,7 @@
   → bash which tsc; ls -la node_modules 2>&1 | head -5
   → bash npm install --no-audit --no-fund 2>&1 | tail -20
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash ls /home/satyajit/.nvm/versions/node/v22.22.2/bin/ 2>&1 | head -20
+  → bash ls $HOME/.nvm/versions/node/v22.22.2/bin/ 2>&1 | head -20
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm install --no-audit --no-fund --prefer-offline 2>&1 | tail -20
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
@@ -50,9 +50,9 @@
   → read_file tsconfig.json
   → bash find / -path /proc -prune -o -name tsc.js -print 2>/dev/null | head -5
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash ls /home/satyajit/.nvm/versions/node/v22.22.2/lib/node_modules 2>&1 | head
+  → bash ls $HOME/.nvm/versions/node/v22.22.2/lib/node_modules 2>&1 | head
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash /home/satyajit/.nvm/versions/node/v22.22.2/bin/npm --version 2>&1
+  → bash $HOME/.nvm/versions/node/v22.22.2/bin/npm --version 2>&1
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm --version 2>&1
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
@@ -565,7 +565,7 @@ The errors:
 
 These would all fail on the original master branch too. The user's verification environment doesn't have `node_modules`. My changes to `tsconfig.json` (adding `ignoreDeprecations`) and the code changes shouldn't affect these.
 
-Wait — `test/index_test.ts(1,48)` says "Cannot find module '..'". The `..` resolves to `/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-once-ollama_minimax-m3_cloud--0-1791465546408035167/ws/package.json`. Per package.json, `"types": "./index.d.ts"` — that file doesn't exist. So TS can't find types. This is pre-existing.
+Wait — `test/index_test.ts(1,48)` says "Cannot find module '..'". The `..` resolves to `$JOB_TMP/phase-c/screen/work/mitt-once-ollama_minimax-m3_cloud--0-1791465546408035167/ws/package.json`. Per package.json, `"types": "./index.d.ts"` — that file doesn't exist. So TS can't find types. This is pre-existing.
 
 I cannot fix missing modules / node_modules from within source code edits. These are environment issues, not code issues. My task is to fix the root cause of the failures that ARE in my code.
 

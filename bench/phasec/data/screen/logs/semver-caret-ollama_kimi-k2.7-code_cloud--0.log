@@ -5,7 +5,7 @@
   → grep ^([0-9]+\.([0-9]+)\.0|latest)$
   ✗ grep failed: error: invalid arguments for grep:
   ↻ references that don't check out — asking the model to correct them
-  → grep ^([0-9]+\.([0-9]+)\.0|latest)$  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/semver-caret-ollama_kimi-k2.7-code_cloud--0-1791467838188574528/ws/semver/crates.toml
+  → grep ^([0-9]+\.([0-9]+)\.0|latest)$  $JOB_TMP/phase-c/screen/work/semver-caret-ollama_kimi-k2.7-code_cloud--0-1791467838188574528/ws/semver/crates.toml
   ✗ grep failed: error: openat semver/crates.toml: no such file or directory
   … waiting for the model (31s)
   … waiting for the model (1m6s)
@@ -33,4 +33,4 @@ The error message doesn't indicate that the warning is caused by the `^1.2` requ
 
 Now, I'll call `` to find out if the problem is specific to the `semver`` crate.
 
-{ "name": "grep", "parameters": {"glob":"^(\s*[~><=].*)", "ignore_case": true, "path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/semver-caret-ollama_kimi-k2.7-code_cloud--0-1791467838188574528/ws", "pattern": "version"}}I couldn't confirm the existence of the file at the specified path.
+{ "name": "grep", "parameters": {"glob":"^(\s*[~><=].*)", "ignore_case": true, "path": "$JOB_TMP/phase-c/screen/work/semver-caret-ollama_kimi-k2.7-code_cloud--0-1791467838188574528/ws", "pattern": "version"}}I couldn't confirm the existence of the file at the specified path.

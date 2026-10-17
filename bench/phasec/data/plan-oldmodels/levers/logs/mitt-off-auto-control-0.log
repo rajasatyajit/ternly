@@ -12,9 +12,9 @@ prompt ec8e1a226d3b
 ◆ ollama/qwen3.6:latest (T3, local) — escalated: previous model stopped making progress · reasoning high
   … waiting for the model (32s)
   → read_file src/index.ts
-  → bash cat -A /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/src/index.ts | head -90 | tail -10
+  → bash cat -A $JOB_TMP/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/src/index.ts | head -90 | tail -10
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → bash wc -l /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/src/index.ts
+  → bash wc -l $JOB_TMP/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/src/index.ts
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → read_file src/index.ts
   → edit_file src/index.ts  (-5 +8 lines)
@@ -27,7 +27,7 @@ prompt ec8e1a226d3b
   → glob tsconfig*.json
   → read_file tsconfig.json
   → edit_file tsconfig.json  (-1 +1 lines)
-  → bash cat /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/tsconfig.json
+  → bash cat $JOB_TMP/phase-c/plan/levers/work/mitt-off-auto-control-0-1791490919028558034/ws/tsconfig.json
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → read_file tsconfig.json
   ▸ verify: npm run -s typecheck

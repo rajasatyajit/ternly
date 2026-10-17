@@ -16,7 +16,7 @@
 # step's -out directory, state.json.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
-LOCK=${HEAVY_LOCK:-/home/satyajit/.claude/jobs/f10e4ff6/tmp/heavy.lock}
+LOCK=${HEAVY_LOCK:-${TMPDIR:-/var/tmp}/ternly-heavy.lock} # the lock every timing harness shares
 cmd=${1:-}; shift || true
 case "$cmd" in
 start)

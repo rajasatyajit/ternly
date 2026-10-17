@@ -1,13 +1,13 @@
 ◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
-  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws
+  → bash ls $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws
   → bash ls simplelru/
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go
-  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/
-  → bash grep -n "func.*LruList" /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
-  → grep removeOldest|RmvOldest|RemoveOldest  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go  (-6 +6 lines)
-  → bash grep -n "removeOldest\b" /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/lru.go
+  → read_file $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go
+  → bash ls $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/
+  → bash grep -n "func.*LruList" $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
+  → read_file $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/internal/list.go
+  → grep removeOldest|RmvOldest|RemoveOldest  $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru
+  → edit_file $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/simplelru/lru.go  (-6 +6 lines)
+  → bash grep -n "removeOldest\b" $JOB_TMP/phase-c/screen/work/lru-evict-order-ollama_minimax-m3_cloud--0-1791464104223866864/ws/lru.go
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash go test ./simplelru/... 2>&1 | tail -40
   → bash go test ./... 2>&1 | tail -20

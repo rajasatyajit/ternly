@@ -6,7 +6,7 @@
   → read_file more_itertools/more.py
   → read_file more_itertools/more.py
   → read_file tests/test_more.py
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -c "
 from more_itertools.more import split_at
 # Test case: split 'a,b,c,d' at ',' with maxsplit=1
 result = list(split_at('a,b,c,d', lambda x: x == ',', maxsplit=1))
@@ -17,11 +17,11 @@ print('Python split:', 'a,b,c,d'.split(',', 1))
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → edit_file more_itertools/more.py  (-15 +15 lines)
   → write_file test_split_at.py  (24 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 test_split_at.py
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 test_split_at.py
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -m unittest tests.test_more.TestSplitAt.test_maxsplit
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -m unittest tests.test_more.TestSplitAt.test_maxsplit
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -m compileall -q . && python3 -c "import unittest; from tests.test_more import TestSplitAt; unittest.TextTestRunner().run(unittest.makeSuite(TestSplitAt))"
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_mistral-large-3_675b-cloud--0-1791464411598574672/ws && python3 -m compileall -q . && python3 -c "import unittest; from tests.test_more import TestSplitAt; unittest.TextTestRunner().run(unittest.makeSuite(TestSplitAt))"
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   ▸ verify: python3 -m compileall -q .
   ✓ verified in 433ms: python3 -m compileall -q . · python compile: 2 file(s) · ruff format: not run, formatting unchecked · 2 changed source file(s) covered

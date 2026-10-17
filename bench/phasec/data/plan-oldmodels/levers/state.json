@@ -1,5 +1,5 @@
 {
-  "out": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers",
+  "out": "$JOB_TMP/phase-c/plan/levers",
   "arm": "control",
   "binary_sha256": "f681cd32e555beb04bb795183040d662ee728cd1547e9759161eae1a3c55c1d3",
   "commit": "b85cad9ca9e6f381d681fd60931f2f2c46485e35",

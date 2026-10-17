@@ -6,13 +6,13 @@
   … waiting for the model (1m36s)
   … waiting for the model (2m6s)
   … waiting for the model (2m41s)
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/semver-caret-ollama_nemotron-3-ultra_cloud--0-1791467474801358702/ws/Cargo.toml  (-1 +1 lines)
+  → edit_file $JOB_TMP/phase-c/screen/work/semver-caret-ollama_nemotron-3-ultra_cloud--0-1791467474801358702/ws/Cargo.toml  (-1 +1 lines)
   ✗ edit_file failed: error: invalid arguments for edit_file:
   … waiting for the model (33s)
   … waiting for the model (1m3s)
   … waiting for the model (1m38s)
   … waiting for the model (2m8s)
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/semver-caret-ollama_nemotron-3-ultra_cloud--0-1791467474801358702/ws/Cargo.toml  (-1 +1 lines)
+  → edit_file $JOB_TMP/phase-c/screen/work/semver-caret-ollama_nemotron-3-ultra_cloud--0-1791467474801358702/ws/Cargo.toml  (-1 +1 lines)
   ✗ edit_file failed: error: old_string not found — re-read the file; whitespace must match exactly
 
 $0.0000 · 0% cache hits · 5391 tokens in, 253 out

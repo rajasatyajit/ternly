@@ -1,23 +1,23 @@
 prompt ec8e1a226d3b
 ◆ ollama/llama3.1:8b (T1, local) — T2 task → est. 1.9 min, local, GPU 100%, p≥0.22; next gemma4:e4b (est. 6.0 min, local, GPU 52%)
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/semver/src/lib.rs
+  → read_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/semver/src/lib.rs
   ✗ read_file failed: error: openat semver/src/lib.rs: no such file or directory
   ↻ ollama/llama3.1:8b wrote a find_symbol call as text instead of calling the tool
 ◆ ollama/qwen3.6:latest (T3, local) — escalated: the model wrote a tool call as text instead of calling it · reasoning high
   … waiting for the model (35s)
   → glob **/*.rs
   → grep ~|tilde  src/eval.rs
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
+  → read_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
   … generating (970 chunks, 35s)
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
+  → read_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
   → grep ~1\.2\.3|tilde  tests/
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs  (-1 +1 lines)
+  → edit_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs  (-1 +1 lines)
   ✗ edit_file failed: error: old_string matches 2 places; add surrounding context or set replace_all
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs  (-8 +8 lines)
+  → edit_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs  (-8 +8 lines)
   → bash cargo check --quiet --all-targets 2>&1
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/tests/test_version_req.rs
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
+  → read_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/tests/test_version_req.rs
+  → read_file $JOB_TMP/phase-c/plan/levers/work/semver-tilde-auto-control-0-1791492345735329508/ws/src/eval.rs
   ▸ verify: cargo check --quiet --all-targets
   ✓ verified in 372ms: cargo check --quiet --all-targets · cargo check: 1 file(s) in . · rustfmt: 1 file(s) · 1 changed source file(s) covered
 

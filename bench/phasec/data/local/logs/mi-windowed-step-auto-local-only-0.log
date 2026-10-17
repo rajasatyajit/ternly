@@ -4,7 +4,7 @@ prompt ec8e1a226d3b
   ✗ references failed: error: invalid arguments for references:
   → find_symbol 
   ✗ find_symbol failed: error: invalid arguments for find_symbol:
-  → read_file /home/satyajit/.claude/more_itertools.py
+  → read_file $HOME/.claude/more_itertools.py
   ✗ read_file failed: error: path is outside the workspace
 
 $0.0000 · 55% cache hits · 6937 tokens in, 166 out

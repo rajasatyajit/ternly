@@ -1,9 +1,9 @@
 ◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
-  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws; cat ws/src/index.ts 2>/dev/null
+  → bash ls $JOB_TMP/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws; cat ws/src/index.ts 2>/dev/null
   ✗ bash failed: error: command exited with status 1
-  → bash cat /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws/src/index.ts
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws/src/index.ts  (-3 +6 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws && npm run -s typecheck && npx tsc src/index.ts --target es2017 --outDir /tmp/mittcheck && node -e "
+  → bash cat $JOB_TMP/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws/src/index.ts
+  → edit_file $JOB_TMP/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws/src/index.ts  (-3 +6 lines)
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws && npm run -s typecheck && npx tsc src/index.ts --target es2017 --outDir /tmp/mittcheck && node -e "
 const mitt=require('/tmp/mittcheck/index.js').default;
 const m=mitt(); const a=()=>{},b=()=>{},c=()=>{};
 m.on('x',a);m.on('x',b);m.off('x',c);
@@ -11,7 +11,7 @@ console.log('handlers left:', m.all.get('x').length); // expect 2
 m.off('x',a); console.log('after real off:', m.all.get('x').length); // 1
 "
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws && npm run -s typecheck
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_kimi-k3_cloud--0-1791465807764905422/ws && npm run -s typecheck
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm run -s typecheck
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.

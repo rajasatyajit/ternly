@@ -14,7 +14,7 @@ prompt ec8e1a226d3b
   … generating (1079 chunks, 32s)
   … generating (2165 chunks, 1m2s)
   → edit_file more_itertools/more.py  (-9 +9 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/mi-split-maxsplit-auto-control-0-1791490402262003264/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/plan/levers/work/mi-split-maxsplit-auto-control-0-1791490402262003264/ws && python3 -c "
 from more_itertools import split_at
 
 # Original example from docstring: maxsplit=2

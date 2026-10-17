@@ -34,7 +34,7 @@ func main() {
 	fmt.Printf("after Resize(10): len=%d cap=%d evicted=%d\n", c.Len(), c.Cap(), evicted)
 }
 EOF
-cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-resize-ollama_minimax-m3_cloud--0-1791464212421681551/ws && go run /tmp/repro.go
+cd $JOB_TMP/phase-c/screen/work/lru-resize-ollama_minimax-m3_cloud--0-1791464212421681551/ws && go run /tmp/repro.go
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → edit_file simplelru/lru.go  (-3 +3 lines)
   → bash go test ./simplelru/... -run TestLRU_Resize -v 2>&1 | tail -20

@@ -2,9 +2,9 @@
   → read_file src/index.ts
   → edit_file src/index.ts  (-4 +4 lines)
   → edit_file src/index.ts  (-19 +21 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-emit-count-ollama_deepseek-v4-pro_cloud--0-1791466361858840089/ws && npm run -s typecheck 2>&1 | head -50
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-emit-count-ollama_deepseek-v4-pro_cloud--0-1791466361858840089/ws && npm run -s typecheck 2>&1 | head -50
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-emit-count-ollama_deepseek-v4-pro_cloud--0-1791466361858840089/ws && npm run -s typecheck
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-emit-count-ollama_deepseek-v4-pro_cloud--0-1791466361858840089/ws && npm run -s typecheck
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm run typecheck
   ✗ bash failed: error: command exited with status 2

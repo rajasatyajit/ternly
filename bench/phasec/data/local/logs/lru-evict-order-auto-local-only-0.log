@@ -170,7 +170,7 @@ Response:
 <<<UNTRUSTED:… tool=…>>> 
 [
   {
-    "path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go"
+    "path": "$JOB_TMP/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go"
   }
 ] <<<END:…>>>
 ```
@@ -181,7 +181,7 @@ Response:
 {
   "name": "read_file",
   "parameters": {
-    "path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go",
+    "path": "$JOB_TMP/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go",
     "limit": 100
   }
 }
@@ -225,7 +225,7 @@ We can see that the `EvictLRU` method is responsible for evicting the least rece
 {
   "name": "read_file",
   "parameters": {
-    "path": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache_test.go",
+    "path": "$JOB_TMP/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache_test.go",
     "limit": 100
   }
 }
@@ -282,7 +282,7 @@ Response:
     {
       "kind": "type",
       "id": "simplelru.Cache",
-      "file": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go:12",
+      "file": "$JOB_TMP/phase-c/local/work/lru-evict-order-auto-local-only-0-1791477225214033785/ws/simplelru/cache.go:12",
       "signature": "type Cache struct { ... }"
     }
   ]

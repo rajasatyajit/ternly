@@ -1,5 +1,5 @@
 {
-  "out": "/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix",
+  "out": "$JOB_TMP/phase-c/fix",
   "arm": "fix-both",
   "binary_sha256": "a772bdecbbb4f5cdc2989356226bc3884883f68956eaad5cc87de6380c7f783a",
   "commit": "",

@@ -22,6 +22,11 @@ Nothing here is merged. The branch is `track1/phase-c`, with draft PR #28.
 | `models/` | local model speed (`modelload-*.txt`), installed model IDs, the llama.cpp probe, and two Ollama Cloud quota probes (HTTP 429, monthly limit) |
 | `plan-next.txt` | the remaining measurements as a ready plan (see "How to resume") |
 
+**Before committing run data here**, redact it: `go run ./bench/redact -map "<worktree>=$REPO" -map
+"<repo>=$REPO" -map "<job tmp>=$JOB_TMP" <files>` (longest paths first; this machine's home becomes
+`$HOME` last). It exits 1 if bench/leakguard still finds anything, and CI scans everything committed
+under bench/phasec (`TestCommittedHarnessOutput`). The data from before 2026-10-17 was redacted this way.
+
 ## Datasets (all local unless named)
 | Dataset | Binary | Models | What it is | Result |
 |---|---|---|---|---|

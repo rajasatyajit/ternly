@@ -90,23 +90,26 @@ func TestShortValuesIgnored(t *testing.T) {
 }
 
 // TestCommittedHarnessOutput scans what the harnesses committed under bench/f2
-// (recordings, reports, metrics, scores) with this machine's values and the
+// (recordings, reports, metrics, scores) and bench/phasec (run data, logs, and
+// the scripts that ran: there a script is a record of the run, so it is scanned) with this machine's values and the
 // patterns, so a leak fails CI whichever harness wrote it.
 func TestCommittedHarnessOutput(t *testing.T) {
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := gitenv.Command(context.Background(), "-C", root, "ls-files", "bench/f2").Output()
+	out, err := gitenv.Command(context.Background(), "-C", root, "ls-files", "bench/f2", "bench/phasec").Output()
 	if err != nil {
 		t.Skipf("git ls-files: %v", err)
 	}
 	g := ForThisMachine()
 	n := 0
 	for _, p := range strings.Fields(string(out)) {
-		switch filepath.Ext(p) {
-		case ".go", ".sh", ".mod", ".sum":
+		switch ext := filepath.Ext(p); {
+		case ext == ".go" || ext == ".mod" || ext == ".sum":
 			continue // the harnesses' own source
+		case ext == ".sh" && strings.HasPrefix(p, "bench/f2/"):
+			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, p))
 		if err != nil {
@@ -118,6 +121,35 @@ func TestCommittedHarnessOutput(t *testing.T) {
 		}
 	}
 	if n == 0 {
-		t.Fatal("no committed harness output found under bench/f2")
+		t.Fatal("no committed harness output found under bench/f2 or bench/phasec")
+	}
+}
+
+// Any machine's home path is found, not only this machine's: CI runs as
+// another user, so a capture from a developer's machine needs the pattern.
+func TestHomePathPattern(t *testing.T) {
+	g := New(nil)
+	for _, s := range []string{
+		"cd /home/alice/workspace/ternly",
+		`no Go files in /Users/bob/.cache/x`,
+		`C:\Users\carol\AppData`,
+		`"dir": "C:\\Users\\dave\\src"`,
+		"edit_file=file:/home/erin/x.go",
+	} {
+		if f := g.Scan(s); len(f) != 1 || f[0].What != "home path" {
+			t.Errorf("%q: %v", s, f)
+		}
+	}
+	for _, s := range []string{
+		"the path elides (`/home/someone/wor…/project-x`)",
+		"HOME=/home/u",
+		"workspace  /var/tmp/ternly-layout-1/home/proj-lru",
+		`mkdir -p "$1/home/.config"`,
+		"github.com/rajasatyajit/ternly",
+		`"want": ["1.0.0-alpha.2", "1.0.0-rc.11", "1.4.3-beta.5", "1.0.0-rc"]`,
+	} {
+		if f := g.Scan(s); len(f) != 0 {
+			t.Errorf("%q: false positive %v", s, f)
+		}
 	}
 }

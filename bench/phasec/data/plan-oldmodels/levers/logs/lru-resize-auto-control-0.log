@@ -8,7 +8,7 @@ prompt ec8e1a226d3b
   → read_file simplelru/lru_test.go
   → edit_file simplelru/lru_test.go  (-5 +29 lines)
   → edit_file simplelru/lru.go  (-1 +1 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/lru-resize-auto-control-0-1791489965043894706/ws && go build ./... && go vet ./... && go test ./simplelru/ -v -run TestLRU -count=1
+  → bash cd $JOB_TMP/phase-c/plan/levers/work/lru-resize-auto-control-0-1791489965043894706/ws && go build ./... && go vet ./... && go test ./simplelru/ -v -run TestLRU -count=1
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   ▸ verify: go build ./... && go vet ./...
   ✓ verified in 253ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered

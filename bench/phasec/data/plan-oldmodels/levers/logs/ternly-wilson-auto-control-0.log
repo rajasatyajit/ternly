@@ -5,10 +5,10 @@ prompt ec8e1a226d3b
   … waiting for the model (34s)
   → glob internal/eval/**/*
   → find_symbol  Counts.Wilson
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
   … generating (331 chunks, 33s)
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go  (-6 +7 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && cat <<'EOF' > /tmp/test_wilson.go
+  → edit_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go  (-6 +7 lines)
+  → bash cd $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && cat <<'EOF' > /tmp/test_wilson.go
 package main
 
 import (
@@ -75,28 +75,28 @@ func main() {
 EOF
 go run /tmp/test_wilson.go
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → grep Wilson|TestCounts  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/eval_test.go
+  → grep Wilson|TestCounts  $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/eval_test.go
   … generating (708 chunks, 30s)
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && go build ./... 2>&1
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → bash cd $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && go build ./... 2>&1
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → bash diff -u <(cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && git show HEAD:internal/eval/record.go >/dev/null 2>&1 && echo y || echo n) <(wc -c /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go) 2>&1 | head -5
+  → bash diff -u <(cd $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws && git show HEAD:internal/eval/record.go >/dev/null 2>&1 && echo y || echo n) <(wc -c $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go) 2>&1 | head -5
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
   ▸ verify: go build ./... && go vet ./...
   ✗ verification failed: not formatted: internal/eval/record.go
   … waiting for the model (34s)
-  → bash gofmt -w /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → bash gofmt -w $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
   … generating (966 chunks, 34s)
   … generating (2156 chunks, 1m9s)
   … generating (3160 chunks, 1m39s)
   … generating (4323 chunks, 2m14s)
   … generating (5320 chunks, 2m44s)
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go  (-1 +1 lines)
+  → read_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go
+  → edit_file $JOB_TMP/phase-c/plan/levers/work/ternly-wilson-auto-control-0-1791492606864725605/ws/internal/eval/record.go  (-1 +1 lines)
   ▸ verify: go build ./... && go vet ./...
   ✓ verified in 1.3s: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
 

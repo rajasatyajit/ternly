@@ -26,7 +26,7 @@ I apologize for the oversight. Given the project is Go, I need to locate the rel
 1. Locate the semver package implementation using grep.
 2. Inspect the `Version` type and its methods, focusing on the '~' operator implementation.
 
-`grep -rnw '/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/semver-tilde-auto-fix-textcall-0-1791486263811438287/ws/src/github.com/chnevann/semver' -e '~`' ````
+`grep -rnw '$JOB_TMP/phase-c/fix/work/semver-tilde-auto-fix-textcall-0-1791486263811438287/ws/src/github.com/chnevann/semver' -e '~`' ````
 
 After finding relevant code, I will analyze its logic and determine the cause of the behavior. If the issue is with the "~" operator implementation in the semver crate, I'll suggest a fix by appropriately changing the comparison in the method responsible for handling the "~" operator.
 
@@ -47,7 +47,7 @@ The semver crate appears to handle version constraints using Go code, based on t
     Use `grep` to search for the `~` operator within the `semver` crate's source code.
 
     ```bash
-    grep -rnw '/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/semver-tilde-auto-fix-textcall-0-1791486263811438287/ws/src/github.com/chnevann/semver' -e '~`
+    grep -rnw '$JOB_TMP/phase-c/fix/work/semver-tilde-auto-fix-textcall-0-1791486263811438287/ws/src/github.com/chnevann/semver' -e '~`
     ```
 
 2. **Examine the version constraint handling:**

@@ -30,7 +30,7 @@ prompt ec8e1a226d3b
   → read_file tsconfig.json
   → edit_file tsconfig.json  (-2 +3 lines)
   → edit_file tsconfig.json  (-2 +3 lines)
-  → bash cat /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/mitt-off-auto-fix-both-0-1791488005270772927/ws/tsconfig.json 2>/dev/null || true
+  → bash cat $JOB_TMP/phase-c/fix/work/mitt-off-auto-fix-both-0-1791488005270772927/ws/tsconfig.json 2>/dev/null || true
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → read_file tsconfig.json
   → write_file tsconfig.json  (16 lines)

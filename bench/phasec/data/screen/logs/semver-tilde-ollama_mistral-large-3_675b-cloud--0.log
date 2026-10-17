@@ -10,7 +10,7 @@ $0.0000 · 26% cache hits · 2755 tokens in, 661 out
 done in 3m38.727s
 
 --- answer ---
-<<<UNTRUSTED: tool=semver, output=Cargo.toml, start_line=15, end_line=15>>><<END:>>>[file:/home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/semver-tilde-ollama_mistral-large-3_675b-cloud--0-1791468029169556808/ws/Cargo.toml]:
+<<<UNTRUSTED: tool=semver, output=Cargo.toml, start_line=15, end_line=15>>><<END:>>>[file:$JOB_TMP/phase-c/screen/work/semver-tilde-ollama_mistral-large-3_675b-cloud--0-1791468029169556808/ws/Cargo.toml]:
 [dependencies]
 semver = { version = "1.0.4", features = [ "full_feature_mode", ] }
 

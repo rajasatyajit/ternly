@@ -1,5 +1,5 @@
 ◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
-  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-rstrip-ollama_minimax-m3_cloud--0-1791464673438649187/ws
+  → bash ls $JOB_TMP/phase-c/screen/work/mi-rstrip-ollama_minimax-m3_cloud--0-1791464673438649187/ws
   → find_symbol rstrip
   → read_file more_itertools/more.py
   → grepgrep grepgrep

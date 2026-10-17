@@ -1,13 +1,13 @@
 ◆ ollama/minimax-m3:cloud (T3, cloud·quota) — pinned · reasoning low
   → bash ls -la
   → bash ls -la expirable/
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go
-  → read_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
-  → grep func Test.*Peek|func \(c \*LRU\[K, V\]\) Peek  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable
-  → grep ^func Test  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
+  → read_file $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go
+  → read_file $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
+  → grep func Test.*Peek|func \(c \*LRU\[K, V\]\) Peek  $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable
+  → grep ^func Test  $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru_test.go
   → bash ls internal/
-  → grep ExpiresAt|Entry\[  /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/internal/list.go
-  → edit_file /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go  (-15 +33 lines)
+  → grep ExpiresAt|Entry\[  $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/internal/list.go
+  → edit_file $JOB_TMP/phase-c/screen/work/lru-peek-expiry-ollama_minimax-m3_cloud--0-1791464317309674075/ws/expirable/expirable_lru.go  (-15 +33 lines)
   → bash go build ./... && go vet ./...
   → bash go test ./expirable/... -count=1 -run . -timeout 60s
   ▸ verify: go build ./... && go vet ./...

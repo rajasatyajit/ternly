@@ -89,9 +89,9 @@
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash which tsc
   ✗ bash failed: error: command exited with status 1
-  → bash find /home/satyajit/.nvm/versions/node/v22.22.2 -name tsc -maxdepth 4
+  → bash find $HOME/.nvm/versions/node/v22.22.2 -name tsc -maxdepth 4
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
-  → bash ls /home/satyajit/.nvm/versions/node/v22.22.2/lib
+  → bash ls $HOME/.nvm/versions/node/v22.22.2/lib
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
 error: Stopped: step limit (60) reached. 60 steps, $0.0000 this turn, 4m58s. Changed 3 file(s): src/index.ts, test/index_test.ts, tsconfig.json. Last check failed (npm run -s typecheck). Say "continue" to resume, raise the limit (/limits, /budget), or /undo to revert this turn.
 

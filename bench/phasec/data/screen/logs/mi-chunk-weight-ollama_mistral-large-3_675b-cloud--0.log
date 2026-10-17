@@ -15,7 +15,7 @@
   → edit_file ./more_itertools/more.py  (-13 +14 lines)
   → edit_file ./more_itertools/more.py  (-5 +67 lines)
   → edit_file ./more_itertools/more.py  (-63 +59 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-chunk-weight-ollama_mistral-large-3_675b-cloud--0-1791464841468648755/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-chunk-weight-ollama_mistral-large-3_675b-cloud--0-1791464841468648755/ws && python3 -c "
 from more_itertools import chunked_by_weight
 
 # Test basic functionality

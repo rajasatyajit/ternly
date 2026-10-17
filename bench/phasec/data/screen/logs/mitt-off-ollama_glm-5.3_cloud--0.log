@@ -1,8 +1,8 @@
 ◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
-  → bash ls /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_glm-5.3_cloud--0-1791465903700270827/ws
+  → bash ls $JOB_TMP/phase-c/screen/work/mitt-off-ollama_glm-5.3_cloud--0-1791465903700270827/ws
   → read_file src/index.ts
   → edit_file src/index.ts  (-3 +4 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mitt-off-ollama_glm-5.3_cloud--0-1791465903700270827/ws && npm test 2>&1 | tail -20 && npm run -s typecheck 2>&1 | tail -5
+  → bash cd $JOB_TMP/phase-c/screen/work/mitt-off-ollama_glm-5.3_cloud--0-1791465903700270827/ws && npm test 2>&1 | tail -20 && npm run -s typecheck 2>&1 | tail -5
   ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
   → bash npm test
   ✗ bash failed: error: command exited with status 127

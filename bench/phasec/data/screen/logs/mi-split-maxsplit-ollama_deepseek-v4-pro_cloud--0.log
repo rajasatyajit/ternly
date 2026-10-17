@@ -2,7 +2,7 @@
   → grep def split_at
   → read_file more_itertools/more.py
   → edit_file more_itertools/more.py  (-5 +5 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-split-maxsplit-ollama_deepseek-v4-pro_cloud--0-1791464376240952369/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-split-maxsplit-ollama_deepseek-v4-pro_cloud--0-1791464376240952369/ws && python3 -c "
 from more_itertools import split_at
 print(list(split_at(range(10), lambda n: n%2==1, maxsplit=1)))
 print(list(split_at(range(10), lambda n: n%2==1, maxsplit=2)))

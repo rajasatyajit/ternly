@@ -1,7 +1,7 @@
 ◆ ollama/nemotron-3-ultra:cloud (T3, cloud·quota) — pinned · reasoning low
   → grep def rstrip
   → read_file more_itertools/more.py
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/screen/work/mi-rstrip-ollama_nemotron-3-ultra_cloud--0-1791464632763421986/ws && python3 -c "
+  → bash cd $JOB_TMP/phase-c/screen/work/mi-rstrip-ollama_nemotron-3-ultra_cloud--0-1791464632763421986/ws && python3 -c "
 from more_itertools import rstrip
 
 # Test case: matching items between non-matching items

@@ -5,7 +5,7 @@ prompt ec8e1a226d3b
   … waiting for the model (33s)
   → find_symbol Counts.Wilson
   → read_file internal/eval/record.go
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/ternly-wilson-auto-fix-both-0-1791489004271794875/ws && cat > /tmp/test_wilson.go << 'EOF'
+  → bash cd $JOB_TMP/phase-c/fix/work/ternly-wilson-auto-fix-both-0-1791489004271794875/ws && cat > /tmp/test_wilson.go << 'EOF'
 package main
 
 import (
@@ -77,7 +77,7 @@ EOF
 go run /tmp/test_wilson.go
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → edit_file internal/eval/record.go  (-2 +2 lines)
-  → bash cd /home/satyajit/.claude/jobs/f10e4ff6/tmp/phase-c/fix/work/ternly-wilson-auto-fix-both-0-1791489004271794875/ws && go build ./... && go vet ./...
+  → bash cd $JOB_TMP/phase-c/fix/work/ternly-wilson-auto-fix-both-0-1791489004271794875/ws && go build ./... && go vet ./...
   ✗ bash failed: permission denied by policy (non-interactive: ollama/qwen3.6:latest is measured as easily baited by injected instructions, so its shell commands always need a person to confirm them; rerun with another model, or interactively). Do not retry the same action; ask the user or choose another approach.
   → grep Wilson
   → read_file internal/eval/eval_test.go
