@@ -24,6 +24,7 @@ import (
 	"github.com/rajasatyajit/ternly/internal/agent"
 	"github.com/rajasatyajit/ternly/internal/checkpoint"
 	"github.com/rajasatyajit/ternly/internal/commands"
+	"github.com/rajasatyajit/ternly/internal/discover"
 	"github.com/rajasatyajit/ternly/internal/llm"
 	"github.com/rajasatyajit/ternly/internal/mcpremote"
 	"github.com/rajasatyajit/ternly/internal/tools"
@@ -531,6 +532,9 @@ func (m *Model) cmdDoctor(string) tea.Cmd {
 			line(bad, "models", "none found — set an API key or start Ollama / LM Studio, then /refresh")
 		} else {
 			line(ok, "models", fmt.Sprintf("%d from %d providers (%d local, %d with tools)", len(ms), len(provs), local, tools))
+		}
+		for _, w := range discover.OllamaContextWarnings(context.Background(), ms) {
+			line(warn, "context", w)
 		}
 		if f := m.App.Frame; f.FPS > 0 {
 			line(ok, "frame rate", fmt.Sprintf("%d fps, the %s profile: %s (ui.fps in config.json overrides)", f.FPS, f.Name, f.Why))

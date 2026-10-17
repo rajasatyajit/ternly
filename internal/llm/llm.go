@@ -52,6 +52,9 @@ type Request struct {
 	// "high", or "" to send nothing (the model's default; ADR 015). Only set
 	// for models known to reason.
 	Effort string
+	// Ctx is the context window routing assumed for the model (its trained
+	// context): the most an Ollama request asks the server for (num_ctx).
+	Ctx int
 }
 
 type Usage struct{ In, Out, CacheRead, CacheWrite int }
@@ -102,7 +105,7 @@ type Event struct {
 
 // Endpoint describes where and how to talk to a provider.
 type Endpoint struct {
-	Kind    string // "openai" | "anthropic"
+	Kind    string // "openai" | "anthropic" | "ollama"
 	BaseURL string
 	Key     string
 	Headers map[string]string
@@ -113,8 +116,11 @@ type Client interface {
 }
 
 func New(ep Endpoint) Client {
-	if ep.Kind == "anthropic" {
+	switch ep.Kind {
+	case "anthropic":
 		return &anthropic{ep}
+	case "ollama":
+		return &ollama{ep}
 	}
 	return &openAI{ep: ep}
 }

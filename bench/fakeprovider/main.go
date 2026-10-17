@@ -126,6 +126,13 @@ func main() {
 			}
 			mu.Unlock()
 		}
+		if strings.HasSuffix(r.URL.Path, "/api/chat") && s.Status == 0 {
+			for k, v := range s.Headers {
+				w.Header().Set(k, v)
+			}
+			serveNative(w, s)
+			return
+		}
 		serve(w, s)
 	}))
 }
@@ -172,6 +179,43 @@ func serve(w http.ResponseWriter, s step) {
 		send(map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": s.Usage[0], "completion_tokens": s.Usage[1]}})
 	}
 	fmt.Fprint(w, "data: [DONE]\n\n")
+}
+
+// serveNative plays s in Ollama's native /api/chat stream (NDJSON), which
+// ternly uses for an Ollama provider: one JSON object a line, the last with
+// done, done_reason and the token counts.
+func serveNative(w http.ResponseWriter, s step) {
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	fl, _ := w.(http.Flusher)
+	send := func(v any) {
+		b, _ := json.Marshal(v)
+		fmt.Fprintf(w, "%s\n", b)
+		if fl != nil {
+			fl.Flush()
+		}
+	}
+	if s.Call[0] != "" {
+		s.Calls = append([][2]string{s.Call}, s.Calls...)
+	}
+	if len(s.Calls) > 0 {
+		time.Sleep(time.Duration(s.DelayMS) * time.Millisecond)
+		var calls []any
+		for i, c := range s.Calls {
+			args := json.RawMessage(c[1])
+			if !json.Valid(args) {
+				args = json.RawMessage(`{}`)
+			}
+			calls = append(calls, map[string]any{"id": fmt.Sprintf("call%d", i+1), "function": map[string]any{"name": c[0], "arguments": args}})
+		}
+		send(map[string]any{"message": map[string]any{"role": "assistant", "content": "", "tool_calls": calls}, "done": false})
+	} else {
+		for _, c := range split(s.Text, max(1, s.Chunks)) {
+			send(map[string]any{"message": map[string]any{"role": "assistant", "content": c}, "done": false})
+			time.Sleep(time.Duration(s.DelayMS) * time.Millisecond)
+		}
+	}
+	send(map[string]any{"message": map[string]any{"role": "assistant", "content": ""}, "done": true, "done_reason": "stop",
+		"prompt_eval_count": s.Usage[0], "eval_count": s.Usage[1]})
 }
 
 // split cuts s into n pieces of about equal length, on rune boundaries.
