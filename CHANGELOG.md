@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Ollama: the context ternly needs, per request
+- **ternly talks to Ollama through its native API (`/api/chat`) and sets the context size each
+  request needs (`num_ctx`).** Before, it used Ollama's OpenAI-compatible `/v1`, which ignores
+  `num_ctx`: under a plain `ollama serve` every model ran with 4096 tokens of context while ternly
+  budgeted for the model's trained window, and Ollama dropped what didn't fit without a word. The
+  size is the request's estimate plus room for the reply, rounded up to a power of two (at least
+  8192), at most the window routing assumed. It only grows for a model within a session, and a
+  model already loaded with enough context keeps it: each change of size reloads the model.
+- **`/doctor` warns when Ollama runs a model with less context than ternly asked for**, which
+  means the window routing assumed doesn't hold.
+- A provider in `config.json` can now say `"kind": "ollama"` (a remote Ollama server, say) to get
+  the same. The Ollama Cloud balance check before background evals now runs; it compared the
+  provider's kind with "ollama", which no provider had until now.
+- `bench/fakeprovider` answers `/api/chat` in Ollama's NDJSON stream.
+
 ### F2.1: output bytes (ADR 030)
 - **The status line, lanes and activity line redraw only when what they show changes.** Running times
   count whole seconds (at most one change a second); the cache field is text, not the wide `⚡`,

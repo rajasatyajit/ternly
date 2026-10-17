@@ -152,7 +152,7 @@ var Builtins = []Provider{
 	{ID: "moonshot", Name: "Moonshot", Kind: "openai", BaseURL: "https://api.moonshot.ai/v1", EnvKeys: []string{"MOONSHOT_API_KEY"}},
 	{ID: "qwen", Name: "Alibaba Qwen", Kind: "openai", BaseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", EnvKeys: []string{"DASHSCOPE_API_KEY"}},
 	{ID: "zai", Name: "Z.ai GLM", Kind: "openai", BaseURL: "https://api.z.ai/api/paas/v4", EnvKeys: []string{"ZAI_API_KEY"}},
-	{ID: "ollama", Name: "Ollama", Kind: "openai", BaseURL: "http://127.0.0.1:11434/v1", Local: true},
+	{ID: "ollama", Name: "Ollama", Kind: "ollama", BaseURL: "http://127.0.0.1:11434/v1", Local: true}, // native /api/chat: it takes num_ctx
 	{ID: "lmstudio", Name: "LM Studio", Kind: "openai", BaseURL: "http://127.0.0.1:1234/v1", Local: true},
 	{ID: "llamacpp", Name: "llama.cpp", Kind: "openai", BaseURL: "http://127.0.0.1:8080/v1", Local: true},
 	{ID: "vllm", Name: "vLLM", Kind: "openai", BaseURL: "http://127.0.0.1:8000/v1", Local: true},

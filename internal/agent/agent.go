@@ -612,7 +612,7 @@ func (a *Agent) setModel(m *discover.Model, reason string) {
 
 func (a *Agent) step(ctx context.Context, m *discover.Model, st *turnState) (llm.Message, []llm.ToolCall, string, error) {
 	a.mu.Lock()
-	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.state.History...), Tools: a.Reg.Specs()}
+	req := llm.Request{Model: m.ID, System: a.system, Messages: append([]llm.Message(nil), a.state.History...), Tools: a.Reg.Specs(), Ctx: m.Ctx}
 	req.Effort, _ = m.EffortLabel(st.effort, a.EffortRules)
 	if st.forceLabel != "" && m.Reasoning {
 		req.Effort = st.forceLabel
@@ -921,7 +921,7 @@ func (a *Agent) CompactWith(ctx context.Context, instructions string) error {
 		sys += "\nThe user asks the summary to: " + instructions
 	}
 	req := llm.Request{Model: um.ID, System: sys,
-		Messages: []llm.Message{{Role: "user", Content: sb.String()}}, MaxTokens: 2000}
+		Messages: []llm.Message{{Role: "user", Content: sb.String()}}, MaxTokens: 2000, Ctx: um.Ctx}
 	sum, u, err := llm.Collect(llm.New(um.Provider.Endpoint()).Stream(ctx, req))
 	a.account(um, u)
 	if err != nil {
@@ -1085,7 +1085,7 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 	if len(h) > 0 && h[len(h)-1].Role == "user" { // keep roles alternating after an interrupted turn
 		msgs = append(append([]llm.Message(nil), h...), llm.Message{Role: "assistant", Content: "(interrupted)"}, msgs[len(msgs)-1])
 	}
-	out, u, err := llm.Collect(llm.New(m.Provider.Endpoint()).Stream(ctx, llm.Request{Model: m.ID, System: a.system, Messages: msgs, MaxTokens: 2000}))
+	out, u, err := llm.Collect(llm.New(m.Provider.Endpoint()).Stream(ctx, llm.Request{Model: m.ID, System: a.system, Messages: msgs, MaxTokens: 2000, Ctx: m.Ctx}))
 	a.account(m, u)
 	return out, err
 }
