@@ -1,0 +1,13 @@
+0.01.805.776 I srv  llama_server: initializing ...
+0.01.805.787 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.01.805.906 W srv  llama_server: security: no API key is set and CORS allows all origins (see https://github.com/ggml-org/llama.cpp/pull/25655)
+0.01.808.310 I srv    load_model: loading model '/var/lib/ollama/blobs/sha256-f5ee307a2982106a6eb82b62b2c00b575c9072145a759ae4660378acda8dcf2d'
+0.02.015.935 E llama_model_load: error loading model: error loading model hyperparameters: key qwen35moe.rope.dimension_sections has wrong array length; expected 4, got 3
+0.02.015.939 E llama_model_load_from_file_impl: failed to load model
+0.02.015.973 E common_fit_params: encountered an error while trying to fit params to free device memory: failed to load model
+0.02.142.495 E llama_model_load: error loading model: error loading model hyperparameters: key qwen35moe.rope.dimension_sections has wrong array length; expected 4, got 3
+0.02.142.499 E llama_model_load_from_file_impl: failed to load model
+0.02.142.504 E cmn  common_init_: failed to load model '/var/lib/ollama/blobs/sha256-f5ee307a2982106a6eb82b62b2c00b575c9072145a759ae4660378acda8dcf2d'
+0.02.142.508 E srv    load_model: failed to load model, '/var/lib/ollama/blobs/sha256-f5ee307a2982106a6eb82b62b2c00b575c9072145a759ae4660378acda8dcf2d'
+0.02.142.511 I srv    operator(): operator(): cleaning up before exit...
+0.02.142.994 E srv  llama_server: exiting due to model loading error

@@ -1,0 +1,27 @@
+◆ ollama/mistral-large-3:675b-cloud (T3, cloud·quota) — pinned
+  → find_symbol LRU
+  → read_file expirable/expirable_lru.go
+  → read_file expirable/expirable_lru.go
+  → edit_file expirable/expirable_lru.go  (-15 +32 lines)
+  → bash go build ./... && go vet ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 147ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 77% cache hits · 46948 tokens in, 858 out
+done in 20.722s
+
+--- answer ---
+I'll add the `PeekWithExpiry` method to the expirable LRU. The implementation will closely follow the existing `Peek` method but also return the expiration time.
+
+Here's the plan:
+1. Add the method after `Peek` (line 212)
+2. Return the value, expiration time, and ok bool
+3. Skip recency update (like Peek)
+4. Return zero values if the key is missing or expired
+
+Let me implement this:Now let's verify the change builds and passes existing tests:The build and vet checks passed successfully. Here's a summary of what changed:
+
+- Added `PeekWithExpiry(key K) (value V, expiresAt time.Time, ok bool)` method to the expirable LRU
+- The method returns both the value and expiration time without updating recency
+- For missing or expired keys, it returns zero values and false
+- Implementation follows the same pattern as the existing `Peek` method but with the additional expiration time return value

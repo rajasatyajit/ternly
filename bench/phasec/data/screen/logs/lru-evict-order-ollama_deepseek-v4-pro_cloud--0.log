@@ -1,0 +1,13 @@
+◆ ollama/deepseek-v4-pro:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/simplelru/**
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-3 +3 lines)
+  → bash cd simplelru && go test ./... 2>&1 | head -30
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 190ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 75% cache hits · 22089 tokens in, 580 out
+done in 7.386s
+
+--- answer ---
+The bug: `removeOldest` was removing `evictList.Front()` (the most-recently-used end, where `Add` pushes and `Get`/`MoveToFront` move entries) instead of `Back()`. All other oldest-related methods (`RemoveOldest`, `GetOldest`, `Keys`, `Values`) correctly use `Back()`. Fixed at `simplelru/lru.go:170`; tests pass.

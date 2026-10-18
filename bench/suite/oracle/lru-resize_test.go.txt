@@ -1,0 +1,22 @@
+package simplelru
+
+import "testing"
+
+func TestOracleResize(t *testing.T) {
+	l, _ := NewLRU[int, int](4, nil)
+	for i := 0; i < 3; i++ {
+		l.Add(i, i)
+	}
+	if n := l.Resize(3); n != 0 || l.Len() != 3 {
+		t.Fatalf("Resize(3) with 3 entries: evicted %d, len %d", n, l.Len())
+	}
+	if n := l.Resize(10); n != 0 || l.Len() != 3 || l.Cap() != 10 {
+		t.Fatalf("Resize(10): evicted %d, len %d, cap %d", n, l.Len(), l.Cap())
+	}
+	if n := l.Resize(1); n != 2 || l.Len() != 1 {
+		t.Fatalf("Resize(1): evicted %d, len %d", n, l.Len())
+	}
+	if !l.Contains(2) {
+		t.Fatal("the most recent entry should survive a shrink")
+	}
+}

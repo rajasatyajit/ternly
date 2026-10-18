@@ -1,0 +1,13 @@
+◆ ollama/kimi-k2.7-code:cloud (T3, cloud·quota) — pinned · reasoning low
+  ↻ ollama/kimi-k2.7-code:cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (31s)
+  … waiting for the model (1m1s)
+
+$0.0000 · 24% cache hits · 2679 tokens in, 52 out
+done in 1m35.465s
+
+--- answer ---
+Here is the JSON for a function call with its proper arguments that best answers the given prompt:
+
+{"name": "references", "parameters": {"include_unverified": false, "limit": 1000, "symbol": "Count.Wilson"}}

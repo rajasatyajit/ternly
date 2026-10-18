@@ -302,3 +302,45 @@ func TestNoCodeWithoutSandbox(t *testing.T) {
 		t.Fatal("the plugin's skill didn't load")
 	}
 }
+
+// The general_agent lever: with no agent defined, the task tool offers a
+// built-in general subagent (every tool, its own instructions); without the
+// lever there's no task tool; defined agents replace it.
+func TestGeneralAgentLever(t *testing.T) {
+	rt, reg, _ := runtimeFor(t, "yolo")
+	var gotName, gotSystem string
+	var allowsEdit bool
+	rt.Subagent = func(_ context.Context, name, system, _ string, allow func(string) bool) (string, error) {
+		gotName, gotSystem, allowsEdit = name, system, allow("edit_file") && allow("bash")
+		return "done", nil
+	}
+	rt.Apply(context.Background())
+	reg.Commit()
+	if reg.Get("task") != nil {
+		t.Fatal("a task tool with no agents and no lever")
+	}
+
+	rt.GeneralAgent = true
+	rt.Apply(context.Background())
+	reg.Commit()
+	tool := reg.Get("task")
+	if tool == nil || !strings.Contains(tool.Spec.Description, "- general:") || tool.Kind != tools.Edit {
+		t.Fatalf("lever on: task tool %+v", tool)
+	}
+	if out, err := tool.Run(context.Background(), []byte(`{"agent":"general","prompt":"count the callers"}`)); err != nil || out != "done" {
+		t.Fatalf("run: %q %v", out, err)
+	}
+	if gotName != "general" || gotSystem != generalPrompt || !allowsEdit {
+		t.Fatalf("subagent: name %q, system %q, edits allowed %v", gotName, gotSystem, allowsEdit)
+	}
+
+	install(t, rt.Store, map[string]string{
+		".claude-plugin/plugin.json": `{"name":"helpers"}`,
+		"agents/lexer.md":            "---\nname: lexer\ndescription: lexes\ntools: Read\n---\nYou lex.\n",
+	})
+	rt.Apply(context.Background())
+	reg.Commit()
+	if d := reg.Get("task").Spec.Description; strings.Contains(d, "- general:") || !strings.Contains(d, "lexer") {
+		t.Fatalf("with an agent defined the built-in should step aside: %s", d)
+	}
+}

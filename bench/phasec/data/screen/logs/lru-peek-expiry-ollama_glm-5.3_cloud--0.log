@@ -1,0 +1,27 @@
+◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob expirable/*.go
+  → grep func \(c \*LRU  expirable/expirable_lru.go
+  → read_file expirable/expirable_lru.go
+  → edit_file expirable/expirable_lru.go  (-1 +18 lines)
+  → grep func TestLRU_Peek\b|func Test.*Peek  expirable/expirable_lru_test.go
+  → grep Peek|NewLRU\[  expirable/expirable_lru_test.go
+  → read_file expirable/expirable_lru_test.go
+  → read_file expirable/expirable_lru_test.go
+  → edit_file expirable/expirable_lru_test.go  (-9 +17 lines)
+  → edit_file expirable/expirable_lru_test.go  (-9 +20 lines)
+  → edit_file expirable/expirable_lru_test.go  (-9 +20 lines)
+  → bash go build ./... && go vet ./... && go test ./expirable/ -run 'TestLoadingExpired' -v 2>&1 | tail -5
+  ✗ bash failed: error: command exited with status 1
+  → edit_file expirable/expirable_lru_test.go  (-1 +1 lines)
+  → bash go build ./... && go vet ./... && go test ./expirable/ 2>&1 | tail -5
+  → read_file expirable/expirable_lru_test.go
+  → edit_file expirable/expirable_lru_test.go  (-7 +7 lines)
+  → bash go build ./... && go vet ./... && go test ./expirable/ 2>&1 | tail -3
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 151ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered
+
+$0.0000 · 93% cache hits · 103217 tokens in, 1571 out
+done in 34.999s
+
+--- answer ---
+Add a positive test too:Added `PeekWithExpiry` in expirable/expirable_lru.go:214 — a non-recency-updating lookup mirroring `Peek`'s expired/missing semantics, returning `ent.Value, ent.ExpiresAt, true` on hit and zero value/zero time/false otherwise. Extended `TestLoadingExpired` to cover hit (future expiry), missing key, and expired entry; `go build`, `go vet`, and `go test ./expirable/` all pass.

@@ -1,0 +1,35 @@
+prompt ec8e1a226d3b
+◆ ollama/gemma4:e4b (T2, local) — T2 task → est. 6.0 min, local, GPU 52%, p≥0.65; next granite3.3:8b (est. 1.9 min, local, GPU 100%) · reasoning low
+  → glob **/*split_at.py**
+  → grep split_at
+  → read_file more_itertools/more.py
+  → read_file more_itertools/more.py
+  … generating (850 chunks, 33s)
+  … generating (1711 chunks, 1m3s)
+  … generating (2679 chunks, 1m38s)
+  … generating (3411 chunks, 2m8s)
+  … generating (4312 chunks, 2m43s)
+  … generating (5080 chunks, 3m13s)
+  → edit_file more_itertools/more.py  (-5 +10 lines)
+  … generating (774 chunks, 31s)
+  … generating (1681 chunks, 1m6s)
+  … generating (2598 chunks, 1m41s)
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 226ms: python3 -m compileall -q . · python compile: 1 file(s) · ruff format: not run, formatting unchecked · 1 changed source file(s) covered
+
+$0.0000 · 78% cache hits · 23429 tokens in, 11569 out
+done in 6m26.563s
+
+--- answer ---
+I will start by locating the definition of `more_itertools.split_at` within the codebase. Since the error message refers to a specific Python library, I'll use glob to search for files that might contain this logic.<channel|>The issue described is that `split_at` performs one extra split when `maxsplit=1`. This suggests that the check for hitting the `maxsplit` limit is positioned incorrectly relative to the logic for performing the split, potentially allowing the split logic to run even when the limit was already reached.
+
+I will refactor the logic inside `more_itertools/more.py:1599` to check the `maxsplit` limit *before* performing the segment yields and modification, ensuring that if `maxsplit` is zero, the splitting is immediately curtailed and the remainder of the iterator is yielded, preventing the over-splitting behavior.
+
+The issue arises because when `maxsplit` reaches 0 *at* a split point, the code yields the remainder and returns. However, the local scope still decrements `maxsplit` and resets `buf` if the conditional block wasn't perfectly separated, leading to an incorrect final segment yield later on, or, more accurately, allowing further logic to execute when it should have terminated.
+
+I corrected the flow control in `more_itertools/more.py` to ensure that as soon as `maxsplit` hits 0, the remaining contents of the iterator `it` are yielded as the final segment, and the function returns immediately, preventing any further segment preparation or split attempts.
+
+This change addresses the over-splitting behavior when `maxsplit` limit is reached.
+
+A summary of changes:
+Refactored the segment boundary logic in `more_itertools/more.py` to correctly handle the `maxsplit` limit, ensuring that the process terminates immediately after yielding the final segment when `maxsplit` reaches zero.

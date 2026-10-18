@@ -1,0 +1,10 @@
+prompt ec8e1a226d3b
+◆ ollama/gemma4:e4b (T2, local) — T2 task → est. 6.0 min, local, GPU 52%, p≥0.65; next granite3.3:8b (est. 1.9 min, local, GPU 100%) · reasoning low
+
+$0.0000 · 0% cache hits · 2886 tokens in, 412 out
+done in 23.53s
+
+--- answer ---
+I will add the `chunked_by_weight` function to the `more_itertools` module. This requires implementing the logic and updating the module's `__all__` list to ensure it can be imported.
+
+First, I need to locate the source files for `more_itertools`. I'll start by expanding the search for the package structure.<channel|>

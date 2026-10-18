@@ -1,0 +1,16 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep func.*Resize
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → read_file simplelru/lru_test.go
+  → read_file simplelru/lru_test.go
+  → edit_file simplelru/lru_test.go  (-5 +27 lines)
+  → bash go test ./simplelru/ && go build ./... && go vet ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 144ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 2 file(s) · 2 changed source file(s) covered
+
+$0.0000 · 84% cache hits · 31926 tokens in, 1056 out
+done in 24.065s
+
+--- answer ---
+Off-by-one: the loop uses `i <= diff`, which removes `diff+1` entries. When `size >= Len()`, `diff` is clamped to 0 but the loop still runs once, evicting the oldest entry. Fix:Adding a test case for resize with capacity ≥ length:Fixed: off-by-one in `simplelru.LRU.Resize` (simplelru/lru.go:161). The eviction loop was `i <= diff`, so it always removed `diff+1` entries — even when `size >= Len()` (where `diff` clamps to 0), it still evicted the oldest entry. Changed to `i < diff`, added test cases, and all tests pass.

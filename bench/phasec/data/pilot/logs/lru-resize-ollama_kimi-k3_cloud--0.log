@@ -1,0 +1,15 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep func.*Resize
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash cd simplelru && go test ./... && cd .. && go build ./... && go vet ./...
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash go test ./simplelru/... && go build ./... && go vet ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 151ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 62% cache hits · 20969 tokens in, 571 out
+done in 12.993s
+
+--- answer ---
+The bug: the loop uses `i <= diff`, evicting `diff+1` entries (so even `diff == 0` evicts one). Fix:Fixed. In `simplelru/lru.go:161`, the eviction loop used `i <= diff`, removing `diff+1` entries — so it evicted one entry even when `size >= Len()` (diff = 0). Changed to `i < diff`. Tests pass (including a `-1` case in the existing test, which the fix also resolves since the loop now never over-evicts).

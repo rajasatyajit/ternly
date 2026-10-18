@@ -1,0 +1,47 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/more_itertools*
+  → bash ls
+  → bash ls more_itertools; grep -n "def chunked" more_itertools/more.py | head
+  → bash grep -n "'chunked'" more_itertools/more.py; sed -n 4617,4660p more_itertools/more.py; grep -n "chunked" more_itertools/more.pyi | head; grep -rn "chunked_even\b" more_itertools/__init__.pyi | head -3
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → read_file more_itertools/more.py
+  → grep 'chunked'  more_itertools/more.py
+  → grep def chunked_even  more_itertools/more.pyi
+  → grep ^def   more_itertools/more.py
+  → read_file more_itertools/more.py
+  → bash tail -20 more_itertools/more.py && tail -5 more_itertools/more.pyi
+  → edit_file more_itertools/more.py  (-2 +3 lines)
+  → bash ls tests; grep -n "len(" tests/test_more.py | head -3
+  → bash grep -n "" more_itertools/more.py | tail -1
+  → edit_file more_itertools/more.py  (-6 +47 lines)
+  → bash grep -n "chunked_even" more_itertools/more.pyi
+  → edit_file more_itertools/more.pyi  (-1 +2 lines)
+  → edit_file more_itertools/more.pyi  (-1 +6 lines)
+  → bash grep -n "^from\|^import\|Callable" more_itertools/more.pyi | head; grep -n "class ChunkedEvenTests" tests/test_more.py
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → grep Callable  more_itertools/more.pyi
+  → grep class ChunkedEvenTests  tests/test_more.py
+  → edit_file tests/test_more.py  (-1 +38 lines)
+  → bash python3 -m pytest tests/test_more.py -k "ChunkedByWeight" -q && python3 -c "from more_itertools import chunked_by_weight; print(list(chunked_by_weight(iter([]),3)))"
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m pytest tests/test_more.py -k ChunkedByWeight -q
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m compileall -q .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m compileall -q more_itertools tests
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 310ms: python3 -m compileall -q . · python compile: 3 file(s) · ruff format: not run, formatting unchecked · 3 changed source file(s) covered
+
+$0.0000 · 92% cache hits · 131000 tokens in, 3254 out
+done in 58.742s
+
+--- answer ---
+The shell sandbox is denying even the standard build command, so let me try the plain check-command once more:The shell is denying every command in this session (including the project's own check command), so the changes are **unverified** — please run `python3 -m pytest tests/test_more.py -k ChunkedByWeight` yourself.
+
+What I changed:
+- `more_itertools/more.py`: added `'chunked_by_weight'` to `__all__` (after `'chunked_even'`) and implemented `chunked_by_weight(iterable, max_weight, weight=len)` at the end of the file. It's a generator that accumulates consecutive items while the cumulative weight stays ≤ `max_weight`; items with `weight(item) > max_weight` are yielded alone, flushing any pending chunk first. `max_weight <= 0` raises `ValueError` eagerly (not deferred to iteration); empty input yields nothing.
+- `more_itertools/more.pyi`: added the name to `__all__` and a typed stub (`max_weight: float, weight: Callable[[_T], float] = ...`) after `chunked_even`.
+- `tests/test_more.py`: added `ChunkedByWeightTests` covering default `len` weighting, custom weight function, oversized items alone, empty input, zero-weight items packing together, and the `ValueError`.
+
+One design note: `weight` is applied to each item exactly once as it's consumed, so generators with expensive weight functions stay lazy and single-pass.

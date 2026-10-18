@@ -1,0 +1,10 @@
+gemma4:26b 001e5dafc3c7
+granite4.2:latest f586c02fdecd
+qwen3.8:latest aaee06c39dcf
+qwen3-embedding:0.6b ac6da0dfba84
+bge-m3:latest 790764642607
+mxbai-embed-large:latest 468836162de7
+gemma4:latest dc35e8d9c606
+deepseek-ocr:3b 0e7b018b8a22
+gemma4:31b 6316f0629137
+nomic-embed-text:latest 0a109f422b47

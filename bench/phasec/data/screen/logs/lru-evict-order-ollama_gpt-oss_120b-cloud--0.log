@@ -1,0 +1,32 @@
+◆ ollama/gpt-oss:120b-cloud (T2, cloud·quota) — pinned · reasoning low
+  → glob simplelru
+  ✗ glob failed: error: invalid arguments for glob:
+  → glob **/simplelru/**/*.go
+  → read_file simplelru/lru.go
+  → read_file internal/list.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go test ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 183ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 78% cache hits · 30950 tokens in, 545 out
+done in 7.486s
+
+--- answer ---
+The eviction logic mistakenly removed the most‑recently used entry by calling `c.evictList.Front()` (the list head). It should evict the *oldest* entry, which is at the back of the list.
+
+**Fix**
+- Updated `removeOldest` in `simplelru/lru.go` to use `c.evictList.Back()` instead of `Front()`.
+
+All tests now pass.
+
+```go
+// simplelru/lru.go
+func (c *LRU[K, V]) removeOldest() {
+    if ent := c.evictList.Back(); ent != nil { // use Back() to get the least‑recently used entry
+        c.removeElement(ent)
+    }
+}
+```
+
+Running `go test ./...` shows all tests succeed.

@@ -1,0 +1,14 @@
+◆ ollama/glm-5.3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → glob **/simplelru/*.go
+  → grep evict|Evict  .
+  → read_file simplelru/lru.go
+  → edit_file simplelru/lru.go  (-1 +1 lines)
+  → bash go build ./... && go vet ./... && go test ./simplelru/ ./...
+  ▸ verify: go build ./... && go vet ./...
+  ✓ verified in 145ms: go build ./... && go vet ./... · go build+vet: 1 package(s) · gofmt: 1 file(s) · 1 changed source file(s) covered
+
+$0.0000 · 74% cache hits · 38129 tokens in, 405 out
+done in 11.296s
+
+--- answer ---
+Cause: `removeOldest` (simplelru/lru.go:170) removes `c.evictList.Front()` — the **front** of the list is where new/updated entries are pushed (lru.go:53,59), i.e. the most recently used end. The oldest entry is at the **back** (`RemoveOldest`, `GetOldest`, and `Keys` all treat `Back()` as oldest). So a full cache evicted the MRU entry.Fixed: `removeOldest` in simplelru/lru.go:170 was evicting `evictList.Front()` (the MRU end, where entries are pushed) instead of `evictList.Back()` (the LRU end, consistent with `RemoveOldest`/`GetOldest`/`Keys`). Changed it to `Back()`. Build, vet, and the full test suite all pass.

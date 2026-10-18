@@ -1,0 +1,34 @@
+◆ ollama/kimi-k3:cloud (T3, cloud·quota) — pinned · reasoning low
+  → grep def split_at
+  → read_file more_itertools/more.py
+  → edit_file more_itertools/more.py  (-7 +7 lines)
+  → bash sed -n 1613,1680p more_itertools/more.py
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → read_file more_itertools/more.py
+  → bash python3 -m pytest tests/test_more.py -k "split" -q 2>&1 | tail -5
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m pytest tests/test_more.py -k split -q
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → bash python3 -m compileall -q .
+  ✗ bash failed: permission denied by policy (non-interactive, mode edits: only read-only, build and test commands run without confirmation, alone or chained with &&, ||, ; or | — no redirects, $ or backquotes, paths outside the workspace, or other programs). Do not retry the same action; ask the user or choose another approach.
+  → grep maxsplit  tests/test_more.py
+  ▸ verify: python3 -m compileall -q .
+  ✓ verified in 170ms: python3 -m compileall -q . · python compile: 1 file(s) · ruff format: not run, formatting unchecked · 1 changed source file(s) covered
+
+$0.0000 · 86% cache hits · 44855 tokens in, 1489 out
+done in 30.842s
+
+--- answer ---
+Found it: the `maxsplit == 0` check (line 1603) runs *before* `maxsplit -= 1` (line 1607), so with `maxsplit=1` the guard sees `1` and misses the limit; only after a second split is it 0 — but by then the loop moves on and another match triggers a split. Fix: decrement first, then check.`split_before`/`split_after` use a different pattern (check `== 1` before decrement) which is correct — the bug is only in `split_at`. Verify:I made the fix at more_itertools/more.py:1603-1608; test runs are blocked by policy in this session, so verification is by code reading. The fix:
+
+**Cause:** In `split_at`, the loop checked `if maxsplit == 0` to stop *before* decrementing `maxsplit`. With `maxsplit=1`, the first split saw `1`, fell through, and decremented to 0 after the check — so the limit was never enforced and a second separator triggered another split.
+
+**Fix** (more_itertools/more.py:1603-1608): decrement before the check:
+```python
+maxsplit -= 1
+if maxsplit == 0:
+    yield list(it)
+    return
+buf = []
+```
+`maxsplit=-1` still never hits 0 (unlimited), and `maxsplit=0` is still handled up front. The sibling functions `split_before`/`split_after` use a different (correct) `== 1` pattern and are unaffected. The existing `test_maxsplit` (tests/test_more.py:1568) covers maxsplit ∈ -1..3 — I couldn't run the suite here (sandbox denied the commands), so please run `python3 -m pytest tests/test_more.py -k split` to confirm.

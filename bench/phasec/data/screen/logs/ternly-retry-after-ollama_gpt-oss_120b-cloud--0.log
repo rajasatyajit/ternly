@@ -1,0 +1,14 @@
+◆ ollama/gpt-oss:120b-cloud (T2, cloud·quota) — pinned · reasoning low
+  ↻ ollama/gpt-oss:120b-cloud failed (HTTP 429: {"error":{"message":"you (satyajiraja) have reached your monthly usage limit, upgrade for higher limits: https…) — failing over
+◆ ollama/llama3.1:8b (T1, local) — failover
+  … waiting for the model (30s)
+
+$0.0000 · 25% cache hits · 2678 tokens in, 132 out
+done in 1m11.125s
+
+--- answer ---
+To best answer the prompt, let us use the tool "edit_file" in the format {"name": function name, "parameters": dictionary of argument name and its value}. 
+
+After processing the prompt, the format becomes:
+
+{"name": "edit_file", "parameters": {"path": "internal/llm/retry_after.go", "old_string": "func ParseRetryAfter(s string) (time.Duration, error)", "new_string": "func ParseRetryAfter(s string) (time.Duration, error)\n\treturn ParseDuration(s)\n", "new_string": "func ParseDuration(s string) (time.Duration, error)"}}
