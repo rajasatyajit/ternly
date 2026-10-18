@@ -634,6 +634,8 @@ func (s *suite) runCmd(args []string) error {
 		stableWS = true
 	}
 	var mu sync.Mutex
+	var infra, inARow int // runs with no model: in all, and in a row (guarded by mu)
+	var lastInfra string
 	ch := make(chan job)
 	var wg sync.WaitGroup
 	for range max(*par, 1) {
@@ -656,19 +658,38 @@ func (s *suite) runCmd(args []string) error {
 				st.Last = fmt.Sprintf("%s %s run %d: %s", res.Task, res.Model, res.Run, res.Outcome)
 				st.save()
 				fmt.Printf("%-24s %-28s run %d  %-11s %6.0fs  %s\n", res.Task, res.Model, res.Run, res.Outcome, res.Seconds, strings.Join(res.Models, " → "))
+				if res.Outcome == "infra" {
+					infra, inARow, lastInfra = infra+1, inARow+1, res.Error
+				} else {
+					inARow = 0
+				}
 				mu.Unlock()
 			}
 		}()
 	}
 	for _, j := range jobs {
+		mu.Lock()
+		gone := inARow >= infraStop
+		mu.Unlock()
+		if gone { // the models are unreachable (Ollama stopped, say): the rest would only record nothing
+			break
+		}
 		ch <- j
 	}
 	close(ch)
 	wg.Wait()
 	st.Finished = time.Now().UTC()
 	st.save()
+	if infra > 0 { // a plan must not mark this step done: rerunning retries exactly these runs
+		return fmt.Errorf("%d run(s) had no model (%s); rerun to retry them", infra, lastInfra)
+	}
 	return nil
 }
+
+// infraStop is how many runs in a row with no model stop a suite run: on
+// 2026-10-18 Ollama stopped near the end of Phase C's plan, and the last two
+// steps recorded 16 runs of nothing in 2 seconds and were marked done.
+const infraStop = 3
 
 // provenance is what built the binary a run measures.
 type provenance struct {
